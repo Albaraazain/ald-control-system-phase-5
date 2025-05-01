@@ -1,0 +1,149 @@
+Operand,Comment,Data type,Permanent memory,Modbus address
+W_PID1,heater on off,Bit,,1
+W_PIDTune1,heater PID autotune on off,Bit,,2
+W_PID2,heater on off,Bit,,3
+W_PIDTune2,heater PID autotune on off,Bit,,4
+W_PID3,heater on off,Bit,,5
+W_PIDTune3,heater PID autotune on off,Bit,,6
+W_PGZero1,set zero reading val (calibration),Bit,,7
+W_PGSpan1,set span(max) reading val (calibration),Bit,,8
+W_PGZero2,set zero reading val (calibration),Bit,,9
+W_PGSpan2,set span(max) reading val (calibration),Bit,,10
+W_Pump,vacuum pump on off,Bit,,11
+W_Exhaust,exhaust valve on off,Bit,,12
+W_MFC1,mfc output on off,Bit,,13
+W_PurityZero1,set zero reading val (calibration),Bit,,14
+W_PuritySpan1,set span(max) reading val (calibration),Bit,,15
+W_Valve1,gas valve on off,Bit,,16
+W_Valve2,gas valve on off,Bit,,17
+W_Valve3,gas valve on off,Bit,,18
+W_Valve4,gas valve on off,Bit,,19
+W_Valve5,gas valve on off,Bit,,20
+W_Valve6,gas valve on off,Bit,,21
+W_MFCSpan1,set span(max) reading val (calibration),Bit,,22
+W_MFCZero1,set zero reading val (calibration),Bit,,23
+W_PID4,heater on off,Bit,,24
+W_PIDTune4,heater PID autotune on off,Bit,,25
+W_PID5,heater on off,Bit,,26
+W_PIDTune5,heater PID autotune on off,Bit,,27
+W_PID6,heater on off,Bit,,28
+W_PIDTune6,heater PID autotune on off,Bit,,29
+W_PID7,heater on off,Bit,,30
+W_PIDTune7,heater PID autotune on off,Bit,,31
+W_PID8,heater on off,Bit,,32
+W_PIDTune8,heater PID autotune on off,Bit,,33
+W_PID9,heater on off,Bit,,34
+W_PIDTune9,heater PID autotune on off,Bit,,35
+R_N2Ready,N2 generator is ok (Purity 99.9995),Bit,,36
+R_N2Fault,N2 generator fault,Bit,,37
+W_HeaterSetVal1,Heater set value °C,Integer,Permanent,42001
+R_PIDVal1,current PID value,Integer,,42003
+R_PIDState1,read the help file in GMT Suite for details,Integer,,42005
+W_kp1,kp for PID,Real,Permanent,42007
+W_ki1,ki for PID,Real,Permanent,42009
+W_kd1,kd for PID,Real,Permanent,42011
+W_PIDPeriod1,PID Calculation time (ms),Integer,Permanent,42013
+W_HeaterMin1,Heater configuration min. value (default 0),Real,Permanent,42015
+W_HeaterMax1,Heater configuration max. value (default 1000),Real,Permanent,42017
+R_TCVal1,current Thermokupl value,Real,,42019
+W_HeaterSetVal2,Heater set value °C,Integer,Permanent,42021
+R_PIDVal2,current PID value,Integer,,42023
+R_PIDState2,read the help file in GMT Suite for details,Integer,,42025
+W_kp2,kp for PID,Real,Permanent,42027
+W_ki2,ki for PID,Real,Permanent,42029
+W_kd2,kd for PID,Real,Permanent,42031
+W_PIDPeriod2,PID Calculation time (ms),Integer,Permanent,42033
+R_TCVal2,current Thermokupl value,Real,,42035
+W_HeaterMin2,Heater configuration min. value (default 0),Real,Permanent,42037
+W_HeaterMax2,Heater configuration max. value (default 1000),Real,Permanent,42039
+W_HeaterSetVal3,Heater set value °C,Integer,Permanent,42041
+R_PIDVal3,current PID value,Integer,,42043
+R_PIDState3,read the help file in GMT Suite for details,Integer,,42045
+W_kp3,kp for PID,Real,Permanent,42047
+W_ki3,ki for PID,Real,Permanent,42049
+W_kd3,kd for PID,Real,Permanent,42051
+W_PIDPeriod3,PID Calculation time (ms),Integer,Permanent,42053
+R_TCVal3,current thermokupl value,Real,,42055
+W_HeaterMin3,Heater configuration min. value (default 0),Real,Permanent,42057
+W_HeaterMax3,Heater configuration max. value (default 1000),Real,Permanent,42059
+R_PGVal1,current pressure gauge value,Real,,42061
+W_PGMax1,max scale val,Real,Permanent,42063
+W_PGMin1,min scale val,Real,Permanent,42065
+W_PGMinV1,max scale val,Real,Permanent,42067
+W_PGMaxV1,min scale val,Real,Permanent,42069
+W_PGMax2,max scale val,Real,Permanent,42071
+R_PGVal2,current pressure gauge value,Real,,42073
+W_PGMin2,min scale val,Real,Permanent,42075
+W_PGMinV2,max scale val,Real,Permanent,42077
+W_PGMaxV2,min scale val,Real,Permanent,42079
+W_MFCMax1,max scale val,Real,Permanent,42081
+R_MFCVal1,current mass flow controller value,Real,,42083
+W_MFCMin1,min scale val,Real,Permanent,42085
+W_MFCVal1,current mass flow controller set value,Real,,42087
+W_PurityMinV1,min scale val,Real,Permanent,42089
+W_PurityMaxV1,max scale val,Real,Permanent,42091
+W_PurityMax1,max scale val,Real,Permanent,42093
+R_Purity1,current N2 purity value,Real,,42095
+W_PurityMin1,min scale val,Real,Permanent,42097
+W_MFCMaxV1,max scale val,Real,Permanent,42099
+W_MFCMinV1,min scale val,Real,Permanent,42101
+W_kp4,kp for PID,Real,Permanent,42103
+W_ki4,ki for PID,Real,Permanent,42105
+W_kd4,kd for PID,Real,Permanent,42107
+W_PIDPeriod4,PID Calculation time (ms),Integer,Permanent,42109
+R_TCVal4,current thermokupl value,Real,,42111
+W_HeaterSetVal4,Heater set value °C,Integer,Permanent,42113
+W_HeaterMin4,Heater configuration min. value (default 0),Real,Permanent,42115
+R_PIDVal4,current PID value,Integer,,42117
+W_HeaterMax4,Heater configuration max. value (default 1000),Real,Permanent,42119
+R_PIDState4,read the help file in GMT Suite for details,Integer,,42121
+W_kp5,kp for PID,Real,Permanent,42123
+W_ki5,ki for PID,Real,Permanent,42125
+W_kd5,kd for PID,Real,Permanent,42127
+W_PIDPeriod5,PID Calculation time (ms),Integer,Permanent,42129
+W_HeaterSetVal5,Heater set value °C,Integer,Permanent,42131
+R_TCVal5,current thermokupl value,Real,,42133
+R_PIDVal5,current PID value,Integer,,42135
+R_PIDState5,read the help file in GMT Suite for details,Integer,,42137
+W_HeaterMin5,Heater configuration min. value (default 0),Real,Permanent,42139
+W_HeaterMax5,Heater configuration max. value (default 1000),Real,Permanent,42141
+W_PIDPeriod6,PID Calculation time (ms),Integer,Permanent,42143
+W_HeaterSetVal6,Heater set value °C,Integer,Permanent,42145
+R_TCVal6,current thermokupl value,Real,,42147
+W_kd6,kd for PID,Real,Permanent,42149
+W_ki6,ki for PID,Real,Permanent,42151
+W_kp6,kp for PID,Real,Permanent,42153
+R_PIDVal6,current PID value,Integer,,42155
+R_PIDState6,read the help file in GMT Suite for details,Integer,,42157
+W_HeaterMin6,Heater configuration min. value (default 0),Real,Permanent,42159
+W_HeaterMax6,Heater configuration max. value (default 1000),Real,Permanent,42161
+W_PIDPeriod7,PID Calculation time (ms),Integer,Permanent,42163
+W_HeaterSetVal7,Heater set value °C,Integer,Permanent,42165
+W_kp7,kp for PID,Real,Permanent,42167
+W_ki7,ki for PID,Real,Permanent,42169
+W_kd7,kd for PID,Real,Permanent,42171
+R_TCVal7,current thermokupl value,Real,,42173
+R_PIDVal7,current PID value,Integer,,42175
+R_PIDState7,read the help file in GMT Suite for details,Integer,,42177
+W_HeaterMin7,Heater configuration min. value (default 0),Real,Permanent,42179
+W_HeaterMax7,Heater configuration max. value (default 1000),Real,Permanent,42181
+W_PIDPeriod8,PID Calculation time (ms),Integer,Permanent,42183
+W_HeaterSetVal8,Heater set value °C,Integer,Permanent,42185
+W_kp8,kp for PID,Real,Permanent,42187
+W_ki8,ki for PID,Real,Permanent,42189
+W_kd8,kd for PID,Real,Permanent,42191
+R_TCVal8,current thermokupl value,Real,,42193
+W_HeaterMin8,Heater configuration min. value (default 0),Real,Permanent,42195
+R_PIDVal8,current PID value,Integer,,42197
+W_HeaterMax8,Heater configuration max. value (default 1000),Real,Permanent,42199
+R_PIDState8,read the help file in GMT Suite for details,Integer,,42201
+R_TCVal9,current thermokupl value,Real,,42203
+W_kp9,kp for PID,Real,Permanent,42205
+W_ki9,ki for PID,Real,Permanent,42207
+W_kd9,kd for PID,Real,Permanent,42209
+W_PIDPeriod9,PID Calculation time (ms),Integer,Permanent,42211
+W_HeaterSetVal9,Heater set value °C,Integer,Permanent,42213
+W_HeaterMin9,Heater configuration min. value (default 0),Real,Permanent,42215
+R_PIDVal9,current PID value,Integer,,42217
+W_HeaterMax9,Heater configuration max. value (default 1000),Real,Permanent,42219
+R_PIDState9,read the help file in GMT Suite for details,Integer,,42221
