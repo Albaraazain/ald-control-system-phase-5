@@ -4080,3 +4080,86 @@
 2025-05-01 14:35:45,408 - machine_control - INFO - Stopped continuous data recording for process 6ab05e9b-8239-4949-b54f-9bd49d7af609
 2025-05-01 14:35:45,428 - machine_control - INFO - Recipe b31987ad-f299-4b13-a43c-2c89767e6034 started successfully with process ID: 6ab05e9b-8239-4949-b54f-9bd49d7af609
 2025-05-01 14:35:45,428 - machine_control - INFO - Updating command 56 status to completed
+2025-05-01 19:44:43,380 - machine_control - INFO - Starting machine control application
+2025-05-01 19:44:43,380 - machine_control - INFO - Initializing PLC of type simulation
+2025-05-01 19:44:43,380 - machine_control - INFO - Creating simulation PLC
+2025-05-01 19:44:43,380 - machine_control - INFO - Initializing simulation PLC
+2025-05-01 19:44:43,380 - machine_control - INFO - Initializing Supabase client
+2025-05-01 19:44:43,873 - machine_control - ERROR - Error in main application loop: {'message': 'Invalid API key', 'hint': 'Double check your Supabase `anon` or `service_role` API key.'}
+Traceback (most recent call last):
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/main.py", line 78, in main
+    await plc_manager.initialize()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/manager.py", line 51, in initialize
+    self._plc = await PLCFactory.create_plc(plc_type, config)
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/factory.py", line 47, in create_plc
+    success = await plc.initialize()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/simulation.py", line 39, in initialize
+    await self._load_parameters()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/simulation.py", line 54, in _load_parameters
+    params_result = supabase.table('component_parameters').select('*').execute()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/myenv/lib/python3.10/site-packages/postgrest/_sync/request_builder.py", line 78, in execute
+    raise APIError(r.json())
+postgrest.exceptions.APIError: {'message': 'Invalid API key', 'hint': 'Double check your Supabase `anon` or `service_role` API key.'}
+2025-05-01 19:44:43,877 - machine_control - INFO - Beginning cleanup process...
+2025-05-01 19:44:43,993 - machine_control - ERROR - Error during cleanup: {'message': 'Invalid API key', 'hint': 'Double check your Supabase `anon` or `service_role` API key.'}
+2025-05-01 19:44:43,994 - machine_control - INFO - Application shutdown complete
+2025-05-01 19:45:38,724 - machine_control - INFO - Starting machine control application
+2025-05-01 19:45:38,725 - machine_control - INFO - Initializing PLC of type simulation
+2025-05-01 19:45:38,725 - machine_control - INFO - Creating simulation PLC
+2025-05-01 19:45:38,725 - machine_control - INFO - Initializing simulation PLC
+2025-05-01 19:45:38,725 - machine_control - INFO - Initializing Supabase client
+2025-05-01 19:45:39,107 - machine_control - ERROR - Error in main application loop: {'message': 'Invalid API key', 'hint': 'Double check your Supabase `anon` or `service_role` API key.'}
+Traceback (most recent call last):
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/main.py", line 78, in main
+    await plc_manager.initialize()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/manager.py", line 51, in initialize
+    self._plc = await PLCFactory.create_plc(plc_type, config)
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/factory.py", line 47, in create_plc
+    success = await plc.initialize()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/simulation.py", line 39, in initialize
+    await self._load_parameters()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/simulation.py", line 54, in _load_parameters
+    params_result = supabase.table('component_parameters').select('*').execute()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/myenv/lib/python3.10/site-packages/postgrest/_sync/request_builder.py", line 78, in execute
+    raise APIError(r.json())
+postgrest.exceptions.APIError: {'message': 'Invalid API key', 'hint': 'Double check your Supabase `anon` or `service_role` API key.'}
+2025-05-01 19:45:39,108 - machine_control - INFO - Beginning cleanup process...
+2025-05-01 19:45:39,181 - machine_control - ERROR - Error during cleanup: {'message': 'Invalid API key', 'hint': 'Double check your Supabase `anon` or `service_role` API key.'}
+2025-05-01 19:45:39,182 - machine_control - INFO - Application shutdown complete
+2025-05-01 19:46:17,669 - machine_control - INFO - Starting machine control application
+2025-05-01 19:46:17,669 - machine_control - INFO - Initializing PLC of type simulation
+2025-05-01 19:46:17,669 - machine_control - INFO - Creating simulation PLC
+2025-05-01 19:46:17,669 - machine_control - INFO - Initializing simulation PLC
+2025-05-01 19:46:17,669 - machine_control - INFO - Initializing Supabase client
+2025-05-01 19:46:18,071 - machine_control - ERROR - Error in main application loop: {'message': 'Invalid API key', 'hint': 'Double check your Supabase `anon` or `service_role` API key.'}
+Traceback (most recent call last):
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/main.py", line 78, in main
+    await plc_manager.initialize()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/manager.py", line 51, in initialize
+    self._plc = await PLCFactory.create_plc(plc_type, config)
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/factory.py", line 47, in create_plc
+    success = await plc.initialize()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/simulation.py", line 39, in initialize
+    await self._load_parameters()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/plc/simulation.py", line 54, in _load_parameters
+    params_result = supabase.table('component_parameters').select('*').execute()
+  File "/home/albaraazain/Documents/PROJECTS/ald_control_system/ald-control-system-phase-4 (copy)/myenv/lib/python3.10/site-packages/postgrest/_sync/request_builder.py", line 78, in execute
+    raise APIError(r.json())
+postgrest.exceptions.APIError: {'message': 'Invalid API key', 'hint': 'Double check your Supabase `anon` or `service_role` API key.'}
+2025-05-01 19:46:18,072 - machine_control - INFO - Beginning cleanup process...
+2025-05-01 19:46:18,166 - machine_control - ERROR - Error during cleanup: {'message': 'Invalid API key', 'hint': 'Double check your Supabase `anon` or `service_role` API key.'}
+2025-05-01 19:46:18,166 - machine_control - INFO - Application shutdown complete
+2025-05-01 20:20:57,659 - machine_control - INFO - Starting machine control application
+2025-05-01 20:20:57,659 - machine_control - INFO - Initializing PLC of type simulation
+2025-05-01 20:20:57,659 - machine_control - INFO - Creating simulation PLC
+2025-05-01 20:20:57,659 - machine_control - INFO - Initializing simulation PLC
+2025-05-01 20:20:57,659 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-05-01 20:20:57,659 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-05-01 20:20:57,727 - machine_control - INFO - Supabase client initialized successfully
+2025-05-01 20:20:58,249 - machine_control - INFO - Simulation PLC initialized
+2025-05-01 20:20:58,249 - machine_control - INFO - Initializing async Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-05-01 20:20:58,249 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-05-01 20:20:58,287 - machine_control - INFO - Async Supabase client initialized successfully
+2025-05-01 20:20:58,288 - machine_control - INFO - Setting up command listener...
+2025-05-01 20:20:58,704 - machine_control - INFO - Successfully subscribed to recipe_commands table
+2025-05-01 20:20:58,705 - machine_control - INFO - Machine control application running
