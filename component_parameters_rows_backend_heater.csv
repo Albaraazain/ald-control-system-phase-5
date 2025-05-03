@@ -1,0 +1,12 @@
+id,component_id,name,unit,min_value,max_value,current_value,set_value,created_at,updated_at,show_in_graph,is_writable,modbus_address,modbus_type,data_type,show_in_ui,component_name
+15cfe7b4-a17b-4b46-a532-ab8b8aaaddfc,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,autotune_on,boolean,0,1,0,0.5,2025-04-21 15:24:16.041814+00,2025-04-23 16:38:42.654318+00,false,true,,,,false,Backend Heater
+3d2e61d7-46f0-411a-a69e-fe3a444ed4ab,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,pid_period,ms,10,5000,10,,2025-04-21 15:24:16.041814+00,2025-04-22 11:30:38.755352+00,false,true,,,,false,Backend Heater
+3f780bc5-c7e1-4653-a4bf-6d773904c0ea,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,ki,,0,1000,0,,2025-04-21 15:24:16.041814+00,2025-04-22 11:30:38.65833+00,false,true,,,,false,Backend Heater
+62c28aac-7300-4d3d-85c7-f043c3226439,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,temperature_read,°C,0,1000,25.1348920936166,,2025-04-21 15:24:16.041814+00,2025-04-22 11:30:38.561847+00,false,false,2016,,,true,Backend Heater
+69fe8a76-a8d0-42da-ba83-d0fcbe063a8d,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,pid_output,%,0,100,0,,2025-04-21 15:24:16.041814+00,2025-04-22 11:30:38.904911+00,false,false,,,,false,Backend Heater
+73f16b0e-6a82-4027-a1cf-66bfa16dba69,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,power_on,boolean,0,1,0,0.5,2025-04-21 15:24:16.041814+00,2025-04-22 18:03:31.00583+00,false,true,0,,,true,Backend Heater
+8b21da59-dea9-4959-953b-4b2efc65e9fd,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,kd,,0,1000,0,,2025-04-21 15:24:16.041814+00,2025-04-22 11:30:38.706007+00,false,true,,,,false,Backend Heater
+9c99ed1b-1c30-4536-8ac1-3099f99a5afe,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,temperature_set,°C,0,1000,25,,2025-04-21 15:24:16.041814+00,2025-04-22 11:30:38.514211+00,false,true,2000,,,true,Backend Heater
+ab12a46c-35d4-43b0-a2a4-8b4cd088af95,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,temp_max_limit,°C,0,1000,1000,,2025-04-21 15:24:16.041814+00,2025-04-22 11:30:38.854987+00,false,true,,,,false,Backend Heater
+d32f51cf-ab4c-4d81-a475-a77d532809ae,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,kp,,0,1000,0,,2025-04-21 15:24:16.041814+00,2025-04-22 11:30:38.608649+00,false,true,,,,false,Backend Heater
+d68d89b7-38c8-40ed-befc-09b0a714192a,e2f96a0b-9081-4350-8e0d-c7e0c1ab7ef5,temp_min_limit,°C,0,1000,0,,2025-04-21 15:24:16.041814+00,2025-04-22 11:30:38.805066+00,false,true,,,,false,Backend Heater

@@ -111,17 +111,29 @@ class RealPLC(PLCInterface):
             if result.data:
                 for param in result.data:
                     parameter_id = param['id']
+                    # Determine the modbus_type based on data_type if not specified
+                    modbus_type = param.get('modbus_type')
+                    if not modbus_type:
+                        # Set default modbus_type based on data_type
+                        if param.get('data_type') == 'binary':
+                            modbus_type = 'coil'
+                        elif param.get('data_type') in ['float', 'int32', 'int16']:
+                            modbus_type = 'holding'
+                        else:
+                            modbus_type = 'unknown'
+                    
                     self._parameter_cache[parameter_id] = {
                         'name': param['name'],
                         'modbus_address': param['modbus_address'],
-                        'modbus_type': param['modbus_type'],
+                        'modbus_type': modbus_type,
                         'data_type': param['data_type'],
                         'min_value': param['min_value'],
                         'max_value': param['max_value'],
                         'is_writable': param['is_writable']
                     }
-                    # Log each parameter with its Modbus address
-                    logger.info(f"Parameter '{param['name']}' (ID: {parameter_id}) has Modbus address: {param['modbus_address']}, type: {param['modbus_type']}")
+                    # Log each parameter with its Modbus address and type
+                    logger.info(f"Parameter '{param['name']}' (ID: {parameter_id}) has Modbus address: {param['modbus_address']}, "
+                               f"data_type: {param['data_type']}, modbus_type: {modbus_type}")
                     
                 logger.info(f"Loaded metadata for {len(self._parameter_cache)} parameters")
             else:
@@ -165,13 +177,19 @@ class RealPLC(PLCInterface):
                             
                             # Only add to cache if Modbus address is present
                             if valve_param.get('modbus_address'):
+                                # For valves, always set the proper modbus_type
+                                modbus_type = valve_param.get('modbus_type')
+                                if not modbus_type:
+                                    modbus_type = 'coil'  # Valves are always coils
+                                
                                 self._valve_cache[valve_number] = {
                                     'parameter_id': valve_param['id'],
                                     'modbus_address': valve_param['modbus_address'],
-                                    'modbus_type': valve_param['modbus_type'] or 'binary',
-                                    'component_name': component_name
+                                    'modbus_type': modbus_type,
+                                    'component_name': component_name,
+                                    'data_type': 'binary'  # Valves are always binary
                                 }
-                                logger.info(f"Added Valve {valve_number} with Modbus address {valve_param['modbus_address']}")
+                                logger.info(f"Added Valve {valve_number} with Modbus address {valve_param['modbus_address']}, modbus_type: {modbus_type}")
                             else:
                                 logger.warning(f"Valve {valve_number} ({component_name}) has no Modbus address defined in database")
                     except (ValueError, AttributeError) as e:
@@ -202,6 +220,7 @@ class RealPLC(PLCInterface):
             # This is a fallback in case it's not in the database
             self._purge_address = 20  # Assuming this is the correct purge address from CSV
             self._purge_data_type = 'binary'  # Assuming it's a binary coil
+            self._purge_modbus_type = 'coil'  # Assuming it's a Modbus coil
             
             # Try looking in database as well
             query = supabase.table('component_parameters').select('*').execute()
@@ -222,9 +241,20 @@ class RealPLC(PLCInterface):
                     self._purge_address = purge_param['modbus_address']
                     self._purge_data_type = purge_param.get('data_type') or 'binary'
                     
+                    # Set the modbus_type based on data_type or existing modbus_type
+                    modbus_type = purge_param.get('modbus_type')
+                    if not modbus_type:
+                        if self._purge_data_type == 'binary':
+                            modbus_type = 'coil'
+                        else:
+                            modbus_type = 'holding'
+                    
+                    self._purge_modbus_type = modbus_type
+                    
                     logger.info(f"Loaded purge operation from database: address {self._purge_address}, "
-                               f"data_type: {self._purge_data_type}, parameter_id: {purge_param['id']}, "
-                               f"name: {purge_param['name']}, component: {purge_param.get('component_name')}")
+                               f"data_type: {self._purge_data_type}, modbus_type: {self._purge_modbus_type}, "
+                               f"parameter_id: {purge_param['id']}, name: {purge_param['name']}, "
+                               f"component: {purge_param.get('component_name')}")
                 else:
                     logger.warning(f"Purge parameter found but has no Modbus address: {purge_param.get('name')}, "
                                   f"Component: {purge_param.get('component_name')}")
@@ -477,15 +507,18 @@ class RealPLC(PLCInterface):
             logger.error("Purge operation parameters not found in database. Make sure there's a parameter with 'purge' in its name.")
             raise ValueError("Purge operation parameters not found")
         
-        logger.info(f"Starting purge operation for {duration_ms}ms at Modbus address {self._purge_address} with data type {self._purge_data_type}")
+        logger.info(f"Starting purge operation for {duration_ms}ms at Modbus address {self._purge_address} "
+                  f"with data type {self._purge_data_type}, modbus_type: {getattr(self, '_purge_modbus_type', 'coil')}")
         
         # Activate purge operation
         if self._purge_data_type == 'binary':
             # Trigger purge by setting coil
             success = self.communicator.write_coil(self._purge_address, True)
+            logger.info(f"Sending purge command to coil address {self._purge_address}")
         else:
             # Trigger purge by writing 1 to register
             success = self.communicator.write_integer_32bit(self._purge_address, 1)
+            logger.info(f"Sending purge command to register address {self._purge_address} (value: 1)")
         
         if not success:
             logger.error("Failed to start purge operation")
