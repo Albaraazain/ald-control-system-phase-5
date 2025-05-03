@@ -138,41 +138,48 @@ class RealPLC(PLCInterface):
         try:
             supabase = get_supabase()
             
-            # Query parameters that represent valve states (by convention or property)
-            # Assuming valve parameters have names containing "valve"
-            # Since we can't use like() in this version, we'll filter manually
+            # Query all parameters
             query = supabase.table('component_parameters').select('*').execute()
             
-            # Manually filter for valve parameters
-            query.data = [param for param in query.data if 
-                         'valve' in param.get('name', '').lower() and 
-                         param.get('data_type') == 'binary']
+            # Manually filter for valve parameters by checking:
+            # 1. name is 'valve_state'
+            # 2. component_name starts with 'Valve'
+            valve_params = []
+            for param in query.data:
+                if (param.get('name') == 'valve_state' and 
+                    param.get('component_name', '').lower().startswith('valve')):
+                    valve_params.append(param)
             
-            logger.info(f"Found {len(query.data)} potential valve parameters")
+            logger.info(f"Found {len(valve_params)} valve parameters")
             
-            if query.data:
-                for valve_param in query.data:
-                    # Extract valve number from name (assuming naming convention includes number)
-                    name = valve_param['name'].lower()
+            if valve_params:
+                for valve_param in valve_params:
+                    # Extract valve number from component_name (e.g., "Valve 1" -> 1)
+                    component_name = valve_param.get('component_name', '')
                     try:
-                        # Try to extract valve number from parameter name (e.g., "Valve 1 state" -> 1)
-                        # This logic may need to be adjusted based on your naming convention
+                        # Extract the valve number
                         import re
-                        match = re.search(r'valve\s*(\d+)', name)
+                        match = re.search(r'valve\s*(\d+)', component_name.lower())
                         if match:
                             valve_number = int(match.group(1))
                             
-                            self._valve_cache[valve_number] = {
-                                'parameter_id': valve_param['id'],
-                                'modbus_address': valve_param['modbus_address'],
-                                'modbus_type': valve_param['modbus_type']
-                            }
-                    except (ValueError, AttributeError):
-                        logger.warning(f"Could not extract valve number from parameter: {name}")
+                            # Only add to cache if Modbus address is present
+                            if valve_param.get('modbus_address'):
+                                self._valve_cache[valve_number] = {
+                                    'parameter_id': valve_param['id'],
+                                    'modbus_address': valve_param['modbus_address'],
+                                    'modbus_type': valve_param['modbus_type'] or 'binary',
+                                    'component_name': component_name
+                                }
+                                logger.info(f"Added Valve {valve_number} with Modbus address {valve_param['modbus_address']}")
+                            else:
+                                logger.warning(f"Valve {valve_number} ({component_name}) has no Modbus address defined in database")
+                    except (ValueError, AttributeError) as e:
+                        logger.warning(f"Could not extract valve number from component name: {component_name}. Error: {e}")
                 
                 # Log detailed valve mapping information
                 for valve_num, valve_data in self._valve_cache.items():
-                    logger.info(f"Valve {valve_num} mapped to Modbus address: {valve_data['modbus_address']}, type: {valve_data['modbus_type']}")
+                    logger.info(f"Valve {valve_num} ({valve_data['component_name']}) mapped to Modbus address: {valve_data['modbus_address']}")
                 
                 logger.info(f"Loaded mappings for {len(self._valve_cache)} valves")
             else:
@@ -188,27 +195,50 @@ class RealPLC(PLCInterface):
         try:
             supabase = get_supabase()
             
-            # Query parameter for purge operation (by convention)
-            # Assuming purge operation has a dedicated parameter
+            # Since there's no purge parameter in your database yet, we'll hard-code the purge
+            # values from the CSV file (this is temporary until you add a purge parameter to the database)
+            
+            # From the CSV file: W_Purge is at Modbus address 20 (see Atomicoat ModbusAddress01.05.2025.csv)
+            # This is a fallback in case it's not in the database
+            self._purge_address = 20  # Assuming this is the correct purge address from CSV
+            self._purge_data_type = 'binary'  # Assuming it's a binary coil
+            
+            # Try looking in database as well
             query = supabase.table('component_parameters').select('*').execute()
             
-            # Manually filter for purge parameters
-            query.data = [param for param in query.data if 'purge' in param.get('name', '').lower()]
+            # Look for components/parameters with 'purge' in name or component_name
+            purge_params = []
+            for param in query.data:
+                if ('purge' in param.get('name', '').lower() or
+                    'purge' in param.get('component_name', '').lower()):
+                    purge_params.append(param)
             
-            logger.info(f"Found {len(query.data)} potential purge parameters")
+            logger.info(f"Found {len(purge_params)} potential purge parameters")
             
-            if query.data:
-                purge_param = query.data[0]  # Use the first matching parameter
+            if purge_params:
+                purge_param = purge_params[0]  # Use the first matching parameter
                 
-                self._purge_address = purge_param['modbus_address']
-                self._purge_data_type = purge_param['data_type']
-                
-                logger.info(f"Loaded purge operation parameter: address {self._purge_address}, data_type: {self._purge_data_type}, parameter_id: {purge_param['id']}, name: {purge_param['name']}")
+                if purge_param.get('modbus_address'):
+                    self._purge_address = purge_param['modbus_address']
+                    self._purge_data_type = purge_param.get('data_type') or 'binary'
+                    
+                    logger.info(f"Loaded purge operation from database: address {self._purge_address}, "
+                               f"data_type: {self._purge_data_type}, parameter_id: {purge_param['id']}, "
+                               f"name: {purge_param['name']}, component: {purge_param.get('component_name')}")
+                else:
+                    logger.warning(f"Purge parameter found but has no Modbus address: {purge_param.get('name')}, "
+                                  f"Component: {purge_param.get('component_name')}")
+                    logger.info(f"Using default purge address from CSV: address {self._purge_address}, data_type: {self._purge_data_type}")
             else:
-                logger.warning("No purge operation parameter found")
+                logger.warning("No purge operation parameter found in database")
+                logger.info(f"Using default purge address from CSV: address {self._purge_address}, data_type: {self._purge_data_type}")
                 
         except Exception as e:
             logger.error(f"Error loading purge parameters: {str(e)}", exc_info=True)
+            # Fallback to default purge address
+            self._purge_address = 20  # Default from CSV
+            self._purge_data_type = 'binary'
+            logger.info(f"Using fallback purge address: {self._purge_address}, data_type: {self._purge_data_type}")
     
     async def read_parameter(self, parameter_id: str) -> float:
         """
