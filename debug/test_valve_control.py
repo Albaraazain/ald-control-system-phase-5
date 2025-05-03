@@ -82,10 +82,46 @@ async def test_valve_control(valve_number, open_valve=True, duration_ms=None):
             if success:
                 logger.info(f"✅ Successfully {'opened' if open_valve else 'closed'} valve {valve_number}")
                 
+                # Get the valve address from the cache for verification
+                plc = plc_manager.plc
+                if hasattr(plc, '_valve_cache') and valve_number in plc._valve_cache:
+                    address = plc._valve_cache[valve_number]['modbus_address']
+                    
+                    # Read the value back to verify it was set correctly
+                    logger.info(f"Reading valve state from address {address} to verify...")
+                    coil_values = plc.communicator.read_coils(int(address), count=1)
+                    
+                    if coil_values is not None and len(coil_values) > 0:
+                        actual_state = coil_values[0]
+                        expected_state = open_valve
+                        if actual_state == expected_state:
+                            logger.info(f"✅ Verification successful: Valve state is {'OPEN' if actual_state else 'CLOSED'} as expected")
+                        else:
+                            logger.error(f"❌ Verification failed: Valve state is {'OPEN' if actual_state else 'CLOSED'} but expected {'OPEN' if expected_state else 'CLOSED'}")
+                    else:
+                        logger.error("❌ Failed to read valve state for verification")
+                
                 if duration_ms is not None and open_valve:
                     logger.info(f"Valve will automatically close after {duration_ms}ms")
                     # Wait a bit longer than the duration to see the auto-close
                     await asyncio.sleep((duration_ms / 1000) + 0.5)
+                    
+                    # Get valve address again to verify closure (in case it wasn't available earlier)
+                    if hasattr(plc, '_valve_cache') and valve_number in plc._valve_cache:
+                        address = plc._valve_cache[valve_number]['modbus_address']
+                        
+                        # Read the value back to verify it was closed after auto-close
+                        logger.info(f"Reading valve state from address {address} to verify auto-closure...")
+                        coil_values = plc.communicator.read_coils(int(address), count=1)
+                        
+                        if coil_values is not None and len(coil_values) > 0:
+                            actual_state = coil_values[0]
+                            if actual_state == False:
+                                logger.info(f"✅ Verification successful: Valve is confirmed CLOSED after timeout")
+                            else:
+                                logger.error(f"❌ Verification failed: Valve still shows as OPEN but should be CLOSED")
+                        else:
+                            logger.error("❌ Failed to read valve state for verification after auto-closing")
             else:
                 logger.error(f"❌ Failed to {'open' if open_valve else 'close'} valve {valve_number}")
                 
@@ -135,6 +171,20 @@ async def direct_valve_control(valve_number, open_valve=True, duration_ms=None, 
             if success:
                 logger.info(f"✅ Successfully {'opened' if open_valve else 'closed'} valve {valve_number} at address {modbus_address}")
                 
+                # Read the value back to verify it was set correctly
+                logger.info(f"Reading valve state from address {modbus_address} to verify...")
+                coil_values = plc.communicator.read_coils(int(modbus_address), count=1)
+                
+                if coil_values is not None and len(coil_values) > 0:
+                    actual_state = coil_values[0]
+                    expected_state = open_valve
+                    if actual_state == expected_state:
+                        logger.info(f"✅ Verification successful: Valve state is {'OPEN' if actual_state else 'CLOSED'} as expected")
+                    else:
+                        logger.error(f"❌ Verification failed: Valve state is {'OPEN' if actual_state else 'CLOSED'} but expected {'OPEN' if expected_state else 'CLOSED'}")
+                else:
+                    logger.error("❌ Failed to read valve state for verification")
+                
                 if duration_ms is not None and open_valve:
                     logger.info(f"Valve will automatically close after {duration_ms}ms")
                     # Wait a bit longer than the duration to see the auto-close
@@ -146,6 +196,19 @@ async def direct_valve_control(valve_number, open_valve=True, duration_ms=None, 
                     
                     if success:
                         logger.info(f"✅ Successfully auto-closed valve {valve_number}")
+                        
+                        # Read the value back to verify it was closed
+                        logger.info(f"Reading valve state from address {modbus_address} to verify closure...")
+                        coil_values = plc.communicator.read_coils(int(modbus_address), count=1)
+                        
+                        if coil_values is not None and len(coil_values) > 0:
+                            actual_state = coil_values[0]
+                            if actual_state == False:
+                                logger.info(f"✅ Verification successful: Valve is confirmed CLOSED")
+                            else:
+                                logger.error(f"❌ Verification failed: Valve still shows as OPEN but should be CLOSED")
+                        else:
+                            logger.error("❌ Failed to read valve state for verification after closing")
                     else:
                         logger.error(f"❌ Failed to auto-close valve {valve_number}")
             else:
