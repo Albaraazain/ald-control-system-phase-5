@@ -43,7 +43,12 @@ PLC_TYPE = os.getenv("PLC_TYPE", "simulation")  # 'simulation' or 'real'
 PLC_IP = os.getenv("PLC_IP", "192.168.1.100")
 PLC_PORT = int(os.getenv("PLC_PORT", "502"))
 
+# PLC byte order: 'abcd' (big-endian), 'badc' (big-byte/little-word), 
+# 'cdab' (little-byte/big-word), 'dcba' (little-endian)
+PLC_BYTE_ORDER = os.getenv("PLC_BYTE_ORDER", "badc")
+
 PLC_CONFIG = {
     'ip_address': PLC_IP,
-    'port': PLC_PORT
+    'port': PLC_PORT,
+    'byte_order': PLC_BYTE_ORDER
 }
