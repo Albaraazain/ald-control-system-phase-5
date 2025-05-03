@@ -37,8 +37,13 @@ if not MACHINE_ID:
 
 
 # PLC Configuration
-PLC_TYPE = "simulation"  # 'simulation' or 'real'
+PLC_TYPE = os.getenv("PLC_TYPE", "simulation")  # 'simulation' or 'real'
+
+# Get PLC connection parameters from environment or use defaults
+PLC_IP = os.getenv("PLC_IP", "192.168.1.100")
+PLC_PORT = int(os.getenv("PLC_PORT", "502"))
+
 PLC_CONFIG = {
-    'ip_address': '192.168.1.100',  # Used only for real PLC
-    'port': 502                    # Used only for real PLC
+    'ip_address': PLC_IP,
+    'port': PLC_PORT
 }
