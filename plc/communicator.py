@@ -35,14 +35,14 @@ class PLCCommunicator:
     
     def connect(self):
         """Establish connection to the PLC."""
-        self.log("DEBUG", f"Connecting to PLC at {self.plc_ip}:{self.port}")
+        self.log("DEBUG", f"Connecting to PLC at {self.plc_ip}:{self.port} with slave ID {self.slave_id}")
         self.client = ModbusTcpClient(self.plc_ip, port=self.port)
         
         if self.client.connect():
-            self.log("INFO", "Connected to PLC successfully")
+            self.log("INFO", f"Connected to PLC successfully (IP: {self.plc_ip}, Port: {self.port}, Slave ID: {self.slave_id})")
             return True
         else:
-            self.log("ERROR", "Failed to connect to PLC")
+            self.log("ERROR", f"Failed to connect to PLC at {self.plc_ip}:{self.port} with slave ID {self.slave_id}")
             return False
     
     def disconnect(self):

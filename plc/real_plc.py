@@ -115,6 +115,8 @@ class RealPLC(PLCInterface):
                         'max_value': param['max_value'],
                         'is_writable': param['is_writable']
                     }
+                    # Log each parameter with its Modbus address
+                    logger.info(f"Parameter '{param['name']}' (ID: {parameter_id}) has Modbus address: {param['modbus_address']}, type: {param['modbus_type']}")
                     
                 logger.info(f"Loaded metadata for {len(self._parameter_cache)} parameters")
             else:
@@ -158,6 +160,10 @@ class RealPLC(PLCInterface):
                     except (ValueError, AttributeError):
                         logger.warning(f"Could not extract valve number from parameter: {name}")
                 
+                # Log detailed valve mapping information
+                for valve_num, valve_data in self._valve_cache.items():
+                    logger.info(f"Valve {valve_num} mapped to Modbus address: {valve_data['modbus_address']}, type: {valve_data['modbus_type']}")
+                
                 logger.info(f"Loaded mappings for {len(self._valve_cache)} valves")
             else:
                 logger.warning("No valve parameters found")
@@ -184,7 +190,7 @@ class RealPLC(PLCInterface):
                 self._purge_address = purge_param['modbus_address']
                 self._purge_data_type = purge_param['data_type']
                 
-                logger.info(f"Loaded purge operation parameter: address {self._purge_address}")
+                logger.info(f"Loaded purge operation parameter: address {self._purge_address}, data_type: {self._purge_data_type}, parameter_id: {purge_param['id']}, name: {purge_param['name']}")
             else:
                 logger.warning("No purge operation parameter found")
                 
@@ -361,11 +367,12 @@ class RealPLC(PLCInterface):
         # Get valve metadata from cache
         valve_meta = self._valve_cache.get(valve_number)
         if not valve_meta:
+            logger.error(f"Valve {valve_number} not found in valve cache. Available valves: {list(self._valve_cache.keys())}")
             raise ValueError(f"Valve {valve_number} not found in valve cache")
         
         address = valve_meta['modbus_address']
         
-        logger.info(f"{'Opening' if state else 'Closing'} valve {valve_number} at address {address}")
+        logger.info(f"{'Opening' if state else 'Closing'} valve {valve_number} at Modbus address {address} (Parameter ID: {valve_meta['parameter_id']})")
         
         # Write to the valve coil
         success = self.communicator.write_coil(address, state)
@@ -424,9 +431,10 @@ class RealPLC(PLCInterface):
         
         # Check if purge parameters are available
         if self._purge_address is None:
+            logger.error("Purge operation parameters not found in database. Make sure there's a parameter with 'purge' in its name.")
             raise ValueError("Purge operation parameters not found")
         
-        logger.info(f"Starting purge operation for {duration_ms}ms")
+        logger.info(f"Starting purge operation for {duration_ms}ms at Modbus address {self._purge_address} with data type {self._purge_data_type}")
         
         # Activate purge operation
         if self._purge_data_type == 'binary':
