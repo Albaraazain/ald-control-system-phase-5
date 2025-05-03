@@ -101,7 +101,12 @@ class RealPLC(PLCInterface):
             supabase = get_supabase()
             
             # Query all parameters with Modbus information
-            result = supabase.table('component_parameters').select('*').not_is('modbus_address', None).execute()
+            # Using regular select since not_is is not available in this version
+            result = supabase.table('component_parameters').select('*').execute()
+            
+            # Filter out entries where modbus_address is None manually
+            result.data = [param for param in result.data if param.get('modbus_address') is not None]
+            logger.info(f"Found {len(result.data)} parameters with Modbus addresses")
             
             if result.data:
                 for param in result.data:
@@ -134,11 +139,16 @@ class RealPLC(PLCInterface):
             supabase = get_supabase()
             
             # Query parameters that represent valve states (by convention or property)
-            # Assuming valve parameters have names containing "valve" and are binary type
-            query = supabase.table('component_parameters').select('*') \
-                .like('name', '%valve%') \
-                .eq('data_type', 'binary') \
-                .execute()
+            # Assuming valve parameters have names containing "valve"
+            # Since we can't use like() in this version, we'll filter manually
+            query = supabase.table('component_parameters').select('*').execute()
+            
+            # Manually filter for valve parameters
+            query.data = [param for param in query.data if 
+                         'valve' in param.get('name', '').lower() and 
+                         param.get('data_type') == 'binary']
+            
+            logger.info(f"Found {len(query.data)} potential valve parameters")
             
             if query.data:
                 for valve_param in query.data:
@@ -180,9 +190,12 @@ class RealPLC(PLCInterface):
             
             # Query parameter for purge operation (by convention)
             # Assuming purge operation has a dedicated parameter
-            query = supabase.table('component_parameters').select('*') \
-                .like('name', '%purge%') \
-                .execute()
+            query = supabase.table('component_parameters').select('*').execute()
+            
+            # Manually filter for purge parameters
+            query.data = [param for param in query.data if 'purge' in param.get('name', '').lower()]
+            
+            logger.info(f"Found {len(query.data)} potential purge parameters")
             
             if query.data:
                 purge_param = query.data[0]  # Use the first matching parameter
