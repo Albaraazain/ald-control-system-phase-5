@@ -3,6 +3,7 @@
 Real hardware implementation of the PLC interface.
 """
 import asyncio
+import re
 from typing import Dict, Optional, List, Tuple, Any
 from log_setup import logger
 from plc.interface import PLCInterface
@@ -18,6 +19,14 @@ class RealPLC(PLCInterface):
         'int32': 'int32',
         'int16': 'int16',
         'binary': 'binary'
+    }
+    
+    # Modbus type mapping
+    MODBUS_TYPES = {
+        'holding_register': 'holding',
+        'input_register': 'input',
+        'coil': 'coil',
+        'discrete_input': 'discrete_input'
     }
     
     def __init__(self, ip_address: str, port: int):
@@ -42,6 +51,12 @@ class RealPLC(PLCInterface):
         # Purge operation parameters
         self._purge_address = None
         self._purge_data_type = None
+        
+        # MFC voltage scaling parameters
+        self._mfc_scaling_cache = {}
+        
+        # Pressure gauge voltage scaling parameters
+        self._pressure_scaling_cache = {}
     
     async def initialize(self) -> bool:
         """Initialize connection to the real PLC."""
@@ -63,6 +78,9 @@ class RealPLC(PLCInterface):
                 
                 # Load purge operation parameters
                 await self._load_purge_parameters()
+                
+                # Load MFC and pressure gauge scaling parameters
+                await self._load_scaling_parameters()
                 
                 return True
             else:
@@ -121,18 +139,31 @@ class RealPLC(PLCInterface):
                             modbus_type = 'holding'
                         else:
                             modbus_type = 'unknown'
+                    else:
+                        # Map database modbus_type to internal representation
+                        modbus_type = self.MODBUS_TYPES.get(modbus_type, modbus_type)
                     
-                    self._parameter_cache[parameter_id] = {
-                        'name': param['name'],
-                        'modbus_address': param['modbus_address'],
-                        'modbus_type': modbus_type,
-                        'data_type': param['data_type'],
-                        'min_value': param['min_value'],
-                        'max_value': param['max_value'],
-                        'is_writable': param['is_writable']
-                    }
-                    # Log each parameter with its Modbus address and type
-                    logger.info(f"Parameter '{param['name']}' (ID: {parameter_id}) has Modbus address: {param['modbus_address']}, "
+                    # Get component name and truncate if needed to avoid log overflow
+                component_name = param.get('component_name', '')
+                if component_name and len(component_name) > 30:
+                    short_component_name = component_name[:27] + "..."
+                else:
+                    short_component_name = component_name
+                    
+                self._parameter_cache[parameter_id] = {
+                    'name': param['name'],
+                    'modbus_address': param['modbus_address'],
+                    'modbus_type': modbus_type,
+                    'data_type': param['data_type'],
+                    'min_value': param['min_value'],
+                    'max_value': param['max_value'],
+                    'is_writable': param['is_writable'],
+                    'component_name': component_name,
+                    'short_component_name': short_component_name,
+                    'current_value': param.get('current_value')
+                }
+                    # Log each parameter with its Modbus address and type (using short component name)
+                    logger.info(f"Parameter '{param['name']}' ({short_component_name}) (ID: {parameter_id}) has Modbus address: {param['modbus_address']}, "
                                f"data_type: {param['data_type']}, modbus_type: {modbus_type}")
                     
                 logger.info(f"Loaded metadata for {len(self._parameter_cache)} parameters")
@@ -213,23 +244,15 @@ class RealPLC(PLCInterface):
         try:
             supabase = get_supabase()
             
-            # Since there's no purge parameter in your database yet, we'll hard-code the purge
-            # values from the CSV file (this is temporary until you add a purge parameter to the database)
-            
-            # From the CSV file: W_Purge is at Modbus address 20 (see Atomicoat ModbusAddress01.05.2025.csv)
-            # This is a fallback in case it's not in the database
-            self._purge_address = 20  # Assuming this is the correct purge address from CSV
-            self._purge_data_type = 'binary'  # Assuming it's a binary coil
-            self._purge_modbus_type = 'coil'  # Assuming it's a Modbus coil
-            
-            # Try looking in database as well
+            # Try looking for purge parameters in database
             query = supabase.table('component_parameters').select('*').execute()
             
             # Look for components/parameters with 'purge' in name or component_name
             purge_params = []
             for param in query.data:
                 if ('purge' in param.get('name', '').lower() or
-                    'purge' in param.get('component_name', '').lower()):
+                    'purge' in param.get('component_name', '').lower() or
+                    param.get('operand') == 'W_Purge'):
                     purge_params.append(param)
             
             logger.info(f"Found {len(purge_params)} potential purge parameters")
@@ -256,18 +279,26 @@ class RealPLC(PLCInterface):
                                f"parameter_id: {purge_param['id']}, name: {purge_param['name']}, "
                                f"component: {purge_param.get('component_name')}")
                 else:
+                    # Use purge from components database
                     logger.warning(f"Purge parameter found but has no Modbus address: {purge_param.get('name')}, "
                                   f"Component: {purge_param.get('component_name')}")
-                    logger.info(f"Using default purge address from CSV: address {self._purge_address}, data_type: {self._purge_data_type}")
+                    self._purge_address = 20  # Default from CSV
+                    self._purge_data_type = 'binary'
+                    self._purge_modbus_type = 'coil'
+                    logger.info(f"Using default purge address: address {self._purge_address}, data_type: {self._purge_data_type}")
             else:
                 logger.warning("No purge operation parameter found in database")
-                logger.info(f"Using default purge address from CSV: address {self._purge_address}, data_type: {self._purge_data_type}")
+                self._purge_address = 20  # Default from CSV
+                self._purge_data_type = 'binary'
+                self._purge_modbus_type = 'coil'
+                logger.info(f"Using default purge address: address {self._purge_address}, data_type: {self._purge_data_type}")
                 
         except Exception as e:
             logger.error(f"Error loading purge parameters: {str(e)}", exc_info=True)
             # Fallback to default purge address
             self._purge_address = 20  # Default from CSV
             self._purge_data_type = 'binary'
+            self._purge_modbus_type = 'coil'
             logger.info(f"Using fallback purge address: {self._purge_address}, data_type: {self._purge_data_type}")
     
     async def read_parameter(self, parameter_id: str) -> float:
@@ -288,31 +319,120 @@ class RealPLC(PLCInterface):
         if not param_meta:
             raise ValueError(f"Parameter {parameter_id} not found in metadata cache")
         
-        address = param_meta['modbus_address']
+        address = param_meta.get('modbus_address')
         data_type = param_meta['data_type']
+        modbus_type = param_meta['modbus_type']
         
-        # Read the parameter based on its data type
-        if data_type == 'float':
-            value = self.communicator.read_float(address)
-        elif data_type == 'int32':
-            value = self.communicator.read_integer_32bit(address)
-        elif data_type == 'int16':
-            # Read holding register as 16-bit integer
-            result = self.communicator.client.read_holding_registers(address, count=1, slave=self.communicator.slave_id)
-            if result.isError():
-                logger.error(f"Failed to read int16: {result}")
-                return None
-            value = result.registers[0]
-        elif data_type == 'binary':
-            # Read as coil
-            result = self.communicator.read_coils(address, count=1)
-            if result is None:
-                return None
-            value = 1.0 if result[0] else 0.0
-        else:
-            raise ValueError(f"Unsupported data type: {data_type}")
+        # Handle case where Modbus address is missing (e.g., MFC power_on)
+        if not address:
+            logger.warning(f"Parameter {parameter_id} ({param_meta.get('name')}) has no Modbus address. Returning current value from database.")
+            return param_meta.get('current_value', 0.0)
+        
+        # Read the parameter based on Modbus type and data type
+        value = None
+        try:
+            # First check modbus_type
+            if modbus_type == 'coil':
+                result = self.communicator.read_coils(address, count=1)
+                if result is not None:
+                    value = 1.0 if result[0] else 0.0
+            elif modbus_type == 'discrete_input':
+                result = self.communicator.client.read_discrete_inputs(address, count=1, slave=self.communicator.slave_id)
+                if not result.isError():
+                    value = 1.0 if result.bits[0] else 0.0
+                else:
+                    logger.error(f"Failed to read discrete input: {result}")
+            elif modbus_type == 'input':
+                # Handle input registers based on data type
+                if data_type == 'float':
+                    value = self.communicator.read_float(address, register_type='input')
+                elif data_type == 'int32':
+                    value = self.communicator.read_integer_32bit(address, register_type='input')
+                elif data_type == 'int16':
+                    result = self.communicator.client.read_input_registers(address, count=1, slave=self.communicator.slave_id)
+                    if not result.isError():
+                        value = result.registers[0]
+                    else:
+                        logger.error(f"Failed to read input register: {result}")
+            elif modbus_type == 'holding':
+                # Handle holding registers based on data type
+                if data_type == 'float':
+                    value = self.communicator.read_float(address)
+                elif data_type == 'int32':
+                    value = self.communicator.read_integer_32bit(address)
+                elif data_type == 'int16':
+                    result = self.communicator.client.read_holding_registers(address, count=1, slave=self.communicator.slave_id)
+                    if not result.isError():
+                        value = result.registers[0]
+                    else:
+                        logger.error(f"Failed to read holding register: {result}")
+            else:
+                # Fallback based on data_type for backwards compatibility
+                if data_type == 'float':
+                    value = self.communicator.read_float(address)
+                elif data_type == 'int32':
+                    value = self.communicator.read_integer_32bit(address)
+                elif data_type == 'int16':
+                    result = self.communicator.client.read_holding_registers(address, count=1, slave=self.communicator.slave_id)
+                    if not result.isError():
+                        value = result.registers[0]
+                    else:
+                        logger.error(f"Failed to read int16: {result}")
+                elif data_type == 'binary':
+                    result = self.communicator.read_coils(address, count=1)
+                    if result is not None:
+                        value = 1.0 if result[0] else 0.0
+                else:
+                    raise ValueError(f"Unsupported data type: {data_type}")
+            
+            # Apply scaling for MFCs and Pressure Gauges if needed
+            component_name = param_meta.get('component_name', '').lower()
+            param_name = param_meta.get('name', '').lower()
+            
+            # Check if this is a value that needs scaling
+            if value is not None and (
+                (component_name.startswith('mfc') and param_name == 'flow_read') or
+                (component_name.startswith('pressure') and param_name == 'pressure_read')
+            ):
+                # Get MFC or Pressure Gauge scaling
+                mfc_match = re.search(r'mfc\s*(\d+)', component_name)
+                pg_match = re.search(r'pressure\s*gauge\s*(\d+)', component_name)
+                
+                if mfc_match and mfc_match.group(1) in self._mfc_scaling_cache:
+                    # Apply MFC voltage scaling
+                    mfc_num = mfc_match.group(1)
+                    scaling = self._mfc_scaling_cache.get(mfc_num)
+                    if scaling:
+                        # Convert voltage reading to flow value
+                        value = self._scale_value(
+                            value,
+                            scaling.get('min_voltage', 0),
+                            scaling.get('max_voltage', 10),
+                            scaling.get('min_value', 0),
+                            scaling.get('max_value', 0)
+                        )
+                        logger.debug(f"Applied MFC {mfc_num} scaling to value: {value}")
+                
+                elif pg_match and pg_match.group(1) in self._pressure_scaling_cache:
+                    # Apply Pressure Gauge voltage scaling
+                    pg_num = pg_match.group(1)
+                    scaling = self._pressure_scaling_cache.get(pg_num)
+                    if scaling:
+                        # Convert voltage reading to pressure value
+                        value = self._scale_value(
+                            value,
+                            scaling.get('min_voltage', 0),
+                            scaling.get('max_voltage', 10),
+                            scaling.get('min_value', 0),
+                            scaling.get('max_value', 0)
+                        )
+                        logger.debug(f"Applied Pressure Gauge {pg_num} scaling to value: {value}")
+            
+        except Exception as e:
+            logger.error(f"Error reading parameter {parameter_id} ({param_meta.get('name')}): {str(e)}")
         
         if value is None:
+            logger.warning(f"Failed to read value for parameter {parameter_id}. Returning None.")
             return None
             
         # Update database with current value (in background task)
@@ -324,6 +444,15 @@ class RealPLC(PLCInterface):
         """Update the current value of a parameter in the database."""
         try:
             supabase = get_supabase()
+            
+            # Get parameter details from cache to log more info
+            param_meta = self._parameter_cache.get(parameter_id, {})
+            # Use the pre-truncated component name from the cache
+            component_name = param_meta.get('short_component_name', '')
+            param_name = param_meta.get('name', '')
+                
+            # Log parameter update with truncated names
+            logger.debug(f"Updating current value of parameter: {param_name} ({component_name}) with value: {value}")
             
             supabase.table('component_parameters').update({
                 'current_value': value,
@@ -363,27 +492,77 @@ class RealPLC(PLCInterface):
         if value < min_value or value > max_value:
             raise ValueError(f"Value {value} is outside allowed range ({min_value} to {max_value})")
         
-        address = param_meta['modbus_address']
+        address = param_meta.get('modbus_address')
         data_type = param_meta['data_type']
+        modbus_type = param_meta['modbus_type']
+        component_name = param_meta.get('component_name', '').lower()
+        param_name = param_meta.get('name', '').lower()
         
-        # Write the parameter based on its data type
-        if data_type == 'float':
-            success = self.communicator.write_float(address, value)
-        elif data_type == 'int32':
-            success = self.communicator.write_integer_32bit(address, int(value))
-        elif data_type == 'int16':
-            # Write holding register as 16-bit integer
-            result = self.communicator.client.write_register(address, int(value), slave=self.communicator.slave_id)
-            success = not result.isError()
-        elif data_type == 'binary':
-            # Write as coil (True if value > 0)
-            success = self.communicator.write_coil(address, value > 0)
-        else:
-            raise ValueError(f"Unsupported data type: {data_type}")
+        # Special handling for MFC power_on parameter without Modbus address
+        if not address:
+            logger.warning(f"Parameter {parameter_id} ({param_meta.get('name')}) has no Modbus address. Updating database only.")
+            # Just update the database and return success
+            asyncio.create_task(self._update_parameter_set_value(parameter_id, value))
+            return True
+            
+        # Apply scaling for MFCs and Pressure Gauges if needed for write operations
+        original_value = value
+        if (component_name.startswith('mfc') and param_name == 'flow_set') or (component_name.startswith('pressure') and param_name.startswith('scale_')):
+            # Get MFC or Pressure Gauge scaling
+            mfc_match = re.search(r'mfc\s*(\d+)', component_name)
+            pg_match = re.search(r'pressure\s*gauge\s*(\d+)', component_name)
+            
+            if mfc_match and mfc_match.group(1) in self._mfc_scaling_cache and param_name == 'flow_set':
+                # Apply inverse MFC voltage scaling for set values
+                mfc_num = mfc_match.group(1)
+                scaling = self._mfc_scaling_cache.get(mfc_num)
+                if scaling:
+                    # Convert flow value to voltage for writing
+                    value = self._inverse_scale_value(
+                        value,
+                        scaling.get('min_value', 0),
+                        scaling.get('max_value', 0),
+                        scaling.get('min_voltage', 0),
+                        scaling.get('max_voltage', 10)
+                    )
+                    logger.debug(f"Applied inverse MFC {mfc_num} scaling to value: {original_value} -> {value}")
+        
+        success = False
+        try:
+            # Write parameter based on Modbus type and data type
+            if modbus_type == 'coil':
+                success = self.communicator.write_coil(address, value > 0)
+            elif modbus_type == 'holding':
+                if data_type == 'float':
+                    success = self.communicator.write_float(address, value)
+                elif data_type == 'int32':
+                    success = self.communicator.write_integer_32bit(address, int(value))
+                elif data_type == 'int16':
+                    result = self.communicator.client.write_register(address, int(value), slave=self.communicator.slave_id)
+                    success = not result.isError()
+                else:
+                    # Fall back to float for unknown data types in holding registers
+                    success = self.communicator.write_float(address, value)
+            else:
+                # Fallback method for backwards compatibility
+                if data_type == 'float':
+                    success = self.communicator.write_float(address, value)
+                elif data_type == 'int32':
+                    success = self.communicator.write_integer_32bit(address, int(value))
+                elif data_type == 'int16':
+                    result = self.communicator.client.write_register(address, int(value), slave=self.communicator.slave_id)
+                    success = not result.isError()
+                elif data_type == 'binary':
+                    success = self.communicator.write_coil(address, value > 0)
+                else:
+                    raise ValueError(f"Unsupported data type: {data_type}")
+        except Exception as e:
+            logger.error(f"Error writing parameter {parameter_id} ({param_meta.get('name')}): {str(e)}")
+            success = False
         
         if success:
             # Update database with new set value (in background task)
-            asyncio.create_task(self._update_parameter_set_value(parameter_id, value))
+            asyncio.create_task(self._update_parameter_set_value(parameter_id, original_value))
             
         return success
     
@@ -391,6 +570,15 @@ class RealPLC(PLCInterface):
         """Update the set value of a parameter in the database."""
         try:
             supabase = get_supabase()
+            
+            # Get parameter details from cache to log more info
+            param_meta = self._parameter_cache.get(parameter_id, {})
+            # Use the pre-truncated component name from the cache
+            component_name = param_meta.get('short_component_name', '') 
+            param_name = param_meta.get('name', '')
+                
+            # Log parameter update with truncated names
+            logger.debug(f"Updating parameter: {param_name} ({component_name}) with value: {value}")
             
             supabase.table('component_parameters').update({
                 'set_value': value,
@@ -488,6 +676,121 @@ class RealPLC(PLCInterface):
             
         except Exception as e:
             logger.error(f"Error in auto-close valve task: {str(e)}")
+    
+    def _scale_value(self, value: float, min_in: float, max_in: float, min_out: float, max_out: float) -> float:
+        """
+        Scale a value from one range to another using linear interpolation.
+        
+        Args:
+            value: The input value to scale
+            min_in: Minimum value of the input range
+            max_in: Maximum value of the input range
+            min_out: Minimum value of the output range
+            max_out: Maximum value of the output range
+            
+        Returns:
+            float: The scaled value
+        """
+        if max_in == min_in:  # Avoid division by zero
+            return min_out
+            
+        # Basic linear interpolation formula
+        # (value - min_in) / (max_in - min_in) = (result - min_out) / (max_out - min_out)
+        return min_out + (max_out - min_out) * (value - min_in) / (max_in - min_in)
+    
+    def _inverse_scale_value(self, value: float, min_in: float, max_in: float, min_out: float, max_out: float) -> float:
+        """
+        The inverse of _scale_value. Converts from the output range back to the input range.
+        
+        Args:
+            value: The output value to convert back
+            min_in: Minimum value of the original input range
+            max_in: Maximum value of the original input range
+            min_out: Minimum value of the original output range
+            max_out: Maximum value of the original output range
+            
+        Returns:
+            float: The value in the input range
+        """
+        # Just swap the in/out parameters to reverse the mapping
+        return self._scale_value(value, min_out, max_out, min_in, max_in)
+    
+    async def _load_scaling_parameters(self):
+        """
+        Load MFC and pressure gauge scaling parameters from the database.
+        These parameters map voltage readings to actual flow/pressure values.
+        """
+        try:
+            supabase = get_supabase()
+            
+            # Query all parameters
+            query = supabase.table('component_parameters').select('*').execute()
+            
+            # Process all parameters to find MFC and Pressure Gauge scaling parameters
+            mfc_parameters = {}
+            pressure_parameters = {}
+            
+            for param in query.data:
+                component_name = param.get('component_name', '').lower()
+                param_name = param.get('name', '').lower()
+                operand = param.get('operand', '')
+                
+                # Extract component number
+                mfc_match = re.search(r'mfc\s*(\d+)', component_name)
+                pg_match = re.search(r'pressure\s*gauge\s*(\d+)', component_name)
+                
+                # Process MFC parameters
+                if mfc_match:
+                    mfc_num = mfc_match.group(1)
+                    if mfc_num not in mfc_parameters:
+                        mfc_parameters[mfc_num] = {}
+                    
+                    # Add parameters to MFC scaling cache
+                    if param_name == 'scale_min':
+                        mfc_parameters[mfc_num]['min_value'] = param.get('current_value', 0)
+                    elif param_name == 'scale_max':
+                        mfc_parameters[mfc_num]['max_value'] = param.get('current_value', 200)
+                    elif param_name == 'scale_min_voltage':
+                        mfc_parameters[mfc_num]['min_voltage'] = param.get('current_value', 0)
+                    elif param_name == 'scale_max_voltage':
+                        mfc_parameters[mfc_num]['max_voltage'] = param.get('current_value', 10)
+                        
+                # Process Pressure Gauge parameters
+                elif pg_match:
+                    pg_num = pg_match.group(1)
+                    if pg_num not in pressure_parameters:
+                        pressure_parameters[pg_num] = {}
+                    
+                    # Add parameters to Pressure Gauge scaling cache
+                    if param_name == 'scale_min':
+                        pressure_parameters[pg_num]['min_value'] = param.get('current_value', 0)
+                    elif param_name == 'scale_max':
+                        pressure_parameters[pg_num]['max_value'] = param.get('current_value', 100000)
+                    elif param_name == 'scale_min_voltage':
+                        pressure_parameters[pg_num]['min_voltage'] = param.get('current_value', 0)
+                    elif param_name == 'scale_max_voltage':
+                        pressure_parameters[pg_num]['max_voltage'] = param.get('current_value', 10)
+            
+            # Store the collected scaling parameters
+            self._mfc_scaling_cache = mfc_parameters
+            self._pressure_scaling_cache = pressure_parameters
+            
+            # Log scaling parameters
+            for mfc_num, scaling in self._mfc_scaling_cache.items():
+                logger.info(f"MFC {mfc_num} scaling: min_value={scaling.get('min_value', 0)}, "
+                          f"max_value={scaling.get('max_value', 0)}, min_voltage={scaling.get('min_voltage', 0)}, "
+                          f"max_voltage={scaling.get('max_voltage', 0)}")
+                          
+            for pg_num, scaling in self._pressure_scaling_cache.items():
+                logger.info(f"Pressure Gauge {pg_num} scaling: min_value={scaling.get('min_value', 0)}, "
+                          f"max_value={scaling.get('max_value', 0)}, min_voltage={scaling.get('min_voltage', 0)}, "
+                          f"max_voltage={scaling.get('max_voltage', 0)}")
+                
+        except Exception as e:
+            logger.error(f"Error loading scaling parameters: {str(e)}", exc_info=True)
+            # Initialize with empty caches
+            self._mfc_scaling_cache = {}
+            self._pressure_scaling_cache = {}
     
     async def execute_purge(self, duration_ms: int) -> bool:
         """
