@@ -29,18 +29,31 @@ class RealPLC(PLCInterface):
         'discrete_input': 'discrete_input'
     }
     
-    def __init__(self, ip_address: str, port: int):
+    def __init__(self, ip_address: str, port: int, hostname: str = None, auto_discover: bool = False):
         """
         Initialize with PLC connection details.
         
         Args:
-            ip_address: IP address of the PLC
+            ip_address: IP address of the PLC (fallback if hostname/discovery fails)
             port: Port number for PLC communication
+            hostname: Optional hostname for dynamic resolution (e.g., 'plc.local')
+            auto_discover: Enable automatic network discovery for DHCP environments
         """
         self.ip_address = ip_address
+        self.hostname = hostname
         self.port = port
+        self.auto_discover = auto_discover
         self.connected = False
-        self.communicator = PLCCommunicator(plc_ip=ip_address, port=port)
+        
+        # Create communicator with dynamic discovery capabilities
+        self.communicator = PLCCommunicator(
+            plc_ip=ip_address, 
+            port=port,
+            hostname=hostname,
+            auto_discover=auto_discover,
+            connection_timeout=10,
+            retries=3
+        )
         
         # Cache for parameter metadata
         self._parameter_cache = {}
@@ -119,8 +132,10 @@ class RealPLC(PLCInterface):
             supabase = get_supabase()
             
             # Query all parameters with Modbus information
-            # Using regular select since not_is is not available in this version
-            result = supabase.table('component_parameters').select('*').execute()
+            # Join with component_parameter_definitions to get name, unit, description
+            result = supabase.table('component_parameters').select(
+                '*, component_parameter_definitions!definition_id(name, unit, description)'
+            ).execute()
             
             # Filter out entries where modbus_address is None manually
             result.data = [param for param in result.data if param.get('modbus_address') is not None]
@@ -144,26 +159,34 @@ class RealPLC(PLCInterface):
                         modbus_type = self.MODBUS_TYPES.get(modbus_type, modbus_type)
                     
                     # Get component name and truncate if needed to avoid log overflow
-                component_name = param.get('component_name', '')
-                if component_name and len(component_name) > 30:
-                    short_component_name = component_name[:27] + "..."
-                else:
-                    short_component_name = component_name
+                    component_name = param.get('component_name', '')
+                    if component_name and len(component_name) > 30:
+                        short_component_name = component_name[:27] + "..."
+                    else:
+                        short_component_name = component_name
                     
-                self._parameter_cache[parameter_id] = {
-                    'name': param['name'],
-                    'modbus_address': param['modbus_address'],
-                    'modbus_type': modbus_type,
-                    'data_type': param['data_type'],
-                    'min_value': param['min_value'],
-                    'max_value': param['max_value'],
-                    'is_writable': param['is_writable'],
-                    'component_name': component_name,
-                    'short_component_name': short_component_name,
-                    'current_value': param.get('current_value')
-                }
+                    # Get name, unit, and description from definition if available
+                    definition = param.get('component_parameter_definitions', {})
+                    param_name = definition.get('name') if definition else param.get('name')
+                    param_unit = definition.get('unit') if definition else None
+                    param_description = definition.get('description') if definition else None
+                    
+                    self._parameter_cache[parameter_id] = {
+                        'name': param_name or param['name'],
+                        'modbus_address': param['modbus_address'],
+                        'modbus_type': modbus_type,
+                        'data_type': param['data_type'],
+                        'min_value': param['min_value'],
+                        'max_value': param['max_value'],
+                        'is_writable': param['is_writable'],
+                        'component_name': component_name,
+                        'short_component_name': short_component_name,
+                        'current_value': param.get('current_value'),
+                        'unit': param_unit,
+                        'description': param_description
+                    }
                     # Log each parameter with its Modbus address and type (using short component name)
-                    logger.info(f"Parameter '{param['name']}' ({short_component_name}) (ID: {parameter_id}) has Modbus address: {param['modbus_address']}, "
+                    logger.info(f"Parameter '{param_name or param['name']}' ({short_component_name}) (ID: {parameter_id}) has Modbus address: {param['modbus_address']}, "
                                f"data_type: {param['data_type']}, modbus_type: {modbus_type}")
                     
                 logger.info(f"Loaded metadata for {len(self._parameter_cache)} parameters")
@@ -181,15 +204,21 @@ class RealPLC(PLCInterface):
         try:
             supabase = get_supabase()
             
-            # Query all parameters
-            query = supabase.table('component_parameters').select('*').execute()
+            # Query all parameters with definition information
+            query = supabase.table('component_parameters').select(
+                '*, component_parameter_definitions!definition_id(name, unit, description)'
+            ).execute()
             
             # Manually filter for valve parameters by checking:
-            # 1. name is 'valve_state'
+            # 1. name is 'valve_state' (or definition name is 'valve_state')
             # 2. component_name starts with 'Valve'
             valve_params = []
             for param in query.data:
-                if (param.get('name') == 'valve_state' and 
+                # Check both the parameter name and the definition name
+                definition = param.get('component_parameter_definitions', {})
+                param_name = definition.get('name') if definition else param.get('name')
+                
+                if ((param_name == 'valve_state' or param.get('name') == 'valve_state') and 
                     param.get('component_name', '').lower().startswith('valve')):
                     valve_params.append(param)
             
@@ -244,13 +273,20 @@ class RealPLC(PLCInterface):
         try:
             supabase = get_supabase()
             
-            # Try looking for purge parameters in database
-            query = supabase.table('component_parameters').select('*').execute()
+            # Try looking for purge parameters in database with definition information
+            query = supabase.table('component_parameters').select(
+                '*, component_parameter_definitions!definition_id(name, unit, description)'
+            ).execute()
             
             # Look for components/parameters with 'purge' in name or component_name
             purge_params = []
             for param in query.data:
-                if ('purge' in param.get('name', '').lower() or
+                # Check both the parameter name and the definition name
+                definition = param.get('component_parameter_definitions', {})
+                param_name = definition.get('name') if definition else param.get('name', '')
+                
+                if ('purge' in param_name.lower() or
+                    'purge' in param.get('name', '').lower() or
                     'purge' in param.get('component_name', '').lower() or
                     param.get('operand') == 'W_Purge'):
                     purge_params.append(param)
@@ -723,8 +759,10 @@ class RealPLC(PLCInterface):
         try:
             supabase = get_supabase()
             
-            # Query all parameters
-            query = supabase.table('component_parameters').select('*').execute()
+            # Query all parameters with definition information
+            query = supabase.table('component_parameters').select(
+                '*, component_parameter_definitions!definition_id(name, unit, description)'
+            ).execute()
             
             # Process all parameters to find MFC and Pressure Gauge scaling parameters
             mfc_parameters = {}
@@ -732,7 +770,9 @@ class RealPLC(PLCInterface):
             
             for param in query.data:
                 component_name = param.get('component_name', '').lower()
-                param_name = param.get('name', '').lower()
+                # Check both the parameter name and the definition name
+                definition = param.get('component_parameter_definitions', {})
+                param_name = (definition.get('name') if definition else param.get('name', '')).lower()
                 operand = param.get('operand', '')
                 
                 # Extract component number

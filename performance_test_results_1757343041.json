@@ -1,0 +1,222 @@
+{
+  "test_execution_id": "performance_test_1757343024",
+  "started_at": "2025-09-08T17:50:24.898469",
+  "machine_id": "e3e6e280-0794-459f-84d5-5e468f60746e",
+  "performance_tests": {
+    "Query Response Times": {
+      "performance_acceptable": true,
+      "total_query_tests": 4,
+      "acceptable_queries": 4,
+      "query_test_results": [
+        {
+          "test_name": "simple_recipe_select",
+          "description": "Select recipes with basic filters",
+          "average_time": 0.8512934048970541,
+          "min_time": 0.5807311534881592,
+          "max_time": 1.362316370010376,
+          "max_acceptable_time": 2.0,
+          "performance_acceptable": true,
+          "successful_runs": 3,
+          "errors": []
+        },
+        {
+          "test_name": "recipe_with_steps_join",
+          "description": "Recipe with steps count",
+          "average_time": 0.5202612082163492,
+          "min_time": 0.3970308303833008,
+          "max_time": 0.5948061943054199,
+          "max_acceptable_time": 3.0,
+          "performance_acceptable": true,
+          "successful_runs": 3,
+          "errors": []
+        },
+        {
+          "test_name": "steps_with_configurations",
+          "description": "Steps with configuration details",
+          "average_time": 0.4808255036671956,
+          "min_time": 0.40409183502197266,
+          "max_time": 0.6180918216705322,
+          "max_acceptable_time": 4.0,
+          "performance_acceptable": true,
+          "successful_runs": 3,
+          "errors": []
+        },
+        {
+          "test_name": "command_history",
+          "description": "Recent command history",
+          "average_time": 0.3795575300852458,
+          "min_time": 0.3332395553588867,
+          "max_time": 0.4184119701385498,
+          "max_acceptable_time": 2.5,
+          "performance_acceptable": true,
+          "successful_runs": 3,
+          "errors": []
+        }
+      ],
+      "performance_criteria": "80% of queries must meet time requirements",
+      "test_duration_seconds": 6.696000814437866
+    },
+    "Complex Join Performance": {
+      "performance_acceptable": true,
+      "complex_query_time": 0.32688450813293457,
+      "max_acceptable_time": 10.0,
+      "recipes_returned": 3,
+      "has_nested_data": true,
+      "performance_criteria": "Complex joins must complete within 10.0s with valid nested data",
+      "test_duration_seconds": 0.32692694664001465
+    },
+    "Concurrent Access Simulation": {
+      "performance_acceptable": true,
+      "concurrent_queries": 10,
+      "successful_queries": 10,
+      "success_rate": 1.0,
+      "total_execution_time": 2.037524461746216,
+      "average_query_time": 0.613727617263794,
+      "max_query_time": 1.326141595840454,
+      "concurrent_results": [
+        {
+          "query_id": 0,
+          "success": true,
+          "query_time": 0.32464098930358887,
+          "result_count": 5
+        },
+        {
+          "query_id": 1,
+          "success": true,
+          "query_time": 0.7015938758850098,
+          "result_count": 10
+        },
+        {
+          "query_id": 2,
+          "success": true,
+          "query_time": 0.32444071769714355,
+          "result_count": 5
+        },
+        {
+          "query_id": 3,
+          "success": true,
+          "query_time": 0.7048935890197754,
+          "result_count": 5
+        },
+        {
+          "query_id": 4,
+          "success": true,
+          "query_time": 0.6917035579681396,
+          "result_count": 10
+        },
+        {
+          "query_id": 5,
+          "success": true,
+          "query_time": 0.38779783248901367,
+          "result_count": 5
+        },
+        {
+          "query_id": 6,
+          "success": true,
+          "query_time": 0.3836069107055664,
+          "result_count": 5
+        },
+        {
+          "query_id": 7,
+          "success": true,
+          "query_time": 0.649176836013794,
+          "result_count": 10
+        },
+        {
+          "query_id": 8,
+          "success": true,
+          "query_time": 0.6432802677154541,
+          "result_count": 5
+        },
+        {
+          "query_id": 9,
+          "success": true,
+          "query_time": 1.326141595840454,
+          "result_count": 5
+        }
+      ],
+      "performance_criteria": "90% success rate with avg time < 5s",
+      "test_duration_seconds": 2.0377018451690674
+    },
+    "Large Dataset Queries": {
+      "performance_acceptable": true,
+      "total_large_dataset_tests": 3,
+      "acceptable_large_queries": 3,
+      "large_dataset_results": [
+        {
+          "test_name": "all_recipes_pagination",
+          "description": "Paginate through all recipes",
+          "query_time": 0.3198540210723877,
+          "max_acceptable_time": 5.0,
+          "result_count": 11,
+          "performance_acceptable": true
+        },
+        {
+          "test_name": "all_steps_with_type_filter",
+          "description": "All steps filtered by type",
+          "query_time": 0.581989049911499,
+          "max_acceptable_time": 6.0,
+          "result_count": 22,
+          "performance_acceptable": true
+        },
+        {
+          "test_name": "command_history_large",
+          "description": "Large command history query",
+          "query_time": 0.40609097480773926,
+          "max_acceptable_time": 4.0,
+          "result_count": 44,
+          "performance_acceptable": true
+        }
+      ],
+      "performance_criteria": "75% of large dataset queries must meet time requirements",
+      "test_duration_seconds": 1.3080055713653564
+    },
+    "Insert Performance": {
+      "performance_acceptable": false,
+      "total_inserts_attempted": 5,
+      "successful_inserts": 0,
+      "average_insert_time": 0,
+      "max_insert_time": 0,
+      "max_acceptable_avg_time": 2.0,
+      "performance_criteria": "Average insert time < 2s with >60% success rate",
+      "test_duration_seconds": 1.9429776668548584
+    },
+    "Update Performance": {
+      "performance_acceptable": false,
+      "error": "{'message': 'null value in column \"id\" of relation \"recipe_commands\" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (update_performance_test, {\"initial\": \"value\"}, pending, 2025-09-08 14:50:37.387379+00, 2025-09-08 14:50:37.387379+00, null, null, e3e6e280-0794-459f-84d5-5e468f60746e, null, null).'}",
+      "updates_attempted": 0,
+      "test_duration_seconds": 0.41814565658569336
+    },
+    "Database Connection Load": {
+      "performance_acceptable": true,
+      "total_connection_tests": 10,
+      "successful_connections": 10,
+      "connection_success_rate": 1.0,
+      "average_connection_time": 0.4001948118209839,
+      "min_connection_time": 0.3044004440307617,
+      "max_connection_time": 0.8175928592681885,
+      "connection_errors": [],
+      "performance_criteria": "Avg connection time < 3s with 80% success rate",
+      "test_duration_seconds": 4.00203537940979
+    }
+  },
+  "summary": {
+    "total_performance_tests": 7,
+    "acceptable_performance_tests": 5,
+    "failed_performance_tests": 2,
+    "performance_success_rate": 0.7142857142857143,
+    "overall_performance_acceptable": false,
+    "average_test_duration": 2.390256268637521,
+    "performance_test_results": {
+      "Query Response Times": true,
+      "Complex Join Performance": true,
+      "Concurrent Access Simulation": true,
+      "Large Dataset Queries": true,
+      "Insert Performance": false,
+      "Update Performance": false,
+      "Database Connection Load": true
+    }
+  },
+  "completed_at": "2025-09-08T17:50:41.631487",
+  "total_duration": 16.733018
+}

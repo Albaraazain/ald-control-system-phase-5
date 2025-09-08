@@ -1,0 +1,82 @@
+{
+  "test_suite": "ALD Control System Working Simulation Tests",
+  "timestamp": "2025-09-08T16:58:42.696663",
+  "summary": {
+    "total_tests": 4,
+    "passed_tests": 1,
+    "failed_tests": 3,
+    "success_rate_percent": 25.0
+  },
+  "test_results": [
+    {
+      "test_name": "Database Schema Validation",
+      "passed": false,
+      "details": {
+        "valve_step_config_records": 1,
+        "purge_step_config_records": 1,
+        "loop_step_config_records": 1,
+        "has_execution_id": true,
+        "has_current_step_index": true,
+        "has_total_overall_steps": true,
+        "has_current_step_type": true,
+        "has_progress": true,
+        "has_process_metrics": true
+      },
+      "errors": [
+        "Schema validation failed: {'message': 'Could not find the function public.get_recipe_with_step_configs(recipe_limit) in the schema cache', 'code': 'PGRST202', 'hint': 'Perhaps you meant to call the function public.get_users_with_permission', 'details': 'Searched for the function public.get_recipe_with_step_configs with parameter recipe_limit or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}"
+      ]
+    },
+    {
+      "test_name": "Recipe Step Loading",
+      "passed": false,
+      "details": {
+        "recipe_name": "Test ALD Recipe - Short",
+        "total_steps": 10
+      },
+      "errors": [
+        "Recipe step loading failed: 0"
+      ]
+    },
+    {
+      "test_name": "Process Execution Simulation",
+      "passed": true,
+      "details": {
+        "machine_id": "af56a11d-a6e7-4b30-b58d-8ad84dd0c2fa",
+        "recipe_id": "5b62daaf-2db0-4dc5-acea-c429e0b88b68",
+        "using_existing_process": "65d31b24-dad9-469a-b896-152db0635e90",
+        "existing_state_found": true,
+        "state_structure": {
+          "current_step_index": 0,
+          "total_overall_steps": null,
+          "current_step_type": "purge",
+          "has_progress": true,
+          "has_metrics": true
+        }
+      },
+      "errors": []
+    },
+    {
+      "test_name": "Validation Framework",
+      "passed": false,
+      "details": {
+        "validated_process_id": "65d31b24-dad9-469a-b896-152db0635e90",
+        "integrity_validation": {
+          "passed": false,
+          "errors": [
+            "Referenced machine e3e6e280-0794-459f-84d5-5e468f60746e does not exist"
+          ],
+          "warnings": []
+        },
+        "config_validation": {
+          "passed": true,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "errors": [
+        "Referenced machine e3e6e280-0794-459f-84d5-5e468f60746e does not exist"
+      ]
+    }
+  ],
+  "overall_passed": false
+}

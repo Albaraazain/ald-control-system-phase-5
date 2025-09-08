@@ -59,14 +59,19 @@ async def start_recipe(command_id: int, parameters: dict):
     # 6. Get or create operator session
     current_session = await get_or_create_operator_session(operator_id)
     
-    # 7. Prepare recipe version JSON
+    # 7. Load recipe parameters from recipe_parameters table
+    params_result = supabase.table('recipe_parameters').select('*').eq('recipe_id', recipe_id).execute()
+    recipe_params = {p['parameter_name']: p['parameter_value'] for p in params_result.data if params_result.data}
+    
+    # 7.5 Prepare recipe version JSON
     recipe_version = {
         'id': recipe['id'],
         'name': recipe['name'],
         'version': recipe['version'],
         'steps': recipe_steps,
-        'chamber_temperature_set_point': recipe.get('chamber_temperature_set_point'),
-        'pressure_set_point': recipe.get('pressure_set_point')
+        'chamber_temperature_set_point': recipe_params.get('chamber_temperature_set_point', recipe.get('chamber_temperature_set_point')),
+        'pressure_set_point': recipe_params.get('pressure_set_point', recipe.get('pressure_set_point')),
+        'parameters': recipe_params  # Include all loaded parameters
     }
     # 8. Create process execution record
     process_id = await create_process_execution(
@@ -76,6 +81,30 @@ async def start_recipe(command_id: int, parameters: dict):
         operator_id,
         recipe_steps
     )
+    
+    # 8.5 Calculate total steps including loop iterations for progress tracking
+    total_steps = 0
+    for step in recipe_steps:
+        if step['type'].lower() == 'loop':
+            loop_count = int(step['parameters']['count'])
+            child_steps = [s for s in recipe_steps if s.get('parent_step_id') == step['id']]
+            total_steps += len(child_steps) * loop_count
+        elif not step.get('parent_step_id'):  # Only count non-child steps
+            total_steps += 1
+    
+    # 8.6 Create process execution state record
+    state_data = {
+        'execution_id': process_id,
+        'current_step_index': 0,
+        'current_overall_step': 0,
+        'total_overall_steps': total_steps,
+        'progress': {'total_steps': total_steps, 'completed_steps': 0}
+    }
+    state_result = supabase.table('process_execution_state').insert(state_data).execute()
+    if not state_result.data:
+        logger.warning(f"Failed to create process_execution_state for process {process_id}")
+    else:
+        logger.info(f"Created process_execution_state for process {process_id} with {total_steps} total steps")
     
     # 9. Update machine status
     await update_machine_status('processing', process_id)
@@ -131,10 +160,10 @@ async def create_process_execution(session_id, recipe_id, recipe_version, operat
         'operator_id': operator_id,
         'status': 'running',
         'current_step_index': 0,
-        'parameters': {
+        'parameters': recipe_version.get('parameters', {
             'chamber_temperature_set_point': recipe_version.get('chamber_temperature_set_point'),
             'pressure_set_point': recipe_version.get('pressure_set_point')
-        },
+        }),
         'current_step': recipe_steps[0] if recipe_steps else None,
         'total_steps': len(recipe_steps)
     }

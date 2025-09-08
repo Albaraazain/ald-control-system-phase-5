@@ -8,7 +8,7 @@ from step_flow.purge_step import execute_purge_step
 from step_flow.valve_step import execute_valve_step
 from step_flow.parameter_step import execute_parameter_step
 
-async def execute_step(process_id: str, step: dict, all_steps: list, parent_to_child_steps: dict):
+async def execute_step(process_id: str, step: dict, all_steps: list, parent_to_child_steps: dict, overall_step_count: int = 0):
     """
     Execute a recipe step based on its type.
     
@@ -17,6 +17,7 @@ async def execute_step(process_id: str, step: dict, all_steps: list, parent_to_c
         step: The step data to execute
         all_steps: List of all steps in the recipe
         parent_to_child_steps: Dictionary mapping parent step IDs to their child steps
+        overall_step_count: Current overall step count for progress tracking
     """
     step_type = step['type'].lower()
     step_name = step['name']
@@ -24,11 +25,11 @@ async def execute_step(process_id: str, step: dict, all_steps: list, parent_to_c
     logger.info(f"Executing step '{step_name}' of type '{step_type}'")
     
     try:
-        # Get current progress for non-loop steps
+        # Get current progress for non-loop steps from process_execution_state
         if step_type != 'loop':
             supabase = get_supabase()
-            process_result = supabase.table('process_executions').select('progress').eq('id', process_id).single().execute()
-            current_progress = process_result.data['progress']
+            state_result = supabase.table('process_execution_state').select('progress').eq('execution_id', process_id).single().execute()
+            current_progress = state_result.data['progress'] if state_result.data else {'total_steps': 0, 'completed_steps': 0}
         
         # Route to appropriate step handler based on step type
         if step_type == 'loop':
@@ -68,9 +69,13 @@ async def execute_step(process_id: str, step: dict, all_steps: list, parent_to_c
         if step_type != 'loop':
             current_progress['completed_steps'] += 1
             supabase = get_supabase()
-            supabase.table('process_executions').update({
-                'progress': current_progress
-            }).eq('id', process_id).execute()
+            
+            # Update process_execution_state progress only
+            state_update = {
+                'progress': current_progress,
+                'last_updated': 'now()'
+            }
+            supabase.table('process_execution_state').update(state_update).eq('execution_id', process_id).execute()
         
     except Exception as e:
         logger.error(f"Error executing step '{step_name}': {str(e)}", exc_info=True)

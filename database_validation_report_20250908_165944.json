@@ -1,0 +1,96 @@
+{
+  "test_suite": "ALD Control System Database Validation",
+  "timestamp": "2025-09-08T16:59:44.983238",
+  "summary": {
+    "total_tests": 4,
+    "passed_tests": 0,
+    "failed_tests": 4,
+    "success_rate_percent": 0.0
+  },
+  "validation_results": [
+    {
+      "test_name": "Normalized Schema Validation",
+      "passed": false,
+      "details": {
+        "valve_step_config": {
+          "table_name": "valve_step_config",
+          "exists": false,
+          "has_data": false,
+          "columns_accessible": false,
+          "error": "{'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}"
+        },
+        "purge_step_config": {
+          "table_name": "purge_step_config",
+          "exists": false,
+          "has_data": false,
+          "columns_accessible": false,
+          "error": "{'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}"
+        },
+        "loop_step_config": {
+          "table_name": "loop_step_config",
+          "exists": false,
+          "has_data": false,
+          "columns_accessible": false,
+          "error": "{'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}"
+        },
+        "process_execution_state": {
+          "table_name": "process_execution_state",
+          "exists": false,
+          "has_data": false,
+          "columns_accessible": false,
+          "error": "{'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}"
+        },
+        "recipe_parameters": {
+          "table_name": "recipe_parameters",
+          "exists": false,
+          "has_data": false,
+          "columns_accessible": false,
+          "error": "{'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}"
+        },
+        "component_parameter_definitions": {
+          "table_name": "component_parameter_definitions",
+          "exists": false,
+          "has_data": false,
+          "columns_accessible": false,
+          "error": "{'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}"
+        }
+      },
+      "errors": [
+        "Table valve_step_config not accessible",
+        "Table purge_step_config not accessible",
+        "Table loop_step_config not accessible",
+        "Table process_execution_state not accessible",
+        "Table recipe_parameters not accessible",
+        "Table component_parameter_definitions not accessible"
+      ]
+    },
+    {
+      "test_name": "Step Configuration Validation",
+      "passed": false,
+      "details": {},
+      "errors": [
+        "Failed to validate valve_step_config: {'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}",
+        "Failed to validate purge_step_config: {'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}",
+        "Failed to validate loop_step_config: {'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}"
+      ]
+    },
+    {
+      "test_name": "Foreign Key Relationships",
+      "passed": false,
+      "details": {},
+      "errors": [
+        "Foreign key validation failed: {'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}"
+      ]
+    },
+    {
+      "test_name": "Data Consistency",
+      "passed": false,
+      "details": {},
+      "errors": [
+        "Data consistency validation failed: {'message': 'JSON could not be generated', 'code': 401, 'hint': 'Refer to full message for details', 'details': 'b\\'{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}\\''}"
+      ]
+    }
+  ],
+  "overall_passed": false,
+  "database_migration_status": "issues_found"
+}

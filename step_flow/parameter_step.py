@@ -25,22 +25,27 @@ async def execute_parameter_step(process_id: str, step: dict):
     parameter_id = parameters['parameter_id']
     parameter_value = parameters['value']
     
-    # Update process execution with parameter details and progress
     supabase = get_supabase()
     
-    # Get current progress
-    process_result = supabase.table('process_executions').select('current_step_type, current_step_name, progress').eq('id', process_id).single().execute()
-    current_progress = process_result.data['progress']
+    # Get current progress from process_execution_state
+    state_result = supabase.table('process_execution_state').select('progress').eq('execution_id', process_id).single().execute()
+    current_progress = state_result.data['progress'] if state_result.data else {}
     
-    # Update step details and progress
+    # Update only basic fields in process_executions
     supabase.table('process_executions').update({
+        'updated_at': get_current_timestamp()
+    }).eq('id', process_id).execute()
+    
+    # Update process_execution_state
+    state_update = {
         'current_step_type': 'set_parameter',
         'current_step_name': step['name'],
         'current_parameter_id': parameter_id,
         'current_parameter_value': parameter_value,
-        'updated_at': get_current_timestamp(),
-        'progress': current_progress  # Include current progress to maintain counts
-    }).eq('id', process_id).execute()
+        'progress': current_progress,
+        'last_updated': 'now()'
+    }
+    supabase.table('process_execution_state').update(state_update).eq('execution_id', process_id).execute()
     
     # Set the parameter to the specified value
     await set_parameter_value(parameter_id, parameter_value)

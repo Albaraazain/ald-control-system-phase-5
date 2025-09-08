@@ -1,0 +1,19 @@
+{
+  "task": "Adapt ALD control system to new database structure",
+  "project_path": "/home/albaraa/Projects/ald-control-system-phase-5",
+  "supabase_project_id": "yceyfsqusdmcwgkwxcnt",
+  "key_changes": {
+    "normalized_configs": ["valve_step_config", "purge_step_config", "loop_step_config"],
+    "process_state": "New process_execution_state table",
+    "parameters": "Now use component_parameter_definitions",
+    "recipe_structure": "Steps now have type-specific config tables"
+  },
+  "priority_areas": [
+    "Database connection and queries",
+    "PLC parameter loading",
+    "Recipe execution flow",
+    "Command processing",
+    "Process state tracking"
+  ],
+  "created_at": "2025-09-08T15:21:00Z"
+}

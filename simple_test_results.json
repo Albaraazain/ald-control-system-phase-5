@@ -1,0 +1,15 @@
+{
+  "test_timestamp": "2025-09-08T16:56:16.351997",
+  "test_results": {
+    "database_connection": true,
+    "recipe_creation": false,
+    "plc_simulation": false,
+    "process_execution": false,
+    "database_validation": false
+  },
+  "created_recipe_id": null,
+  "created_process_id": null,
+  "success_rate": 20.0,
+  "passed_tests": 1,
+  "total_tests": 5
+}

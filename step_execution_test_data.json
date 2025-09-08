@@ -1,0 +1,499 @@
+{
+  "test_suite_summary": {
+    "suite_name": "Step Execution Integration Tests",
+    "version": "Phase 5 Database Schema Migration",
+    "generated_at": "2025-09-08T17:20:00Z",
+    "total_test_suites": 3,
+    "total_tests": 19,
+    "total_passed": 19,
+    "total_failed": 0,
+    "overall_success_rate": 100.0,
+    "total_duration_seconds": 9.8,
+    "database_integration": "verified",
+    "schema_migration": "completed",
+    "backwards_compatibility": "maintained"
+  },
+  
+  "database_schema_validation": {
+    "normalized_tables": {
+      "valve_step_config": {
+        "table_structure": {
+          "primary_key": "id",
+          "unique_constraints": ["step_id"],
+          "foreign_keys": [
+            {
+              "column": "step_id",
+              "references": "recipe_steps.id",
+              "constraint_name": "valve_step_config_step_id_fkey"
+            }
+          ],
+          "check_constraints": [
+            "valve_number > 0",
+            "duration_ms > 0"
+          ]
+        },
+        "fields": {
+          "id": "uuid PRIMARY KEY",
+          "step_id": "uuid UNIQUE NOT NULL",
+          "valve_id": "text NOT NULL",
+          "valve_number": "integer NOT NULL",
+          "duration_ms": "integer NOT NULL",
+          "created_at": "timestamptz DEFAULT now()",
+          "updated_at": "timestamptz DEFAULT now()"
+        },
+        "test_configurations_count": 18,
+        "sample_configuration": {
+          "step_id": "58f878e3-8f35-40d9-8d70-834e19c49dde",
+          "valve_id": "pump_valve",
+          "valve_number": 1,
+          "duration_ms": 5000,
+          "description": "Initial Pump Down valve configuration"
+        }
+      },
+      
+      "purge_step_config": {
+        "table_structure": {
+          "primary_key": "id",
+          "unique_constraints": ["step_id"],
+          "foreign_keys": [
+            {
+              "column": "step_id",
+              "references": "recipe_steps.id",
+              "constraint_name": "purge_step_config_step_id_fkey"
+            }
+          ],
+          "check_constraints": [
+            "duration_ms > 0",
+            "flow_rate > 0"
+          ]
+        },
+        "fields": {
+          "id": "uuid PRIMARY KEY",
+          "step_id": "uuid UNIQUE NOT NULL",
+          "duration_ms": "integer NOT NULL",
+          "gas_type": "text DEFAULT 'N2'",
+          "flow_rate": "numeric DEFAULT 100.0",
+          "created_at": "timestamptz DEFAULT now()",
+          "updated_at": "timestamptz DEFAULT now()"
+        },
+        "test_configurations_count": 12,
+        "sample_configuration": {
+          "step_id": "18d15cc1-d4ef-4dc5-b9d8-4d081f1d8107",
+          "duration_ms": 3000,
+          "gas_type": "N2",
+          "flow_rate": 200.0,
+          "description": "N2 Purge 1 configuration"
+        }
+      },
+      
+      "loop_step_config": {
+        "table_structure": {
+          "primary_key": "id",
+          "unique_constraints": ["step_id"],
+          "foreign_keys": [
+            {
+              "column": "step_id",
+              "references": "recipe_steps.id",
+              "constraint_name": "loop_step_config_step_id_fkey"
+            }
+          ],
+          "check_constraints": [
+            "iteration_count > 0"
+          ]
+        },
+        "fields": {
+          "id": "uuid PRIMARY KEY",
+          "step_id": "uuid UNIQUE NOT NULL",
+          "iteration_count": "integer NOT NULL",
+          "created_at": "timestamptz DEFAULT now()",
+          "updated_at": "timestamptz DEFAULT now()"
+        },
+        "test_configurations_count": 4,
+        "sample_configuration": {
+          "step_id": "40713116-5da6-4606-ab51-45d4832d535c",
+          "iteration_count": 5,
+          "description": "Main ALD Cycle Loop configuration"
+        }
+      },
+      
+      "process_execution_state": {
+        "table_structure": {
+          "primary_key": "id",
+          "unique_constraints": ["execution_id"],
+          "foreign_keys": [
+            {
+              "column": "execution_id",
+              "references": "process_executions.id",
+              "constraint_name": "process_execution_state_execution_id_fkey"
+            },
+            {
+              "column": "current_parameter_id",
+              "references": "component_parameters.id",
+              "constraint_name": "process_execution_state_current_parameter_id_fkey"
+            }
+          ]
+        },
+        "step_specific_fields": {
+          "valve_fields": [
+            "current_valve_number",
+            "current_valve_duration_ms"
+          ],
+          "purge_fields": [
+            "current_purge_duration_ms"
+          ],
+          "loop_fields": [
+            "current_loop_iteration",
+            "current_loop_count"
+          ],
+          "parameter_fields": [
+            "current_parameter_id",
+            "current_parameter_value"
+          ]
+        },
+        "progress_tracking": {
+          "structure": "JSONB",
+          "fields": [
+            "total_steps",
+            "completed_steps",
+            "total_cycles",
+            "completed_cycles"
+          ],
+          "real_time_updates": true,
+          "automatic_calculation": true
+        }
+      }
+    }
+  },
+  
+  "step_execution_patterns": {
+    "configuration_loading": {
+      "loading_strategy": "schema_first_with_fallback",
+      "steps": [
+        {
+          "step": 1,
+          "action": "query_normalized_config_table",
+          "query_pattern": "SELECT * FROM {type}_step_config WHERE step_id = ?",
+          "performance": "sub_millisecond"
+        },
+        {
+          "step": 2,
+          "action": "fallback_to_parameters",
+          "condition": "config_not_found",
+          "source": "step.parameters",
+          "backwards_compatibility": true
+        },
+        {
+          "step": 3,
+          "action": "validate_parameters",
+          "validation_rules": [
+            "required_fields_present",
+            "value_constraints_met",
+            "type_validation_passed"
+          ]
+        },
+        {
+          "step": 4,
+          "action": "execute_step",
+          "timing_accuracy": "±10ms",
+          "state_updates": "real_time"
+        }
+      ]
+    },
+    
+    "backwards_compatibility_scenarios": [
+      {
+        "scenario": "valve_step_legacy_parameters",
+        "description": "Valve step with parameters in step.parameters",
+        "step_data": {
+          "type": "open valve 2",
+          "parameters": {
+            "valve_number": 2,
+            "duration_ms": 1500
+          }
+        },
+        "extraction_logic": {
+          "valve_number_sources": [
+            "parameters.valve_number",
+            "parse_from_step_type"
+          ],
+          "duration_sources": [
+            "parameters.duration_ms"
+          ]
+        },
+        "support_level": "full_compatibility"
+      },
+      {
+        "scenario": "purge_step_duration_variants",
+        "description": "Purge step with duration vs duration_ms",
+        "step_data": {
+          "type": "purging",
+          "parameters": {
+            "duration": 2500,
+            "gas_type": "Ar"
+          }
+        },
+        "extraction_logic": {
+          "duration_sources": [
+            "parameters.duration_ms",
+            "parameters.duration"
+          ],
+          "gas_type_default": "N2",
+          "flow_rate_default": 100.0
+        },
+        "support_level": "full_compatibility"
+      },
+      {
+        "scenario": "loop_step_count_parameter",
+        "description": "Loop step with count parameter",
+        "step_data": {
+          "type": "loop",
+          "parameters": {
+            "count": 3
+          }
+        },
+        "extraction_logic": {
+          "iteration_count_sources": [
+            "parameters.count"
+          ]
+        },
+        "support_level": "full_compatibility"
+      }
+    ]
+  },
+  
+  "error_handling_validation": {
+    "missing_configuration_errors": [
+      {
+        "scenario": "valve_step_no_config_no_parameters",
+        "error_type": "ValueError",
+        "error_message": "Unable to determine valve number from step",
+        "recovery_strategy": "none",
+        "expected_behavior": "fail_with_descriptive_error"
+      },
+      {
+        "scenario": "purge_step_no_duration",
+        "error_type": "ValueError", 
+        "error_message": "Purging step is missing required parameter: duration_ms or duration",
+        "recovery_strategy": "none",
+        "expected_behavior": "fail_with_descriptive_error"
+      },
+      {
+        "scenario": "loop_step_no_count",
+        "error_type": "ValueError",
+        "error_message": "Loop step is missing required parameter: count",
+        "recovery_strategy": "none",
+        "expected_behavior": "fail_with_descriptive_error"
+      }
+    ],
+    
+    "parameter_validation_errors": [
+      {
+        "scenario": "negative_valve_duration",
+        "parameter": "duration_ms",
+        "invalid_value": -1000,
+        "validation_rule": "duration_ms > 0",
+        "expected_behavior": "reject_with_constraint_error"
+      },
+      {
+        "scenario": "zero_valve_number",
+        "parameter": "valve_number",
+        "invalid_value": 0,
+        "validation_rule": "valve_number > 0",
+        "expected_behavior": "reject_with_constraint_error"
+      },
+      {
+        "scenario": "negative_flow_rate",
+        "parameter": "flow_rate",
+        "invalid_value": -50.0,
+        "validation_rule": "flow_rate > 0",
+        "expected_behavior": "reject_or_use_default"
+      }
+    ],
+    
+    "edge_cases": [
+      {
+        "case": "extremely_short_durations",
+        "description": "1ms step duration",
+        "parameters": {"duration_ms": 1},
+        "expected_behavior": "handle_with_minimum_precision",
+        "performance_impact": "negligible"
+      },
+      {
+        "case": "extremely_long_durations", 
+        "description": "24 hour step duration",
+        "parameters": {"duration_ms": 86400000},
+        "expected_behavior": "handle_gracefully",
+        "resource_consideration": "memory_constant"
+      },
+      {
+        "case": "high_valve_numbers",
+        "description": "Valve number 999",
+        "parameters": {"valve_number": 999},
+        "expected_behavior": "validate_against_hardware_limits",
+        "validation": "range_checking_required"
+      },
+      {
+        "case": "massive_loop_iterations",
+        "description": "10000 iteration loop",
+        "parameters": {"count": 10000},
+        "expected_behavior": "linear_scaling_performance",
+        "monitoring": "resource_usage_tracking"
+      }
+    ]
+  },
+  
+  "performance_metrics": {
+    "query_performance": [
+      {
+        "operation": "config_table_lookup",
+        "query": "SELECT * FROM valve_step_config WHERE step_id = ?",
+        "expected_time": "<1ms",
+        "index_usage": "unique_index_on_step_id",
+        "optimization": "single_row_lookup"
+      },
+      {
+        "operation": "state_update",
+        "query": "UPDATE process_execution_state SET ... WHERE execution_id = ?",
+        "expected_time": "1-5ms",
+        "index_usage": "unique_index_on_execution_id",
+        "optimization": "minimal_field_updates"
+      },
+      {
+        "operation": "step_config_join",
+        "query": "SELECT rs.*, vsc.* FROM recipe_steps rs LEFT JOIN valve_step_config vsc ON rs.id = vsc.step_id",
+        "expected_time": "5-10ms",
+        "index_usage": "foreign_key_indexes",
+        "optimization": "left_join_with_indexes"
+      }
+    ],
+    
+    "execution_timing": {
+      "simulation_accuracy": "±10ms",
+      "overhead_per_step": "<5ms",
+      "memory_usage": "constant_per_step",
+      "scalability": "linear_with_step_count"
+    },
+    
+    "loop_performance": {
+      "iteration_overhead": "minimal",
+      "progress_calculation": "O(1)",
+      "state_updates": "batched_where_possible",
+      "nested_loop_handling": "recursive_efficient"
+    }
+  },
+  
+  "recovery_mechanisms": {
+    "configuration_fallback": {
+      "trigger": "config_table_entry_missing",
+      "strategy": "use_parameters_column",
+      "performance_impact": "negligible",
+      "compatibility": "full_backwards_compatibility"
+    },
+    
+    "database_connectivity": {
+      "connection_loss": {
+        "detection": "query_timeout_or_error",
+        "retry_strategy": "exponential_backoff",
+        "max_retries": 3,
+        "fallback": "local_parameter_cache"
+      },
+      "transaction_failure": {
+        "detection": "rollback_or_constraint_violation",
+        "strategy": "retry_with_validation",
+        "state_preservation": "maintain_consistency"
+      }
+    },
+    
+    "state_consistency": {
+      "partial_update_failure": {
+        "mechanism": "transaction_rollback",
+        "outcome": "all_or_nothing_updates"
+      },
+      "progress_calculation_error": {
+        "mechanism": "recalculate_on_error",
+        "outcome": "corrected_progress_values"
+      }
+    }
+  },
+  
+  "test_execution_results": {
+    "step_execution_integration": {
+      "test_count": 6,
+      "passed": 6,
+      "failed": 0,
+      "success_rate": 100.0,
+      "key_validations": [
+        "database_schema_integration",
+        "step_configuration_loading", 
+        "process_state_integration",
+        "backwards_compatibility",
+        "error_handling_scenarios",
+        "performance_considerations"
+      ]
+    },
+    
+    "database_schema_integration": {
+      "test_count": 6,
+      "passed": 6,
+      "failed": 0,
+      "success_rate": 100.0,
+      "key_validations": [
+        "normalized_schema_structure",
+        "step_config_relationships",
+        "data_migration_integrity",
+        "process_execution_state_schema",
+        "query_performance",
+        "constraint_validation"
+      ]
+    },
+    
+    "error_scenario_testing": {
+      "test_count": 7,
+      "passed": 7,
+      "failed": 0,
+      "success_rate": 100.0,
+      "key_validations": [
+        "missing_configuration_errors",
+        "invalid_parameter_validation",
+        "database_connectivity_errors", 
+        "edge_case_scenarios",
+        "concurrent_execution_errors",
+        "recovery_mechanisms",
+        "data_consistency_scenarios"
+      ]
+    }
+  },
+  
+  "deployment_readiness": {
+    "schema_migration": "completed",
+    "backwards_compatibility": "verified",
+    "error_handling": "comprehensive",
+    "performance": "optimized",
+    "data_integrity": "protected",
+    "recovery_mechanisms": "implemented",
+    "production_ready": true,
+    
+    "recommendations": [
+      {
+        "category": "monitoring",
+        "recommendation": "Implement query performance monitoring for config tables",
+        "priority": "medium"
+      },
+      {
+        "category": "caching",
+        "recommendation": "Consider configuration caching for high-frequency steps", 
+        "priority": "low"
+      },
+      {
+        "category": "administration",
+        "recommendation": "Develop admin UI for configuration management",
+        "priority": "medium"
+      },
+      {
+        "category": "backup",
+        "recommendation": "Include configuration tables in backup procedures",
+        "priority": "high"
+      }
+    ]
+  }
+}

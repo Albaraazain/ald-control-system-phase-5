@@ -1,0 +1,213 @@
+{
+  "validation_id": "integration_validation_1757342893",
+  "started_at": "2025-09-08T17:48:13.810866",
+  "machine_id": "e3e6e280-0794-459f-84d5-5e468f60746e",
+  "validations": {
+    "Database Connectivity": {
+      "success": true,
+      "machine_found": true,
+      "machine_status": "idle",
+      "table_access_tests": [
+        {
+          "table": "recipes",
+          "accessible": true,
+          "has_data": true
+        },
+        {
+          "table": "recipe_steps",
+          "accessible": true,
+          "has_data": true
+        },
+        {
+          "table": "recipe_parameters",
+          "accessible": true,
+          "has_data": true
+        },
+        {
+          "table": "recipe_commands",
+          "accessible": true,
+          "has_data": true
+        }
+      ],
+      "accessible_tables": 4,
+      "total_tables_tested": 4
+    },
+    "Recipe Data Validation": {
+      "success": true,
+      "total_test_recipes": 5,
+      "complete_recipes": 5,
+      "recipe_validations": [
+        {
+          "recipe_id": "5b62daaf-2db0-4dc5-acea-c429e0b88b68",
+          "recipe_name": "Test ALD Recipe - Short",
+          "has_steps": true,
+          "step_count": 10,
+          "has_parameters": true,
+          "parameter_count": 6,
+          "complete": true
+        },
+        {
+          "recipe_id": "9eb0dba5-446c-49d1-b922-344f5137d0dd",
+          "recipe_name": "Test Recipe - Simple",
+          "has_steps": true,
+          "step_count": 4,
+          "has_parameters": true,
+          "parameter_count": 3,
+          "complete": true
+        },
+        {
+          "recipe_id": "8a1e94a0-0a62-44fc-b41a-e4fb08cb8e30",
+          "recipe_name": "Test Recipe - Complex Nested Loops",
+          "has_steps": true,
+          "step_count": 10,
+          "has_parameters": true,
+          "parameter_count": 6,
+          "complete": true
+        },
+        {
+          "recipe_id": "ecdfb993-fd08-402a-adfa-353b426cd925",
+          "recipe_name": "Integration Test Recipe - Simple",
+          "has_steps": true,
+          "step_count": 3,
+          "has_parameters": true,
+          "parameter_count": 3,
+          "complete": true
+        },
+        {
+          "recipe_id": "f6478f3a-7068-458f-9438-1acf14719d4e",
+          "recipe_name": "Integration Test Recipe - Complex",
+          "has_steps": true,
+          "step_count": 5,
+          "has_parameters": true,
+          "parameter_count": 4,
+          "complete": true
+        }
+      ],
+      "completeness_rate": 1.0
+    },
+    "Step Configuration Validation": {
+      "success": false,
+      "error": "{'message': 'column loop_step_config.inner_steps does not exist', 'code': '42703', 'hint': None, 'details': None}",
+      "total_steps": 0
+    },
+    "Command System Integration": {
+      "success": false,
+      "total_commands_checked": 10,
+      "valid_commands": 10,
+      "command_validity_rate": 1.0,
+      "test_command_creation": false,
+      "command_validations": [
+        {
+          "command_id": "44afa9c4-53c3-4d07-93ba-f03ef456741d",
+          "command_type": "stop_recipe",
+          "has_parameters": true,
+          "valid_status": true,
+          "valid": true
+        },
+        {
+          "command_id": "6be64723-423b-4c20-ad40-80bb6869ed52",
+          "command_type": "set_parameter",
+          "has_parameters": true,
+          "valid_status": true,
+          "valid": true
+        },
+        {
+          "command_id": "bf07cb8a-a995-4f36-ad99-0559962abd71",
+          "command_type": "set_parameter",
+          "has_parameters": true,
+          "valid_status": true,
+          "valid": true
+        },
+        {
+          "command_id": "eead7f47-c229-4aa0-baa3-1a2fd2fddaf8",
+          "command_type": "pause_recipe",
+          "has_parameters": true,
+          "valid_status": true,
+          "valid": true
+        },
+        {
+          "command_id": "ca2542c5-5684-409a-b771-1dc8813cf74f",
+          "command_type": "start_recipe",
+          "has_parameters": true,
+          "valid_status": true,
+          "valid": true
+        },
+        {
+          "command_id": "8e39cb7a-74d6-4167-bdfb-fc9c62b8ca1e",
+          "command_type": "set_parameter",
+          "has_parameters": true,
+          "valid_status": true,
+          "valid": true
+        },
+        {
+          "command_id": "ea1d6287-29a9-4457-9e61-145f1a48836c",
+          "command_type": "set_parameter",
+          "has_parameters": true,
+          "valid_status": true,
+          "valid": true
+        },
+        {
+          "command_id": "b5b2fefc-b069-4fa9-8e53-41869350454e",
+          "command_type": "set_parameter",
+          "has_parameters": true,
+          "valid_status": true,
+          "valid": true
+        },
+        {
+          "command_id": "10337522-e9fc-4aa6-b8dd-1433aa6f21fc",
+          "command_type": "set_parameter",
+          "has_parameters": true,
+          "valid_status": true,
+          "valid": true
+        },
+        {
+          "command_id": "cc42cf46-ad0c-40d0-83e5-3eeea4a461a5",
+          "command_type": "set_parameter",
+          "has_parameters": true,
+          "valid_status": true,
+          "valid": true
+        }
+      ]
+    },
+    "Process Execution Structure": {
+      "success": false,
+      "error": "{'message': 'column process_executions.started_at does not exist', 'code': '42703', 'hint': None, 'details': None}",
+      "process_executions_accessible": false
+    },
+    "Data Consistency Checks": {
+      "success": true,
+      "consistency_checks": [
+        {
+          "check": "recipes_have_steps",
+          "total_recipes": 10,
+          "recipes_with_steps": 10,
+          "consistent": true
+        },
+        {
+          "check": "steps_have_valid_types",
+          "total_steps": 20,
+          "valid_step_types": 20,
+          "consistent": true
+        }
+      ],
+      "all_checks_consistent": true,
+      "total_consistency_checks": 2
+    }
+  },
+  "summary": {
+    "total_validations": 6,
+    "successful_validations": 3,
+    "failed_validations": 3,
+    "success_rate": 0.5,
+    "overall_success": false,
+    "validation_results": {
+      "Database Connectivity": true,
+      "Recipe Data Validation": true,
+      "Step Configuration Validation": false,
+      "Command System Integration": false,
+      "Process Execution Structure": false,
+      "Data Consistency Checks": true
+    }
+  },
+  "completed_at": "2025-09-08T17:48:34.206868"
+}

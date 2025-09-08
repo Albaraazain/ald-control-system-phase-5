@@ -1,0 +1,166 @@
+{
+  "created_recipes": {
+    "simple_recipe": {
+      "id": "9eb0dba5-446c-49d1-b922-344f5137d0dd",
+      "name": "Test Recipe - Simple",
+      "description": "Simple test recipe for validation",
+      "total_steps": 4,
+      "steps": {
+        "valve_1": {
+          "id": "a563dbf4-de9c-41fd-b1c9-a179630745b8",
+          "sequence": 1,
+          "name": "Open Valve 1",
+          "type": "valve"
+        },
+        "purge_chamber": {
+          "id": "a09b16d3-1de4-40dc-86a6-d4487b82a8dd",
+          "sequence": 2,
+          "name": "Purge Chamber",
+          "type": "purge"
+        },
+        "test_loop": {
+          "id": "be7ea9dd-2e83-4259-a911-58c143d16b2c",
+          "sequence": 3,
+          "name": "Test Loop",
+          "type": "loop"
+        },
+        "valve_2_child": {
+          "id": "c0fdcc2e-2cfe-4a99-b92b-56a4c7feede3",
+          "sequence": 4,
+          "name": "Open Valve 2 (Loop Child)",
+          "type": "valve",
+          "parent_step_id": "be7ea9dd-2e83-4259-a911-58c143d16b2c"
+        }
+      },
+      "parameters": [
+        "chamber_pressure",
+        "base_temperature", 
+        "flow_rate_multiplier"
+      ]
+    },
+    "complex_recipe": {
+      "id": "8a1e94a0-0a62-44fc-b41a-e4fb08cb8e30",
+      "name": "Test Recipe - Complex Nested Loops",
+      "description": "Complex test recipe with multiple nested loops for advanced validation",
+      "total_steps": 10,
+      "steps": {
+        "initial_purge": {
+          "id": "bcc26d7a-e4e5-4bb6-a422-d4986125b65a",
+          "sequence": 1,
+          "name": "Initial Chamber Purge",
+          "type": "purge"
+        },
+        "precursor_a": {
+          "id": "8f699333-93b9-4a07-a744-12ebfdb042ed",
+          "sequence": 2,
+          "name": "Precursor A Valve",
+          "type": "valve"
+        },
+        "main_loop": {
+          "id": "40713116-5da6-4606-ab51-45d4832d535c",
+          "sequence": 3,
+          "name": "Main ALD Cycle Loop",
+          "type": "loop"
+        },
+        "inner_loop": {
+          "id": "b5388422-bb02-40da-8d85-6d77a54f2e72",
+          "sequence": 4,
+          "name": "Precursor Pulse Loop",
+          "type": "loop",
+          "parent_step_id": "40713116-5da6-4606-ab51-45d4832d535c"
+        },
+        "precursor_b": {
+          "id": "be0cc91f-cb2a-46cb-abe1-9691919ab7f6",
+          "sequence": 5,
+          "name": "Precursor B Valve",
+          "type": "valve",
+          "parent_step_id": "b5388422-bb02-40da-8d85-6d77a54f2e72"
+        },
+        "purge_after_b": {
+          "id": "4d61d76a-2b51-45f3-9f78-2267e21d080c",
+          "sequence": 6,
+          "name": "Purge After B",
+          "type": "purge",
+          "parent_step_id": "b5388422-bb02-40da-8d85-6d77a54f2e72"
+        },
+        "reactant": {
+          "id": "0b680f91-6c05-4c9d-8217-c4e79a22234c",
+          "sequence": 7,
+          "name": "Reactant Valve",
+          "type": "valve",
+          "parent_step_id": "b5388422-bb02-40da-8d85-6d77a54f2e72"
+        },
+        "final_purge_inner": {
+          "id": "08e15e73-af76-485c-925f-579adddffcba",
+          "sequence": 8,
+          "name": "Final Purge",
+          "type": "purge",
+          "parent_step_id": "b5388422-bb02-40da-8d85-6d77a54f2e72"
+        },
+        "temperature_ramp": {
+          "id": "e7cffa7d-7a45-4e6b-87f6-181ced9f074f",
+          "sequence": 9,
+          "name": "Temperature Ramp",
+          "type": "parameter",
+          "parent_step_id": "40713116-5da6-4606-ab51-45d4832d535c"
+        },
+        "final_clean": {
+          "id": "884000ad-74e3-45f4-8c76-6fb2f8473d1e",
+          "sequence": 10,
+          "name": "Final Chamber Clean",
+          "type": "purge"
+        }
+      },
+      "parameters": [
+        "chamber_temperature",
+        "chamber_pressure",
+        "precursor_flow_rate", 
+        "reactant_flow_rate",
+        "purge_gas_flow",
+        "cycle_time_multiplier"
+      ],
+      "loop_hierarchy": {
+        "main_loop": {
+          "id": "40713116-5da6-4606-ab51-45d4832d535c",
+          "iterations": 5,
+          "children": [
+            {
+              "id": "b5388422-bb02-40da-8d85-6d77a54f2e72",
+              "iterations": 3,
+              "children": ["be0cc91f-cb2a-46cb-abe1-9691919ab7f6", "4d61d76a-2b51-45f3-9f78-2267e21d080c", "0b680f91-6c05-4c9d-8217-c4e79a22234c", "08e15e73-af76-485c-925f-579adddffcba"]
+            },
+            "e7cffa7d-7a45-4e6b-87f6-181ced9f074f"
+          ]
+        }
+      }
+    }
+  },
+  "step_configurations": {
+    "valve_configs": {
+      "simple_recipe": 2,
+      "complex_recipe": 3
+    },
+    "purge_configs": {
+      "simple_recipe": 1,
+      "complex_recipe": 4
+    },
+    "loop_configs": {
+      "simple_recipe": 1,
+      "complex_recipe": 2
+    },
+    "parameter_configs": {
+      "simple_recipe": 0,
+      "complex_recipe": 1
+    }
+  },
+  "created_at": "2025-09-08T00:00:00Z",
+  "verification_status": "COMPLETED",
+  "foreign_key_relationships": "VERIFIED",
+  "notes": [
+    "Simple recipe has 1 loop with 1 child step (valve)",
+    "Complex recipe has 2 nested loops: Main loop (5 iterations) containing inner loop (3 iterations) with 4 children",
+    "Parameter step config table was created and configured",
+    "All step configurations are properly linked via foreign keys",
+    "Recipe parameters include critical and non-critical types with tolerances"
+  ]
+}

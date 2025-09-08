@@ -1,0 +1,505 @@
+{
+  "database_schema": {
+    "component_parameters": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primary_key": true,
+          "default": "uuid_generate_v4()"
+        },
+        {
+          "name": "component_id",
+          "type": "uuid",
+          "foreign_key": "machine_components.id"
+        },
+        {
+          "name": "definition_id",
+          "type": "uuid",
+          "nullable": true,
+          "foreign_key": "component_parameter_definitions.id",
+          "comment": "References component_parameter_definitions for name, unit, description"
+        },
+        {
+          "name": "min_value",
+          "type": "double precision"
+        },
+        {
+          "name": "max_value",
+          "type": "double precision"
+        },
+        {
+          "name": "current_value",
+          "type": "double precision"
+        },
+        {
+          "name": "set_value",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "is_writable",
+          "type": "boolean",
+          "default": false
+        },
+        {
+          "name": "modbus_address",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "modbus_type",
+          "type": "modbus_type",
+          "nullable": true,
+          "enum": ["holding_register", "input_register", "coil", "discrete_input"]
+        },
+        {
+          "name": "data_type",
+          "type": "data_type",
+          "nullable": true,
+          "enum": ["float", "int32", "int16", "binary"]
+        },
+        {
+          "name": "show_in_graph",
+          "type": "boolean",
+          "default": false
+        },
+        {
+          "name": "show_in_ui",
+          "type": "boolean",
+          "default": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "default": "now()"
+        }
+      ]
+    },
+    "component_parameter_definitions": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primary_key": true,
+          "default": "uuid_generate_v4()"
+        },
+        {
+          "name": "component_definition_id",
+          "type": "uuid",
+          "foreign_key": "component_definitions.id"
+        },
+        {
+          "name": "name",
+          "type": "text"
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "default_min",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "default_max",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "is_writable",
+          "type": "boolean",
+          "default": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "default": "now()"
+        }
+      ]
+    },
+    "valve_step_config": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primary_key": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "step_id",
+          "type": "uuid",
+          "unique": true,
+          "foreign_key": "recipe_steps.id"
+        },
+        {
+          "name": "valve_id",
+          "type": "text",
+          "comment": "Identifier of the valve (e.g., valve_1, valve_2)"
+        },
+        {
+          "name": "valve_number",
+          "type": "integer",
+          "check": "valve_number > 0",
+          "comment": "Numeric valve number for display"
+        },
+        {
+          "name": "duration_ms",
+          "type": "integer",
+          "check": "duration_ms > 0",
+          "comment": "Duration to keep valve open in milliseconds"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "default": "now()"
+        }
+      ]
+    },
+    "purge_step_config": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primary_key": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "step_id",
+          "type": "uuid",
+          "unique": true,
+          "foreign_key": "recipe_steps.id"
+        },
+        {
+          "name": "duration_ms",
+          "type": "integer",
+          "check": "duration_ms > 0",
+          "comment": "Duration of purge in milliseconds"
+        },
+        {
+          "name": "gas_type",
+          "type": "text",
+          "default": "'N2'",
+          "comment": "Type of gas used for purging (e.g., N2, Ar)"
+        },
+        {
+          "name": "flow_rate",
+          "type": "numeric",
+          "default": "100.0",
+          "check": "flow_rate > 0",
+          "comment": "Gas flow rate in sccm"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "default": "now()"
+        }
+      ]
+    },
+    "loop_step_config": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primary_key": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "step_id",
+          "type": "uuid",
+          "unique": true,
+          "foreign_key": "recipe_steps.id"
+        },
+        {
+          "name": "iteration_count",
+          "type": "integer",
+          "check": "iteration_count > 0",
+          "comment": "Number of times to repeat the loop"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "default": "now()"
+        }
+      ]
+    },
+    "process_execution_state": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primary_key": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "execution_id",
+          "type": "uuid",
+          "unique": true,
+          "foreign_key": "process_executions.id",
+          "comment": "Links to process_executions.id - enforces one state record per execution"
+        },
+        {
+          "name": "current_step_index",
+          "type": "integer",
+          "nullable": true,
+          "default": 0,
+          "comment": "Current position in the process step array"
+        },
+        {
+          "name": "current_overall_step",
+          "type": "integer",
+          "nullable": true,
+          "default": 0,
+          "comment": "Overall step count across all loops and iterations"
+        },
+        {
+          "name": "total_overall_steps",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Total number of steps to be executed"
+        },
+        {
+          "name": "current_step",
+          "type": "jsonb",
+          "nullable": true,
+          "comment": "JSONB representation of the current step being executed"
+        },
+        {
+          "name": "current_step_type",
+          "type": "text",
+          "nullable": true,
+          "comment": "Type of current step (valve, parameter, loop, etc.)"
+        },
+        {
+          "name": "current_step_name",
+          "type": "text",
+          "nullable": true,
+          "comment": "Human-readable name of current step"
+        },
+        {
+          "name": "current_valve_number",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Currently active valve number"
+        },
+        {
+          "name": "current_valve_duration_ms",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Duration in ms for current valve operation"
+        },
+        {
+          "name": "current_purge_duration_ms",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Duration in ms for current purge operation"
+        },
+        {
+          "name": "current_parameter_id",
+          "type": "uuid",
+          "nullable": true,
+          "foreign_key": "component_parameters.id",
+          "comment": "Reference to component parameter being adjusted"
+        },
+        {
+          "name": "current_parameter_value",
+          "type": "numeric",
+          "nullable": true,
+          "comment": "Current value of parameter being adjusted"
+        },
+        {
+          "name": "current_loop_count",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Total number of loops to execute"
+        },
+        {
+          "name": "current_loop_iteration",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Current loop iteration number"
+        },
+        {
+          "name": "progress",
+          "type": "jsonb",
+          "nullable": true,
+          "default": "{\"total_steps\": 0, \"completed_steps\": 0}",
+          "comment": "JSONB tracking completion metrics and progress indicators"
+        },
+        {
+          "name": "process_metrics",
+          "type": "jsonb",
+          "nullable": true,
+          "comment": "JSONB with performance metrics, timing, and statistics"
+        },
+        {
+          "name": "last_updated",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "now()",
+          "comment": "Timestamp of last state update"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "now()",
+          "comment": "Timestamp when state record was created"
+        }
+      ]
+    },
+    "recipe_parameters": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primary_key": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "recipe_id",
+          "type": "uuid",
+          "foreign_key": "recipes.id"
+        },
+        {
+          "name": "parameter_name",
+          "type": "text"
+        },
+        {
+          "name": "parameter_value",
+          "type": "numeric"
+        },
+        {
+          "name": "parameter_unit",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "parameter_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "min_value",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "max_value",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "is_critical",
+          "type": "boolean",
+          "nullable": true,
+          "default": false
+        },
+        {
+          "name": "tolerance_percentage",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "now()"
+        }
+      ]
+    },
+    "recipe_steps": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primary_key": true,
+          "default": "uuid_generate_v4()"
+        },
+        {
+          "name": "recipe_id",
+          "type": "uuid",
+          "foreign_key": "recipes.id"
+        },
+        {
+          "name": "sequence_number",
+          "type": "integer"
+        },
+        {
+          "name": "name",
+          "type": "text"
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "type",
+          "type": "text"
+        },
+        {
+          "name": "parent_step_id",
+          "type": "uuid",
+          "nullable": true,
+          "foreign_key": "recipe_steps.id"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "default": "now()"
+        }
+      ]
+    }
+  },
+  "verification_notes": {
+    "critical_relationships": {
+      "component_parameters_to_definitions": "component_parameters.definition_id -> component_parameter_definitions.id",
+      "step_configs_to_steps": "valve_step_config.step_id, purge_step_config.step_id, loop_step_config.step_id -> recipe_steps.id",
+      "execution_state_to_executions": "process_execution_state.execution_id -> process_executions.id",
+      "execution_state_to_parameters": "process_execution_state.current_parameter_id -> component_parameters.id"
+    },
+    "enum_constraints": {
+      "modbus_type": ["holding_register", "input_register", "coil", "discrete_input"],
+      "data_type": ["float", "int32", "int16", "binary"]
+    }
+  }
+}

@@ -6502,3 +6502,1269 @@ RuntimeError: Failed to update machine state
 2025-05-03 14:57:00,440 - machine_control - INFO - No pending commands found
 2025-05-03 14:57:05,442 - machine_control - INFO - Checking for existing pending commands...
 2025-05-03 14:57:05,719 - machine_control - INFO - No pending commands found
+2025-09-08 15:11:54,755 - machine_control - INFO - Testing PLC connection...
+2025-09-08 15:11:54,755 - machine_control - INFO - Initializing PLC of type real
+2025-09-08 15:11:54,755 - machine_control - INFO - Creating real PLC connection
+2025-09-08 15:11:54,755 - machine_control - INFO - Using byte order: badc
+2025-09-08 15:11:54,755 - machine_control - INFO - Connecting to real PLC at 10.5.5.80:502
+2025-09-08 15:11:57,759 - machine_control - ERROR - Failed to connect to PLC at 10.5.5.80:502 with slave ID 1
+2025-09-08 15:11:57,759 - machine_control - ERROR - Failed to connect to PLC
+2025-09-08 15:11:57,759 - machine_control - ERROR - Error initializing PLC: Failed to initialize real PLC
+Traceback (most recent call last):
+  File "/home/albaraa/Projects/ald-control-system-phase-5/plc/manager.py", line 52, in initialize
+    self._plc = await PLCFactory.create_plc(plc_type, config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albaraa/Projects/ald-control-system-phase-5/plc/factory.py", line 49, in create_plc
+    raise RuntimeError(f"Failed to initialize {plc_type} PLC")
+RuntimeError: Failed to initialize real PLC
+2025-09-08 15:11:57,759 - machine_control - ERROR - ❌ Failed to connect to PLC
+2025-09-08 15:13:15,012 - machine_control - INFO - Starting machine control application
+2025-09-08 15:13:15,013 - machine_control - INFO - Initializing PLC of type real
+2025-09-08 15:13:15,013 - machine_control - INFO - Creating real PLC connection
+2025-09-08 15:13:15,013 - machine_control - INFO - Using byte order: badc
+2025-09-08 15:13:15,013 - machine_control - INFO - Connecting to real PLC at 10.5.5.80:502
+2025-09-08 15:13:18,016 - machine_control - ERROR - Failed to connect to PLC at 10.5.5.80:502 with slave ID 1
+2025-09-08 15:13:18,016 - machine_control - ERROR - Failed to connect to PLC
+2025-09-08 15:13:18,016 - machine_control - ERROR - Error initializing PLC: Failed to initialize real PLC
+Traceback (most recent call last):
+  File "/home/albaraa/Projects/ald-control-system-phase-5/plc/manager.py", line 52, in initialize
+    self._plc = await PLCFactory.create_plc(plc_type, config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albaraa/Projects/ald-control-system-phase-5/plc/factory.py", line 49, in create_plc
+    raise RuntimeError(f"Failed to initialize {plc_type} PLC")
+RuntimeError: Failed to initialize real PLC
+2025-09-08 15:13:18,017 - machine_control - INFO - Initializing async Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 15:13:18,017 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 15:13:18,046 - machine_control - INFO - Async Supabase client initialized successfully
+2025-09-08 15:13:18,046 - machine_control - INFO - Setting up command listener...
+2025-09-08 15:13:18,046 - machine_control - INFO - Subscribing to INSERT events on recipe_commands table...
+2025-09-08 15:13:19,033 - machine_control - INFO - Successfully subscribed to recipe_commands table
+2025-09-08 15:13:19,033 - machine_control - INFO - Checking for existing pending commands...
+2025-09-08 15:13:19,033 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 15:13:19,033 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 15:13:19,037 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 16:26:05,738 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 16:26:05,738 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 16:26:05,775 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 16:26:34,093 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 16:26:34,093 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 16:26:34,121 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 16:46:44,824 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 16:46:44,824 - machine_control - INFO - ================================================================================
+2025-09-08 16:46:44,824 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 16:46:44,824 - machine_control - INFO - --------------------------------------------------
+2025-09-08 16:46:44,824 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 16:46:44,824 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 16:46:44,824 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 16:46:44,858 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 16:46:46,056 - machine_control - ERROR - ❌ Database connectivity test failed: {'message': 'column machines.name does not exist', 'code': '42703', 'hint': None, 'details': None}
+2025-09-08 16:46:46,056 - machine_control - ERROR - ❌ Database Connectivity: FAILED
+2025-09-08 16:46:46,056 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 16:46:46,056 - machine_control - INFO - --------------------------------------------------
+2025-09-08 16:46:46,056 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 16:46:46,559 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 16:46:46,858 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 16:46:47,157 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 16:46:47,454 - machine_control - INFO - ✅ Table 'loop_step_config': 1 records found
+2025-09-08 16:46:47,751 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 16:46:48,262 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 16:46:48,262 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 16:46:48,263 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 16:46:48,263 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 16:46:48,263 - machine_control - INFO - --------------------------------------------------
+2025-09-08 16:46:48,263 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 16:46:48,789 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 16:46:48,790 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 16:46:48,790 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 16:46:48,790 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 16:46:48,790 - machine_control - INFO - --------------------------------------------------
+2025-09-08 16:46:48,790 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 16:46:49,074 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 16:46:49,074 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 16:46:49,358 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 16:46:49,358 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 16:46:49,641 - machine_control - INFO - ✅ Loop steps: 1 configurations found
+2025-09-08 16:46:49,641 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 16:46:49,641 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 16:46:49,641 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 16:46:49,641 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 16:46:49,641 - machine_control - INFO - --------------------------------------------------
+2025-09-08 16:46:49,642 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 16:46:50,048 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 16:46:50,048 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 16:46:50,048 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 16:46:50,357 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'invalid input syntax for type uuid: "test-execution-id"', 'code': '22P02', 'hint': None, 'details': None}
+2025-09-08 16:46:50,357 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 16:46:50,357 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 16:46:50,357 - machine_control - INFO - --------------------------------------------------
+2025-09-08 16:46:50,357 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 16:46:50,643 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 16:46:50,644 - machine_control - INFO -   📋 simple recipe -albaraa: chamber_temperature, pressure
+2025-09-08 16:46:50,644 - machine_control - INFO -   📋 my recipe: chamber_temperature
+2025-09-08 16:46:50,644 - machine_control - INFO -   📋 aaa: chamber_temperature, pressure
+2025-09-08 16:46:50,644 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 16:46:50,644 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 16:46:50,644 - machine_control - INFO - --------------------------------------------------
+2025-09-08 16:46:50,644 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 16:46:50,926 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 16:46:51,231 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 16:46:51,558 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 16:46:51,856 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 1/1 linked records
+2025-09-08 16:46:52,161 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 16:46:52,161 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 16:46:52,161 - machine_control - INFO - 
+================================================================================
+2025-09-08 16:46:52,161 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 16:46:52,161 - machine_control - INFO - ================================================================================
+2025-09-08 16:46:52,161 - machine_control - INFO -   Database Connectivity               ❌ FAIL
+2025-09-08 16:46:52,161 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 16:46:52,161 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 16:46:52,161 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 16:46:52,161 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 16:46:52,161 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 16:46:52,161 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 16:46:52,161 - machine_control - INFO - 
+🎯 Results: 5/7 tests passed
+2025-09-08 16:46:52,161 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 16:46:52,161 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing
+2025-09-08 17:12:40,243 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 17:12:40,243 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 17:12:40,272 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 17:12:40,272 - machine_control - INFO - Creating valid command flow scenario...
+2025-09-08 17:12:41,481 - machine_control - INFO - Inserted test command: 1785943a-2cb3-41ad-8790-41e96ffe28ca - start_recipe
+2025-09-08 17:12:41,988 - machine_control - INFO - Inserted test command: 409a3137-2678-4f1c-87b2-6802c0569e5d - start_recipe
+2025-09-08 17:12:42,264 - machine_control - INFO - Inserted test command: 501cac63-dcf4-4c55-9f5b-74f4e717ee64 - set_parameter
+2025-09-08 17:12:42,542 - machine_control - INFO - Inserted test command: c768fed0-f5c4-4db7-94c6-51c4336e0a49 - set_parameter
+2025-09-08 17:12:43,027 - machine_control - INFO - Inserted test command: 4ce81790-4b93-4ca8-946d-b8bcf119ed5f - stop_recipe
+2025-09-08 17:12:43,027 - machine_control - INFO - Creating error handling scenario...
+2025-09-08 17:12:43,337 - machine_control - INFO - Inserted test command: ad0046d6-2f38-42e3-963d-bfc7fe8da079 - start_recipe
+2025-09-08 17:12:43,642 - machine_control - INFO - Inserted test command: 52e2a96c-da8a-4447-a3ce-f91f1e34efd0 - set_parameter
+2025-09-08 17:12:43,924 - machine_control - ERROR - Error inserting command {'parameters': {'test': 'value'}, 'machine_id': 'e3e6e280-0794-459f-84d5-5e468f60746e', 'status': 'pending', 'id': '266bfa03-6df0-47bd-b64b-f9e7fe5a4301'}: {'message': 'null value in column "type" of relation "recipe_commands" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (null, {"test": "value"}, pending, 2025-09-08 14:12:43.827969+00, 2025-09-08 14:12:43.827969+00, null, null, e3e6e280-0794-459f-84d5-5e468f60746e, null, 266bfa03-6df0-47bd-b64b-f9e7fe5a4301).'}
+2025-09-08 17:12:44,202 - machine_control - INFO - Inserted test command: 4011c826-9fb9-4254-a805-74c24534e350 - invalid_command_type
+2025-09-08 17:12:44,688 - machine_control - INFO - Inserted test command: ea1d5c1f-2ca2-42e2-9865-e06ea1e43e77 - set_parameter
+2025-09-08 17:12:44,688 - machine_control - INFO - Creating priority queuing scenario...
+2025-09-08 17:12:44,963 - machine_control - INFO - Inserted test command: bd7c0c78-5111-40b0-8824-7df0d619f728 - set_parameter
+2025-09-08 17:12:45,251 - machine_control - INFO - Inserted test command: f4277ec0-1df0-43f8-a7e8-2ffdce99134e - stop_recipe
+2025-09-08 17:12:45,525 - machine_control - INFO - Inserted test command: cc42cf46-ad0c-40d0-83e5-3eeea4a461a5 - set_parameter
+2025-09-08 17:12:45,525 - machine_control - INFO - Creating high volume scenario...
+2025-09-08 17:12:45,827 - machine_control - INFO - Inserted test command: 10337522-e9fc-4aa6-b8dd-1433aa6f21fc - set_parameter
+2025-09-08 17:12:46,109 - machine_control - INFO - Inserted test command: 4bc9311a-1d8a-40ff-8fa3-be9b2b000264 - set_parameter
+2025-09-08 17:12:46,416 - machine_control - INFO - Inserted test command: 8f246d8c-48b7-405e-bea5-7101ddb88ab6 - set_parameter
+2025-09-08 17:12:46,702 - machine_control - INFO - Inserted test command: b5b2fefc-b069-4fa9-8e53-41869350454e - set_parameter
+2025-09-08 17:12:46,975 - machine_control - INFO - Inserted test command: 00e037c7-ef52-44b8-8f3e-397e807ff661 - set_parameter
+2025-09-08 17:12:47,256 - machine_control - INFO - Inserted test command: cd2b22f4-2fb5-4949-baac-7b2b7d1bf708 - set_parameter
+2025-09-08 17:12:47,536 - machine_control - INFO - Inserted test command: ea1d6287-29a9-4457-9e61-145f1a48836c - set_parameter
+2025-09-08 17:12:47,821 - machine_control - INFO - Inserted test command: 79049e92-1b88-4cad-9187-2158322070c0 - set_parameter
+2025-09-08 17:12:48,104 - machine_control - INFO - Inserted test command: 58ae421c-8238-4d67-bc12-c07f1f25f183 - set_parameter
+2025-09-08 17:12:48,375 - machine_control - INFO - Inserted test command: 8e39cb7a-74d6-4167-bdfb-fc9c62b8ca1e - set_parameter
+2025-09-08 17:15:24,882 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 17:15:24,882 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 17:15:24,915 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 17:15:24,915 - machine_control - INFO - Starting comprehensive step execution integration tests
+2025-09-08 17:15:24,915 - machine_control - INFO - Testing database schema integration
+2025-09-08 17:15:24,915 - machine_control - INFO - Testing step configuration loading logic
+2025-09-08 17:15:24,915 - machine_control - INFO - Testing process execution state integration
+2025-09-08 17:15:24,915 - machine_control - INFO - Testing backwards compatibility
+2025-09-08 17:15:24,915 - machine_control - INFO - Testing error handling scenarios
+2025-09-08 17:15:24,915 - machine_control - INFO - Testing performance considerations
+2025-09-08 17:16:45,918 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 17:16:45,918 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 17:16:45,946 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 17:16:45,946 - machine_control - INFO - Starting comprehensive database schema integration tests
+2025-09-08 17:16:45,946 - machine_control - INFO - Testing normalized schema structure
+2025-09-08 17:16:45,946 - machine_control - INFO - Testing step config relationships
+2025-09-08 17:16:45,946 - machine_control - INFO - Testing data migration integrity
+2025-09-08 17:16:45,946 - machine_control - INFO - Testing process execution state schema
+2025-09-08 17:16:45,946 - machine_control - INFO - Testing query performance
+2025-09-08 17:16:45,946 - machine_control - INFO - Testing constraint validation
+2025-09-08 17:18:06,250 - machine_control - INFO - Starting comprehensive error scenario integration tests
+2025-09-08 17:18:06,250 - machine_control - INFO - Testing missing configuration error scenarios
+2025-09-08 17:18:06,250 - machine_control - INFO - Testing invalid parameter validation
+2025-09-08 17:18:06,250 - machine_control - INFO - Testing database connectivity error scenarios
+2025-09-08 17:18:06,250 - machine_control - INFO - Testing edge case scenarios
+2025-09-08 17:18:06,250 - machine_control - INFO - Testing concurrent execution error scenarios
+2025-09-08 17:18:06,250 - machine_control - INFO - Testing recovery mechanisms
+2025-09-08 17:18:06,250 - machine_control - INFO - Testing data consistency scenarios
+2025-09-08 17:36:28,261 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 17:36:28,261 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 17:36:28,291 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 17:36:28,291 - machine_control - INFO - Starting comprehensive step execution integration tests
+2025-09-08 17:36:28,291 - machine_control - INFO - Testing database schema integration
+2025-09-08 17:36:28,291 - machine_control - INFO - Testing step configuration loading logic
+2025-09-08 17:36:28,291 - machine_control - INFO - Testing process execution state integration
+2025-09-08 17:36:28,291 - machine_control - INFO - Testing backwards compatibility
+2025-09-08 17:36:28,291 - machine_control - INFO - Testing error handling scenarios
+2025-09-08 17:36:28,291 - machine_control - INFO - Testing performance considerations
+2025-09-08 17:36:34,739 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 17:36:34,739 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 17:36:34,769 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 17:36:34,769 - machine_control - INFO - Validating all step configurations for recipe: ALL
+2025-09-08 17:36:35,956 - machine_control - INFO - Validating valve config for step 77db8c3f-821b-4998-a819-fc59e46a98ad
+2025-09-08 17:36:36,527 - machine_control - INFO - Validating backwards compatibility for step VALVE
+2025-09-08 17:36:36,527 - machine_control - INFO - Validating purge config for step b62b022c-bfca-4166-8b45-06b57ae6adb2
+2025-09-08 17:36:37,104 - machine_control - INFO - Validating backwards compatibility for step PURGE
+2025-09-08 17:36:37,104 - machine_control - INFO - Validating valve config for step 416e3a3d-1547-44f5-897d-77942bc66cbf
+2025-09-08 17:36:37,669 - machine_control - INFO - Validating backwards compatibility for step VALVE
+2025-09-08 17:36:37,669 - machine_control - INFO - Validating valve config for step a29b324c-6ac2-4650-8941-528087e58d77
+2025-09-08 17:36:38,242 - machine_control - INFO - Validating backwards compatibility for step Opening valve (Click to edit)
+2025-09-08 17:36:38,243 - machine_control - INFO - Validating valve config for step d2b66d6d-8562-454c-b801-dcdfa62c3377
+2025-09-08 17:36:38,793 - machine_control - INFO - Validating backwards compatibility for step VALVE
+2025-09-08 17:36:38,793 - machine_control - INFO - Validating valve config for step 478e1ed6-f655-4659-9232-abf517686f34
+2025-09-08 17:36:39,093 - machine_control - INFO - Validating backwards compatibility for step VALVE
+2025-09-08 17:36:39,093 - machine_control - INFO - Validating purge config for step c06fbd5c-4c14-4786-b619-abe1db3fbfb0
+2025-09-08 17:36:39,753 - machine_control - INFO - Validating backwards compatibility for step PURGE
+2025-09-08 17:36:39,753 - machine_control - INFO - Validating purge config for step 9c489280-05ae-4e40-80d9-717f0260842a
+2025-09-08 17:36:40,072 - machine_control - INFO - Validating backwards compatibility for step PURGE
+2025-09-08 17:36:40,073 - machine_control - INFO - Validating loop config for step 4a9f7130-12e5-4bee-b2ce-659511f7547b
+2025-09-08 17:36:40,382 - machine_control - INFO - Validating backwards compatibility for step LOOP
+2025-09-08 17:36:40,382 - machine_control - INFO - Validating valve config for step 75f7284a-e742-40f2-8afc-f9924faa8206
+2025-09-08 17:36:40,721 - machine_control - INFO - Validating backwards compatibility for step VALVE
+2025-09-08 17:36:40,721 - machine_control - INFO - Validating valve config for step 3a1c7145-a2c0-40e8-b78a-ff430c80fdf7
+2025-09-08 17:36:41,041 - machine_control - INFO - Validating backwards compatibility for step VALVE
+2025-09-08 17:36:41,041 - machine_control - INFO - Validating valve config for step 58f878e3-8f35-40d9-8d70-834e19c49dde
+2025-09-08 17:36:41,347 - machine_control - INFO - Validating backwards compatibility for step Initial Pump Down
+2025-09-08 17:36:41,347 - machine_control - INFO - Validating valve config for step bc63144b-e9a9-45e6-8fa9-b856112d1f8e
+2025-09-08 17:36:41,962 - machine_control - INFO - Validating backwards compatibility for step TMA Pulse
+2025-09-08 17:36:41,962 - machine_control - INFO - Validating purge config for step 18d15cc1-d4ef-4dc5-b9d8-4d081f1d8107
+2025-09-08 17:36:42,283 - machine_control - INFO - Validating backwards compatibility for step N2 Purge 1
+2025-09-08 17:36:42,283 - machine_control - INFO - Validating valve config for step cc44f385-945c-46d9-af49-e51a354a06bc
+2025-09-08 17:36:42,622 - machine_control - INFO - Validating backwards compatibility for step H2O Pulse
+2025-09-08 17:36:42,622 - machine_control - INFO - Validating purge config for step 16ef1d2e-f8a4-426c-8273-92b1c20bfa47
+2025-09-08 17:36:43,031 - machine_control - INFO - Validating backwards compatibility for step N2 Purge 2
+2025-09-08 17:36:43,031 - machine_control - INFO - Validating valve config for step 0fcdf7b0-cce5-4ddd-a9f7-d72c5c86a3b9
+2025-09-08 17:36:43,329 - machine_control - INFO - Validating backwards compatibility for step TMA Pulse (Cycle 2)
+2025-09-08 17:36:43,329 - machine_control - INFO - Validating purge config for step 3a44f636-109f-450d-96f3-36f16278b0d8
+2025-09-08 17:36:43,646 - machine_control - INFO - Validating backwards compatibility for step N2 Purge 3
+2025-09-08 17:36:43,646 - machine_control - INFO - Validating valve config for step 90e015a0-368a-42f7-bb8c-a20aaaa2c7f1
+2025-09-08 17:36:43,952 - machine_control - INFO - Validating backwards compatibility for step H2O Pulse (Cycle 2)
+2025-09-08 17:36:43,953 - machine_control - INFO - Validating purge config for step 40a670b0-108a-4239-94ce-a9290f7c0feb
+2025-09-08 17:36:44,264 - machine_control - INFO - Validating backwards compatibility for step N2 Purge 4
+2025-09-08 17:36:44,264 - machine_control - INFO - Validating valve config for step 813ea21a-b360-467e-bede-8176242cf31d
+2025-09-08 17:36:44,592 - machine_control - INFO - Validating backwards compatibility for step Vent
+2025-09-08 17:36:44,592 - machine_control - INFO - Validating valve config for step a563dbf4-de9c-41fd-b1c9-a179630745b8
+2025-09-08 17:36:44,899 - machine_control - INFO - Validating backwards compatibility for step Open Valve 1
+2025-09-08 17:36:44,899 - machine_control - INFO - Validating purge config for step a09b16d3-1de4-40dc-86a6-d4487b82a8dd
+2025-09-08 17:36:45,206 - machine_control - INFO - Validating backwards compatibility for step Purge Chamber
+2025-09-08 17:36:45,207 - machine_control - INFO - Validating loop config for step be7ea9dd-2e83-4259-a911-58c143d16b2c
+2025-09-08 17:36:45,773 - machine_control - INFO - Validating backwards compatibility for step Test Loop
+2025-09-08 17:36:45,773 - machine_control - INFO - Validating valve config for step c0fdcc2e-2cfe-4a99-b92b-56a4c7feede3
+2025-09-08 17:36:46,087 - machine_control - INFO - Validating backwards compatibility for step Open Valve 2 (Loop Child)
+2025-09-08 17:36:46,087 - machine_control - INFO - Validating purge config for step bcc26d7a-e4e5-4bb6-a422-d4986125b65a
+2025-09-08 17:36:46,405 - machine_control - INFO - Validating backwards compatibility for step Initial Chamber Purge
+2025-09-08 17:36:46,405 - machine_control - INFO - Validating valve config for step 8f699333-93b9-4a07-a744-12ebfdb042ed
+2025-09-08 17:36:46,804 - machine_control - INFO - Validating backwards compatibility for step Precursor A Valve
+2025-09-08 17:36:46,804 - machine_control - INFO - Validating loop config for step 40713116-5da6-4606-ab51-45d4832d535c
+2025-09-08 17:36:47,141 - machine_control - INFO - Validating backwards compatibility for step Main ALD Cycle Loop
+2025-09-08 17:36:47,141 - machine_control - INFO - Validating purge config for step 884000ad-74e3-45f4-8c76-6fb2f8473d1e
+2025-09-08 17:36:47,551 - machine_control - INFO - Validating backwards compatibility for step Final Chamber Clean
+2025-09-08 17:36:47,551 - machine_control - INFO - Validating loop config for step b5388422-bb02-40da-8d85-6d77a54f2e72
+2025-09-08 17:36:47,961 - machine_control - INFO - Validating backwards compatibility for step Precursor Pulse Loop
+2025-09-08 17:36:47,961 - machine_control - INFO - Validating valve config for step be0cc91f-cb2a-46cb-abe1-9691919ab7f6
+2025-09-08 17:36:48,382 - machine_control - INFO - Validating backwards compatibility for step Precursor B Valve
+2025-09-08 17:36:48,382 - machine_control - INFO - Validating purge config for step 4d61d76a-2b51-45f3-9f78-2267e21d080c
+2025-09-08 17:36:48,781 - machine_control - INFO - Validating backwards compatibility for step Purge After B
+2025-09-08 17:36:48,781 - machine_control - INFO - Validating valve config for step 0b680f91-6c05-4c9d-8217-c4e79a22234c
+2025-09-08 17:36:49,189 - machine_control - INFO - Validating backwards compatibility for step Reactant Valve
+2025-09-08 17:36:49,189 - machine_control - INFO - Validating purge config for step 08e15e73-af76-485c-925f-579adddffcba
+2025-09-08 17:36:49,505 - machine_control - INFO - Validating backwards compatibility for step Final Purge
+2025-09-08 17:36:49,506 - machine_control - INFO - Validating valve config for step a965436a-ee61-4734-a857-fdda3f85af2b
+2025-09-08 17:36:49,814 - machine_control - INFO - Validating backwards compatibility for step Initialize Chamber - Valve 1
+2025-09-08 17:36:49,814 - machine_control - INFO - Validating purge config for step b8d42e3b-a240-448d-b14e-d728d074c720
+2025-09-08 17:36:50,140 - machine_control - INFO - Validating backwards compatibility for step Purge with N2
+2025-09-08 17:36:50,140 - machine_control - INFO - Validating valve config for step 8e941294-3bc2-4493-98c2-64c74fa32ad1
+2025-09-08 17:36:50,470 - machine_control - INFO - Validating backwards compatibility for step Final Valve - Valve 2
+2025-09-08 17:36:50,471 - machine_control - INFO - Validating valve config for step dc734c52-4774-4216-b8d9-836d458a6004
+2025-09-08 17:36:50,786 - machine_control - INFO - Validating backwards compatibility for step Pre-cycle Valve
+2025-09-08 17:36:50,786 - machine_control - INFO - Validating loop config for step 72269620-a8d1-4930-9461-fdebeaaa31c6
+2025-09-08 17:36:51,092 - machine_control - INFO - Validating backwards compatibility for step Main Processing Loop
+2025-09-08 17:36:51,092 - machine_control - INFO - Validating purge config for step dad30900-3d3b-4b7c-aede-e7fc00a81a21
+2025-09-08 17:36:51,404 - machine_control - INFO - Validating backwards compatibility for step Post-cycle Purge
+2025-09-08 17:36:51,404 - machine_control - INFO - Validating valve config for step 5eba8c25-dddd-4c4a-ac85-51215d6f87e8
+2025-09-08 17:36:51,969 - machine_control - INFO - Validating backwards compatibility for step Loop Step 1 - Valve 2
+2025-09-08 17:36:51,969 - machine_control - INFO - Validating purge config for step 601bfe07-ab82-47cc-b0ed-e674bf621629
+2025-09-08 17:36:52,351 - machine_control - INFO - Validating backwards compatibility for step Loop Step 2 - Purge
+2025-09-08 17:36:52,351 - machine_control - INFO - Configuration validation complete: {'total_steps': 43, 'valid_configs': 42, 'missing_configs': 0, 'invalid_configs': 0, 'errors': 0}
+2025-09-08 17:38:21,727 - __main__ - INFO - 🧪 Starting Simple Integration Test
+2025-09-08 17:38:21,727 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 17:38:21,727 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 17:38:21,756 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 17:38:21,756 - __main__ - INFO - ✅ Supabase client initialized
+2025-09-08 17:38:21,757 - __main__ - INFO - 🔍 Testing recipe existence...
+2025-09-08 17:38:22,964 - __main__ - INFO - ✅ Simple recipe found: Integration Test Recipe - Simple
+2025-09-08 17:38:23,582 - __main__ - INFO - ✅ Complex recipe found: Integration Test Recipe - Complex
+2025-09-08 17:38:23,582 - __main__ - INFO - 🔍 Testing recipe steps...
+2025-09-08 17:38:24,210 - __main__ - INFO - ✅ Simple recipe has 3 steps
+2025-09-08 17:38:24,818 - __main__ - INFO - ✅ Complex recipe has 5 steps
+2025-09-08 17:38:24,818 - __main__ - INFO - 🔍 Testing step configurations...
+2025-09-08 17:38:26,691 - __main__ - INFO - ✅ Found 22 valve configurations
+2025-09-08 17:38:26,691 - __main__ - INFO - ✅ Found 15 purge configurations
+2025-09-08 17:38:26,691 - __main__ - INFO - ✅ Found 5 loop configurations
+2025-09-08 17:38:26,691 - __main__ - INFO - 🔍 Testing recipe parameters...
+2025-09-08 17:38:27,702 - __main__ - INFO - ✅ Simple recipe has 3 parameters
+2025-09-08 17:38:27,702 - __main__ - INFO - ✅ Complex recipe has 4 parameters
+2025-09-08 17:38:27,702 - __main__ - INFO - ==================================================
+2025-09-08 17:38:27,702 - __main__ - INFO - 🎉 SIMPLE INTEGRATION TEST RESULTS
+2025-09-08 17:38:27,702 - __main__ - INFO - ==================================================
+2025-09-08 17:38:27,702 - __main__ - INFO - ✅ Database connection: SUCCESS
+2025-09-08 17:38:27,702 - __main__ - INFO - ✅ Recipe creation: SUCCESS
+2025-09-08 17:38:27,702 - __main__ - INFO - ✅ Recipe steps: SUCCESS
+2025-09-08 17:38:27,702 - __main__ - INFO - ✅ Step configurations: SUCCESS
+2025-09-08 17:38:27,702 - __main__ - INFO - ✅ Recipe parameters: SUCCESS
+2025-09-08 17:38:27,702 - __main__ - INFO - ==================================================
+2025-09-08 17:38:27,702 - __main__ - INFO - 🚀 All basic integration tests PASSED!
+2025-09-08 17:39:44,533 - __main__ - INFO - 🧪 Starting Lightweight Recipe Test
+2025-09-08 17:39:44,533 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 17:39:44,533 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 17:39:44,560 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 17:39:44,560 - __main__ - INFO - 🔍 Testing comprehensive recipe loading...
+2025-09-08 17:39:45,705 - __main__ - ERROR - ❌ Lightweight recipe test failed: {'message': 'Could not find the function public.execute_sql(params, sql) in the schema cache', 'code': 'PGRST202', 'hint': None, 'details': 'Searched for the function public.execute_sql with parameters params, sql or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}
+2025-09-08 17:39:45,706 - __main__ - ERROR - Traceback: Traceback (most recent call last):
+  File "/home/albaraa/Projects/ald-control-system-phase-5/lightweight_recipe_test.py", line 58, in test_recipe_loading
+    }).execute()
+       ~~~~~~~^^
+  File "/home/albaraa/.local/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 126, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': 'Could not find the function public.execute_sql(params, sql) in the schema cache', 'code': 'PGRST202', 'hint': None, 'details': 'Searched for the function public.execute_sql with parameters params, sql or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}
+
+2025-09-08 17:40:25,408 - __main__ - INFO - 🧪 Starting Lightweight Recipe Test
+2025-09-08 17:40:25,408 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 17:40:25,408 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 17:40:25,435 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 17:40:25,435 - __main__ - INFO - 🔍 Testing comprehensive recipe loading...
+2025-09-08 17:40:28,301 - __main__ - INFO - ✅ Simple recipe loaded: Integration Test Recipe - Simple
+2025-09-08 17:40:28,301 - __main__ - INFO - ✅ Recipe structure: Integration Test Recipe - Simple
+2025-09-08 17:40:28,301 - __main__ - INFO -    - 3 steps total
+2025-09-08 17:40:28,301 - __main__ - INFO -    - Step types: ['valve', 'purge', 'valve']
+2025-09-08 17:40:28,301 - __main__ - INFO -    - Expected: ['valve', 'purge', 'valve']
+2025-09-08 17:40:28,301 - __main__ - INFO - ✅ Simple recipe step types match expected
+2025-09-08 17:40:28,302 - __main__ - INFO - 🔍 Testing complex recipe with loop...
+2025-09-08 17:40:29,042 - __main__ - INFO - ✅ Complex recipe loaded with 5 steps
+2025-09-08 17:40:29,042 - __main__ - INFO -    - Loop steps: 1
+2025-09-08 17:40:29,042 - __main__ - INFO -    - Child steps: 2
+2025-09-08 17:40:29,377 - __main__ - INFO -    - Loop iteration count: 3
+2025-09-08 17:40:29,377 - __main__ - INFO - ✅ Complex recipe loop structure validated
+2025-09-08 17:40:29,377 - __main__ - INFO - 🔍 Testing recipe parameters...
+2025-09-08 17:40:29,786 - __main__ - INFO - ✅ Simple recipe parameters: {'chamber_pressure': 100.0, 'base_temperature': 25.0, 'flow_rate_multiplier': 1.0}
+2025-09-08 17:40:29,786 - __main__ - INFO - ✅ Simple recipe parameters match expected
+2025-09-08 17:40:29,786 - __main__ - INFO - ============================================================
+2025-09-08 17:40:29,786 - __main__ - INFO - 🏁 LIGHTWEIGHT RECIPE TEST RESULTS
+2025-09-08 17:40:29,786 - __main__ - INFO - ============================================================
+2025-09-08 17:40:29,786 - __main__ - INFO - ✅ Database connection: SUCCESS
+2025-09-08 17:40:29,786 - __main__ - INFO - ✅ Recipe loading: SUCCESS
+2025-09-08 17:40:29,786 - __main__ - INFO - ✅ Step configuration loading: SUCCESS
+2025-09-08 17:40:29,786 - __main__ - INFO - ✅ Loop structure validation: SUCCESS
+2025-09-08 17:40:29,786 - __main__ - INFO - ✅ Parameter loading: SUCCESS
+2025-09-08 17:40:29,786 - __main__ - INFO - ============================================================
+2025-09-08 17:40:29,786 - __main__ - INFO - 🚀 Recipe integration test PASSED!
+2025-09-08 17:48:13,719 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 17:48:13,720 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 17:48:13,810 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 17:48:13,810 - machine_control - INFO - 🚀 Starting comprehensive integration validation
+2025-09-08 17:48:13,810 - machine_control - INFO - 📋 Running: Database Connectivity
+2025-09-08 17:48:13,810 - machine_control - INFO - 🔗 Testing database connectivity
+2025-09-08 17:48:17,252 - machine_control - INFO - ✅ Database Connectivity: PASSED
+2025-09-08 17:48:17,252 - machine_control - INFO - 📋 Running: Recipe Data Validation
+2025-09-08 17:48:17,252 - machine_control - INFO - 🧪 Validating recipe data
+2025-09-08 17:48:23,056 - machine_control - INFO - ✅ Recipe Data Validation: PASSED
+2025-09-08 17:48:23,056 - machine_control - INFO - 📋 Running: Step Configuration Validation
+2025-09-08 17:48:23,056 - machine_control - INFO - ⚙️ Validating step configurations
+2025-09-08 17:48:28,699 - machine_control - INFO - ❌ Step Configuration Validation: FAILED
+2025-09-08 17:48:28,699 - machine_control - INFO - 📋 Running: Command System Integration
+2025-09-08 17:48:28,699 - machine_control - INFO - 🔄 Validating command system
+2025-09-08 17:48:29,433 - machine_control - WARNING - Test command creation failed: {'message': 'null value in column "id" of relation "recipe_commands" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (test_validation, {"test": "integration_validation"}, pending, 2025-09-08 14:48:29.279185+00, 2025-09-08 14:48:29.279185+00, null, null, e3e6e280-0794-459f-84d5-5e468f60746e, null, null).'}
+2025-09-08 17:48:29,434 - machine_control - INFO - ❌ Command System Integration: FAILED
+2025-09-08 17:48:29,434 - machine_control - INFO - 📋 Running: Process Execution Structure
+2025-09-08 17:48:29,434 - machine_control - INFO - 🎯 Validating process execution structure
+2025-09-08 17:48:29,826 - machine_control - INFO - ❌ Process Execution Structure: FAILED
+2025-09-08 17:48:29,826 - machine_control - INFO - 📋 Running: Data Consistency Checks
+2025-09-08 17:48:29,826 - machine_control - INFO - 🔒 Validating data consistency
+2025-09-08 17:48:34,206 - machine_control - INFO - ✅ Data Consistency Checks: PASSED
+2025-09-08 17:48:34,207 - machine_control - INFO - 📊 Validation results saved to integration_validation_results_1757342914.json
+2025-09-08 17:50:24,870 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 17:50:24,870 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 17:50:24,898 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 17:50:24,898 - machine_control - INFO - ⚡ Starting performance and load testing
+2025-09-08 17:50:24,898 - machine_control - INFO - 📊 Running: Query Response Times
+2025-09-08 17:50:24,898 - machine_control - INFO - ⏱️ Testing query response times
+2025-09-08 17:50:31,594 - machine_control - INFO - ✅ Query Response Times: PASSED (6.70s)
+2025-09-08 17:50:31,594 - machine_control - INFO - 📊 Running: Complex Join Performance
+2025-09-08 17:50:31,594 - machine_control - INFO - 🔗 Testing complex join performance
+2025-09-08 17:50:31,921 - machine_control - INFO - ✅ Complex Join Performance: PASSED (0.33s)
+2025-09-08 17:50:31,921 - machine_control - INFO - 📊 Running: Concurrent Access Simulation
+2025-09-08 17:50:31,921 - machine_control - INFO - 🔀 Testing concurrent access patterns
+2025-09-08 17:50:33,959 - machine_control - INFO - ✅ Concurrent Access Simulation: PASSED (2.04s)
+2025-09-08 17:50:33,959 - machine_control - INFO - 📊 Running: Large Dataset Queries
+2025-09-08 17:50:33,959 - machine_control - INFO - 📊 Testing large dataset queries
+2025-09-08 17:50:35,267 - machine_control - INFO - ✅ Large Dataset Queries: PASSED (1.31s)
+2025-09-08 17:50:35,267 - machine_control - INFO - 📊 Running: Insert Performance
+2025-09-08 17:50:35,268 - machine_control - INFO - ➕ Testing insert performance
+2025-09-08 17:50:35,632 - machine_control - WARNING - Insert test 0 failed: {'message': 'null value in column "id" of relation "recipe_commands" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (performance_test_0, {"test_id": 0, "timestamp": "2025-09-08T17:50:35.268032"}, pending, 2025-09-08 14:50:35.449598+00, 2025-09-08 14:50:35.449598+00, null, null, e3e6e280-0794-459f-84d5-5e468f60746e, null, null).'}
+2025-09-08 17:50:36,235 - machine_control - WARNING - Insert test 1 failed: {'message': 'null value in column "id" of relation "recipe_commands" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (performance_test_1, {"test_id": 1, "timestamp": "2025-09-08T17:50:35.268038"}, pending, 2025-09-08 14:50:36.088545+00, 2025-09-08 14:50:36.088545+00, null, null, e3e6e280-0794-459f-84d5-5e468f60746e, null, null).'}
+2025-09-08 17:50:36,563 - machine_control - WARNING - Insert test 2 failed: {'message': 'null value in column "id" of relation "recipe_commands" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (performance_test_2, {"test_id": 2, "timestamp": "2025-09-08T17:50:35.268040"}, pending, 2025-09-08 14:50:36.409222+00, 2025-09-08 14:50:36.409222+00, null, null, e3e6e280-0794-459f-84d5-5e468f60746e, null, null).'}
+2025-09-08 17:50:36,875 - machine_control - WARNING - Insert test 3 failed: {'message': 'null value in column "id" of relation "recipe_commands" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (performance_test_3, {"test_id": 3, "timestamp": "2025-09-08T17:50:35.268041"}, pending, 2025-09-08 14:50:36.731504+00, 2025-09-08 14:50:36.731504+00, null, null, e3e6e280-0794-459f-84d5-5e468f60746e, null, null).'}
+2025-09-08 17:50:37,210 - machine_control - WARNING - Insert test 4 failed: {'message': 'null value in column "id" of relation "recipe_commands" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (performance_test_4, {"test_id": 4, "timestamp": "2025-09-08T17:50:35.268042"}, pending, 2025-09-08 14:50:37.071358+00, 2025-09-08 14:50:37.071358+00, null, null, e3e6e280-0794-459f-84d5-5e468f60746e, null, null).'}
+2025-09-08 17:50:37,210 - machine_control - INFO - ⚠️ Insert Performance: FAILED (1.94s)
+2025-09-08 17:50:37,211 - machine_control - INFO - 📊 Running: Update Performance
+2025-09-08 17:50:37,211 - machine_control - INFO - ✏️ Testing update performance
+2025-09-08 17:50:37,629 - machine_control - INFO - ⚠️ Update Performance: FAILED (0.42s)
+2025-09-08 17:50:37,629 - machine_control - INFO - 📊 Running: Database Connection Load
+2025-09-08 17:50:37,629 - machine_control - INFO - 🔗 Testing database connection load
+2025-09-08 17:50:41,631 - machine_control - INFO - ✅ Database Connection Load: PASSED (4.00s)
+2025-09-08 17:50:41,632 - machine_control - INFO - 📊 Performance test results saved to performance_test_results_1757343041.json
+2025-09-08 19:13:28,534 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 19:13:28,534 - machine_control - INFO - ================================================================================
+2025-09-08 19:13:28,534 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 19:13:28,534 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:13:28,534 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 19:13:28,534 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 19:13:28,534 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 19:13:28,565 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 19:13:29,786 - machine_control - ERROR - ❌ Database connectivity test failed: {'message': 'column machines.name does not exist', 'code': '42703', 'hint': None, 'details': None}
+2025-09-08 19:13:29,786 - machine_control - ERROR - ❌ Database Connectivity: FAILED
+2025-09-08 19:13:29,787 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 19:13:29,787 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:13:29,787 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 19:13:30,413 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 19:13:30,996 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 19:13:31,313 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 19:13:31,712 - machine_control - INFO - ✅ Table 'loop_step_config': 5 records found
+2025-09-08 19:13:32,049 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 19:13:32,615 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 19:13:32,615 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 19:13:32,615 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 19:13:32,615 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 19:13:32,615 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:13:32,615 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 19:13:33,188 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 19:13:33,188 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 19:13:33,188 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 19:13:33,188 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 19:13:33,188 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:13:33,188 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 19:13:33,511 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 19:13:33,511 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 19:13:34,073 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 19:13:34,073 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 19:13:34,658 - machine_control - INFO - ✅ Loop steps: 5 configurations found
+2025-09-08 19:13:34,658 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 19:13:34,658 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 19:13:34,658 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 19:13:34,658 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 19:13:34,658 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:13:34,658 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 19:13:34,993 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 19:13:34,993 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 19:13:34,993 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 19:13:35,588 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'invalid input syntax for type uuid: "test-execution-id"', 'code': '22P02', 'hint': None, 'details': None}
+2025-09-08 19:13:35,588 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 19:13:35,589 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 19:13:35,589 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:13:35,589 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 19:13:35,903 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 19:13:35,903 - machine_control - INFO -   📋 hello: chamber_temperature, pressure
+2025-09-08 19:13:35,903 - machine_control - INFO -   📋 simple recipe -albaraa: chamber_temperature, pressure
+2025-09-08 19:13:35,903 - machine_control - INFO -   📋 valve on/off recipe: chamber_temperature
+2025-09-08 19:13:35,903 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 19:13:35,903 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 19:13:35,903 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:13:35,903 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 19:13:36,239 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 19:13:36,565 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:13:36,879 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:13:37,197 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:13:37,505 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 19:13:37,505 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 19:13:37,505 - machine_control - INFO - 
+================================================================================
+2025-09-08 19:13:37,505 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 19:13:37,505 - machine_control - INFO - ================================================================================
+2025-09-08 19:13:37,505 - machine_control - INFO -   Database Connectivity               ❌ FAIL
+2025-09-08 19:13:37,505 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 19:13:37,505 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 19:13:37,505 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 19:13:37,505 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 19:13:37,505 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 19:13:37,505 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 19:13:37,505 - machine_control - INFO - 
+🎯 Results: 5/7 tests passed
+2025-09-08 19:13:37,505 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 19:13:37,505 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing
+2025-09-08 19:16:46,057 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 19:16:46,058 - machine_control - INFO - ================================================================================
+2025-09-08 19:16:46,058 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 19:16:46,058 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:16:46,058 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 19:16:46,058 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 19:16:46,058 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 19:16:46,148 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 19:16:47,353 - machine_control - INFO - ✅ Connected to database - Machine: MACHINE-001 (Status: idle)
+2025-09-08 19:16:47,353 - machine_control - INFO - ✅ Database Connectivity: PASSED
+2025-09-08 19:16:47,353 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 19:16:47,354 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:16:47,354 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 19:16:47,973 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 19:16:48,546 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 19:16:49,111 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 19:16:49,451 - machine_control - INFO - ✅ Table 'loop_step_config': 5 records found
+2025-09-08 19:16:50,059 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 19:16:50,391 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 19:16:50,391 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 19:16:50,391 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 19:16:50,391 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 19:16:50,391 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:16:50,391 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 19:16:50,962 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 19:16:50,962 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 19:16:50,962 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 19:16:50,962 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 19:16:50,962 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:16:50,962 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 19:16:51,287 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 19:16:51,287 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 19:16:51,948 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 19:16:51,949 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 19:16:52,567 - machine_control - INFO - ✅ Loop steps: 5 configurations found
+2025-09-08 19:16:52,567 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 19:16:52,567 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 19:16:52,567 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 19:16:52,568 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 19:16:52,568 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:16:52,568 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 19:16:53,177 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 19:16:53,177 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 19:16:53,177 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 19:16:53,555 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'insert or update on table "process_execution_state" violates foreign key constraint "process_execution_state_execution_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (execution_id)=(6687403e-3fcf-4c94-a634-36ad3311ba77) is not present in table "process_executions".'}
+2025-09-08 19:16:53,555 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 19:16:53,555 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 19:16:53,555 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:16:53,555 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 19:16:53,959 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 19:16:53,959 - machine_control - INFO -   📋 simple recipe -albaraa: chamber_temperature, pressure
+2025-09-08 19:16:53,959 - machine_control - INFO -   📋 valve on/off recipe: chamber_temperature
+2025-09-08 19:16:53,959 - machine_control - INFO -   📋 second recipe: chamber_temperature, pressure
+2025-09-08 19:16:53,959 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 19:16:53,959 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 19:16:53,959 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:16:53,959 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 19:16:54,419 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 19:16:54,761 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:16:55,204 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:16:55,846 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:16:56,516 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 19:16:56,517 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 19:16:56,517 - machine_control - INFO - 
+================================================================================
+2025-09-08 19:16:56,517 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 19:16:56,517 - machine_control - INFO - ================================================================================
+2025-09-08 19:16:56,517 - machine_control - INFO -   Database Connectivity               ✅ PASS
+2025-09-08 19:16:56,517 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 19:16:56,517 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 19:16:56,517 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 19:16:56,517 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 19:16:56,517 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 19:16:56,517 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 19:16:56,517 - machine_control - INFO - 
+🎯 Results: 6/7 tests passed
+2025-09-08 19:16:56,517 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 19:16:56,517 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing
+2025-09-08 19:17:36,014 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 19:17:36,015 - machine_control - INFO - ================================================================================
+2025-09-08 19:17:36,015 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 19:17:36,015 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:17:36,015 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 19:17:36,015 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 19:17:36,015 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 19:17:36,097 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 19:17:37,256 - machine_control - INFO - ✅ Connected to database - Machine: MACHINE-001 (Status: idle)
+2025-09-08 19:17:37,256 - machine_control - INFO - ✅ Database Connectivity: PASSED
+2025-09-08 19:17:37,256 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 19:17:37,256 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:17:37,256 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 19:17:37,602 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 19:17:38,170 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 19:17:38,801 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 19:17:39,124 - machine_control - INFO - ✅ Table 'loop_step_config': 5 records found
+2025-09-08 19:17:39,467 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 19:17:40,103 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 19:17:40,103 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 19:17:40,103 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 19:17:40,103 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 19:17:40,103 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:17:40,103 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 19:17:40,428 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 19:17:40,429 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 19:17:40,429 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 19:17:40,429 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 19:17:40,429 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:17:40,429 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 19:17:40,770 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 19:17:40,771 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 19:17:41,365 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 19:17:41,365 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 19:17:41,976 - machine_control - INFO - ✅ Loop steps: 5 configurations found
+2025-09-08 19:17:41,976 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 19:17:41,976 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 19:17:41,976 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 19:17:41,976 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 19:17:41,976 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:17:41,976 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 19:17:42,572 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 19:17:42,572 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 19:17:42,572 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 19:17:43,926 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'invalid input value for enum process_status: "testing"', 'code': '22P02', 'hint': None, 'details': None}
+2025-09-08 19:17:43,927 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 19:17:43,927 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 19:17:43,927 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:17:43,927 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 19:17:44,514 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 19:17:44,514 - machine_control - INFO -   📋 aaa: chamber_temperature, pressure
+2025-09-08 19:17:44,514 - machine_control - INFO -   📋 second recipe: chamber_temperature, pressure
+2025-09-08 19:17:44,514 - machine_control - INFO -   📋 simple recipe -albaraa: chamber_temperature, pressure
+2025-09-08 19:17:44,514 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 19:17:44,514 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 19:17:44,514 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:17:44,514 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 19:17:45,154 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 19:17:45,818 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:17:46,220 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:17:46,620 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:17:46,996 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 19:17:46,997 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 19:17:46,997 - machine_control - INFO - 
+================================================================================
+2025-09-08 19:17:46,997 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 19:17:46,997 - machine_control - INFO - ================================================================================
+2025-09-08 19:17:46,997 - machine_control - INFO -   Database Connectivity               ✅ PASS
+2025-09-08 19:17:46,997 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 19:17:46,997 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 19:17:46,997 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 19:17:46,997 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 19:17:46,997 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 19:17:46,997 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 19:17:46,997 - machine_control - INFO - 
+🎯 Results: 6/7 tests passed
+2025-09-08 19:17:46,997 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 19:17:46,997 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing
+2025-09-08 19:19:17,046 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 19:19:17,046 - machine_control - INFO - ================================================================================
+2025-09-08 19:19:17,046 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 19:19:17,046 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:19:17,046 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 19:19:17,046 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 19:19:17,046 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 19:19:17,103 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 19:19:18,097 - machine_control - INFO - ✅ Connected to database - Machine: MACHINE-001 (Status: idle)
+2025-09-08 19:19:18,097 - machine_control - INFO - ✅ Database Connectivity: PASSED
+2025-09-08 19:19:18,098 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 19:19:18,098 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:19:18,098 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 19:19:18,453 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 19:19:18,798 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 19:19:19,139 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 19:19:19,495 - machine_control - INFO - ✅ Table 'loop_step_config': 5 records found
+2025-09-08 19:19:20,094 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 19:19:20,425 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 19:19:20,425 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 19:19:20,425 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 19:19:20,425 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 19:19:20,425 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:19:20,425 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 19:19:20,767 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 19:19:20,768 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 19:19:20,768 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 19:19:20,768 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 19:19:20,768 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:19:20,768 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 19:19:21,123 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 19:19:21,123 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 19:19:21,528 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 19:19:21,528 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 19:19:21,852 - machine_control - INFO - ✅ Loop steps: 5 configurations found
+2025-09-08 19:19:21,852 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 19:19:21,852 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 19:19:21,852 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 19:19:21,852 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 19:19:21,852 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:19:21,852 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 19:19:22,184 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 19:19:22,185 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 19:19:22,185 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 19:19:23,708 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'invalid input value for enum process_status: "testing"', 'code': '22P02', 'hint': None, 'details': None}
+2025-09-08 19:19:23,708 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 19:19:23,708 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 19:19:23,708 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:19:23,708 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 19:19:24,074 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 19:19:24,074 - machine_control - INFO -   📋 aaa: chamber_temperature, pressure
+2025-09-08 19:19:24,074 - machine_control - INFO -   📋 simple recipe -albaraa: chamber_temperature, pressure
+2025-09-08 19:19:24,074 - machine_control - INFO -   📋 valve on/off recipe: chamber_temperature
+2025-09-08 19:19:24,074 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 19:19:24,074 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 19:19:24,074 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:19:24,074 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 19:19:24,417 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 19:19:25,514 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:19:26,016 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:19:26,432 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:19:26,810 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 19:19:26,810 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 19:19:26,810 - machine_control - INFO - 
+================================================================================
+2025-09-08 19:19:26,810 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 19:19:26,810 - machine_control - INFO - ================================================================================
+2025-09-08 19:19:26,810 - machine_control - INFO -   Database Connectivity               ✅ PASS
+2025-09-08 19:19:26,810 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 19:19:26,810 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 19:19:26,810 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 19:19:26,810 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 19:19:26,810 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 19:19:26,810 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 19:19:26,810 - machine_control - INFO - 
+🎯 Results: 6/7 tests passed
+2025-09-08 19:19:26,810 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 19:19:26,810 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing
+2025-09-08 19:20:24,138 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 19:20:24,138 - machine_control - INFO - ================================================================================
+2025-09-08 19:20:24,138 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 19:20:24,138 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:20:24,138 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 19:20:24,138 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 19:20:24,138 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 19:20:24,168 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 19:20:25,300 - machine_control - INFO - ✅ Connected to database - Machine: MACHINE-001 (Status: idle)
+2025-09-08 19:20:25,300 - machine_control - INFO - ✅ Database Connectivity: PASSED
+2025-09-08 19:20:25,300 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 19:20:25,300 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:20:25,300 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 19:20:25,897 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 19:20:26,481 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 19:20:26,836 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 19:20:27,417 - machine_control - INFO - ✅ Table 'loop_step_config': 5 records found
+2025-09-08 19:20:27,994 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 19:20:28,371 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 19:20:28,371 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 19:20:28,371 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 19:20:28,371 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 19:20:28,371 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:20:28,371 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 19:20:28,975 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 19:20:28,975 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 19:20:28,975 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 19:20:28,975 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 19:20:28,975 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:20:28,975 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 19:20:29,577 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 19:20:29,578 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 19:20:29,906 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 19:20:29,906 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 19:20:30,521 - machine_control - INFO - ✅ Loop steps: 5 configurations found
+2025-09-08 19:20:30,521 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 19:20:30,521 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 19:20:30,521 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 19:20:30,521 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 19:20:30,521 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:20:30,521 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 19:20:31,128 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 19:20:31,128 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 19:20:31,128 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 19:20:32,430 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'null value in column "session_id" of relation "process_executions" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (6fa51d17-42d3-47b3-a147-fea52fd55f66, null, e3e6e280-0794-459f-84d5-5e468f60746e, 123e4567-e89b-12d3-a456-426614174000, {"name": "Test Recipe", "steps": []}, 2025-09-08 16:20:31.594748+00, null, null, completed, null, null, 2025-09-08 16:20:31.594748+00, 2025-09-08 16:20:31.594748+00, null).'}
+2025-09-08 19:20:32,430 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 19:20:32,430 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 19:20:32,430 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:20:32,430 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 19:20:32,773 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 19:20:32,773 - machine_control - INFO -   📋 hello: chamber_temperature, pressure
+2025-09-08 19:20:32,773 - machine_control - INFO -   📋 aaa: chamber_temperature, pressure
+2025-09-08 19:20:32,773 - machine_control - INFO -   📋 second recipe: chamber_temperature, pressure
+2025-09-08 19:20:32,773 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 19:20:32,773 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 19:20:32,773 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:20:32,773 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 19:20:33,113 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 19:20:33,445 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:20:33,774 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:20:34,107 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:20:34,428 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 19:20:34,428 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 19:20:34,429 - machine_control - INFO - 
+================================================================================
+2025-09-08 19:20:34,429 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 19:20:34,429 - machine_control - INFO - ================================================================================
+2025-09-08 19:20:34,429 - machine_control - INFO -   Database Connectivity               ✅ PASS
+2025-09-08 19:20:34,429 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 19:20:34,429 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 19:20:34,429 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 19:20:34,429 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 19:20:34,429 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 19:20:34,429 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 19:20:34,429 - machine_control - INFO - 
+🎯 Results: 6/7 tests passed
+2025-09-08 19:20:34,429 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 19:20:34,429 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing
+2025-09-08 19:22:33,097 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 19:22:33,097 - machine_control - INFO - ================================================================================
+2025-09-08 19:22:33,097 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 19:22:33,097 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:22:33,097 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 19:22:33,097 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 19:22:33,097 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 19:22:33,130 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 19:22:34,514 - machine_control - INFO - ✅ Connected to database - Machine: MACHINE-001 (Status: idle)
+2025-09-08 19:22:34,514 - machine_control - INFO - ✅ Database Connectivity: PASSED
+2025-09-08 19:22:34,514 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 19:22:34,514 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:22:34,514 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 19:22:34,865 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 19:22:35,229 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 19:22:35,638 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 19:22:36,049 - machine_control - INFO - ✅ Table 'loop_step_config': 5 records found
+2025-09-08 19:22:36,458 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 19:22:36,867 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 19:22:36,867 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 19:22:36,867 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 19:22:36,868 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 19:22:36,868 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:22:36,868 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 19:22:37,201 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 19:22:37,201 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 19:22:37,202 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 19:22:37,202 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 19:22:37,202 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:22:37,202 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 19:22:37,537 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 19:22:37,538 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 19:22:37,890 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 19:22:37,890 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 19:22:38,403 - machine_control - INFO - ✅ Loop steps: 5 configurations found
+2025-09-08 19:22:38,403 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 19:22:38,403 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 19:22:38,403 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 19:22:38,403 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 19:22:38,403 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:22:38,403 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 19:22:38,758 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 19:22:38,758 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 19:22:38,758 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 19:22:39,868 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'null value in column "operator_id" of relation "process_executions" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (43584f51-747b-46d6-8d38-68b66efef8cf, 2621ddbb-07cd-4f46-9d32-17103be97060, e3e6e280-0794-459f-84d5-5e468f60746e, 123e4567-e89b-12d3-a456-426614174000, {"name": "Test Recipe", "steps": []}, 2025-09-08 16:22:38.966528+00, null, null, completed, null, null, 2025-09-08 16:22:38.966528+00, 2025-09-08 16:22:38.966528+00, null).'}
+2025-09-08 19:22:39,868 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 19:22:39,869 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 19:22:39,869 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:22:39,869 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 19:22:40,228 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 19:22:40,228 - machine_control - INFO -   📋 hello: chamber_temperature, pressure
+2025-09-08 19:22:40,228 - machine_control - INFO -   📋 simple recipe -albaraa: chamber_temperature, pressure
+2025-09-08 19:22:40,229 - machine_control - INFO -   📋 aaa: chamber_temperature, pressure
+2025-09-08 19:22:40,229 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 19:22:40,229 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 19:22:40,229 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:22:40,229 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 19:22:40,594 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 19:22:40,976 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:22:41,374 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:22:41,781 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:22:42,146 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 19:22:42,147 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 19:22:42,147 - machine_control - INFO - 
+================================================================================
+2025-09-08 19:22:42,147 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 19:22:42,147 - machine_control - INFO - ================================================================================
+2025-09-08 19:22:42,147 - machine_control - INFO -   Database Connectivity               ✅ PASS
+2025-09-08 19:22:42,147 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 19:22:42,147 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 19:22:42,147 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 19:22:42,147 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 19:22:42,147 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 19:22:42,147 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 19:22:42,147 - machine_control - INFO - 
+🎯 Results: 6/7 tests passed
+2025-09-08 19:22:42,147 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 19:22:42,147 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing
+2025-09-08 19:23:23,985 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 19:23:23,985 - machine_control - INFO - ================================================================================
+2025-09-08 19:23:23,985 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 19:23:23,985 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:23:23,985 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 19:23:23,985 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 19:23:23,985 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 19:23:24,013 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 19:23:25,048 - machine_control - INFO - ✅ Connected to database - Machine: MACHINE-001 (Status: idle)
+2025-09-08 19:23:25,048 - machine_control - INFO - ✅ Database Connectivity: PASSED
+2025-09-08 19:23:25,048 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 19:23:25,048 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:23:25,048 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 19:23:25,425 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 19:23:25,790 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 19:23:26,142 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 19:23:26,487 - machine_control - INFO - ✅ Table 'loop_step_config': 5 records found
+2025-09-08 19:23:26,935 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 19:23:27,298 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 19:23:27,298 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 19:23:27,298 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 19:23:27,298 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 19:23:27,298 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:23:27,298 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 19:23:27,649 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 19:23:27,649 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 19:23:27,649 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 19:23:27,649 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 19:23:27,649 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:23:27,649 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 19:23:28,258 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 19:23:28,258 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 19:23:28,644 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 19:23:28,644 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 19:23:28,991 - machine_control - INFO - ✅ Loop steps: 5 configurations found
+2025-09-08 19:23:28,992 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 19:23:28,992 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 19:23:28,992 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 19:23:28,992 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 19:23:28,992 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:23:28,992 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 19:23:29,333 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 19:23:29,333 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 19:23:29,333 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 19:23:30,372 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'invalid input syntax for type uuid: "1"', 'code': '22P02', 'hint': None, 'details': None}
+2025-09-08 19:23:30,372 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 19:23:30,372 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 19:23:30,372 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:23:30,372 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 19:23:30,726 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 19:23:30,726 - machine_control - INFO -   📋 simple recipe -albaraa: chamber_temperature, pressure
+2025-09-08 19:23:30,727 - machine_control - INFO -   📋 hello: chamber_temperature, pressure
+2025-09-08 19:23:30,727 - machine_control - INFO -   📋 my recipe: chamber_temperature
+2025-09-08 19:23:30,727 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 19:23:30,727 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 19:23:30,727 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:23:30,727 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 19:23:31,080 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 19:23:31,447 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:23:31,792 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:23:32,260 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:23:32,669 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 19:23:32,669 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 19:23:32,669 - machine_control - INFO - 
+================================================================================
+2025-09-08 19:23:32,669 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 19:23:32,669 - machine_control - INFO - ================================================================================
+2025-09-08 19:23:32,669 - machine_control - INFO -   Database Connectivity               ✅ PASS
+2025-09-08 19:23:32,669 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 19:23:32,669 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 19:23:32,669 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 19:23:32,669 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 19:23:32,669 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 19:23:32,669 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 19:23:32,670 - machine_control - INFO - 
+🎯 Results: 6/7 tests passed
+2025-09-08 19:23:32,670 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 19:23:32,670 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing
+2025-09-08 19:24:01,681 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 19:24:01,681 - machine_control - INFO - ================================================================================
+2025-09-08 19:24:01,681 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 19:24:01,681 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:24:01,681 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 19:24:01,681 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 19:24:01,681 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 19:24:01,713 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 19:24:02,659 - machine_control - INFO - ✅ Connected to database - Machine: MACHINE-001 (Status: idle)
+2025-09-08 19:24:02,659 - machine_control - INFO - ✅ Database Connectivity: PASSED
+2025-09-08 19:24:02,659 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 19:24:02,659 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:24:02,659 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 19:24:03,013 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 19:24:03,447 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 19:24:04,067 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 19:24:04,427 - machine_control - INFO - ✅ Table 'loop_step_config': 5 records found
+2025-09-08 19:24:04,770 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 19:24:05,177 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 19:24:05,177 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 19:24:05,177 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 19:24:05,177 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 19:24:05,177 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:24:05,177 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 19:24:05,552 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 19:24:05,552 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 19:24:05,552 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 19:24:05,552 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 19:24:05,552 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:24:05,552 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 19:24:05,897 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 19:24:05,897 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 19:24:06,248 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 19:24:06,249 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 19:24:06,601 - machine_control - INFO - ✅ Loop steps: 5 configurations found
+2025-09-08 19:24:06,601 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 19:24:06,601 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 19:24:06,601 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 19:24:06,601 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 19:24:06,601 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:24:06,601 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 19:24:06,955 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 19:24:06,955 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 19:24:06,955 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 19:24:08,050 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'null value in column "parameters" of relation "process_executions" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (79f57373-9cbe-4cf0-a1bb-5ff26f6c23c6, 4950b09f-21b1-4ace-a61e-dc4be595de93, e3e6e280-0794-459f-84d5-5e468f60746e, 123e4567-e89b-12d3-a456-426614174000, {"name": "Test Recipe", "steps": []}, 2025-09-08 16:24:07.197138+00, null, 6c133b99-8252-459c-a6b4-2614773b8a76, completed, null, null, 2025-09-08 16:24:07.197138+00, 2025-09-08 16:24:07.197138+00, null).'}
+2025-09-08 19:24:08,050 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 19:24:08,050 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 19:24:08,050 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:24:08,050 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 19:24:08,389 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 19:24:08,389 - machine_control - INFO -   📋 aaa: chamber_temperature, pressure
+2025-09-08 19:24:08,389 - machine_control - INFO -   📋 hello: chamber_temperature, pressure
+2025-09-08 19:24:08,389 - machine_control - INFO -   📋 simple recipe -albaraa: chamber_temperature, pressure
+2025-09-08 19:24:08,389 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 19:24:08,389 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 19:24:08,389 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:24:08,389 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 19:24:08,742 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 19:24:09,120 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:24:09,530 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:24:09,940 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:24:10,349 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 19:24:10,349 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 19:24:10,349 - machine_control - INFO - 
+================================================================================
+2025-09-08 19:24:10,349 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 19:24:10,349 - machine_control - INFO - ================================================================================
+2025-09-08 19:24:10,349 - machine_control - INFO -   Database Connectivity               ✅ PASS
+2025-09-08 19:24:10,349 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 19:24:10,349 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 19:24:10,349 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 19:24:10,349 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 19:24:10,349 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 19:24:10,349 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 19:24:10,349 - machine_control - INFO - 
+🎯 Results: 6/7 tests passed
+2025-09-08 19:24:10,349 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 19:24:10,349 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing
+2025-09-08 19:25:34,559 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 19:25:34,559 - machine_control - INFO - ================================================================================
+2025-09-08 19:25:34,560 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 19:25:34,560 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:25:34,560 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 19:25:34,560 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 19:25:34,560 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 19:25:34,599 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 19:25:35,593 - machine_control - INFO - ✅ Connected to database - Machine: MACHINE-001 (Status: idle)
+2025-09-08 19:25:35,593 - machine_control - INFO - ✅ Database Connectivity: PASSED
+2025-09-08 19:25:35,593 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 19:25:35,593 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:25:35,593 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 19:25:35,929 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 19:25:36,265 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 19:25:37,122 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 19:25:37,469 - machine_control - INFO - ✅ Table 'loop_step_config': 5 records found
+2025-09-08 19:25:37,827 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 19:25:38,178 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 19:25:38,179 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 19:25:38,179 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 19:25:38,179 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 19:25:38,179 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:25:38,179 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 19:25:38,561 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 19:25:38,561 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 19:25:38,561 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 19:25:38,561 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 19:25:38,561 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:25:38,561 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 19:25:38,929 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 19:25:38,930 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 19:25:39,274 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 19:25:39,274 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 19:25:39,620 - machine_control - INFO - ✅ Loop steps: 5 configurations found
+2025-09-08 19:25:39,620 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 19:25:39,620 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 19:25:39,620 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 19:25:39,620 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 19:25:39,620 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:25:39,620 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 19:25:39,972 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 19:25:39,972 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 19:25:39,972 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 19:25:41,051 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'insert or update on table "process_executions" violates foreign key constraint "process_executions_recipe_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (recipe_id)=(123e4567-e89b-12d3-a456-426614174000) is not present in table "recipes".'}
+2025-09-08 19:25:41,051 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 19:25:41,051 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 19:25:41,051 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:25:41,051 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 19:25:41,398 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 19:25:41,399 - machine_control - INFO -   📋 valve on/off recipe: chamber_temperature
+2025-09-08 19:25:41,399 - machine_control - INFO -   📋 hello: chamber_temperature, pressure
+2025-09-08 19:25:41,399 - machine_control - INFO -   📋 aaa: chamber_temperature, pressure
+2025-09-08 19:25:41,399 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 19:25:41,399 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 19:25:41,399 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:25:41,399 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 19:25:41,726 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 19:25:42,071 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:25:42,407 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:25:42,783 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:25:43,266 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 19:25:43,266 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 19:25:43,266 - machine_control - INFO - 
+================================================================================
+2025-09-08 19:25:43,266 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 19:25:43,266 - machine_control - INFO - ================================================================================
+2025-09-08 19:25:43,266 - machine_control - INFO -   Database Connectivity               ✅ PASS
+2025-09-08 19:25:43,266 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 19:25:43,266 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 19:25:43,266 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 19:25:43,266 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 19:25:43,266 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 19:25:43,266 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 19:25:43,266 - machine_control - INFO - 
+🎯 Results: 6/7 tests passed
+2025-09-08 19:25:43,266 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 19:25:43,266 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing
+2025-09-08 19:26:54,965 - machine_control - INFO - 🚀 Starting ALD Control System Phase 5 - Database Integration Test Suite
+2025-09-08 19:26:54,965 - machine_control - INFO - ================================================================================
+2025-09-08 19:26:54,965 - machine_control - INFO - 
+🧪 Running: Database Connectivity
+2025-09-08 19:26:54,965 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:26:54,965 - machine_control - INFO - 🔧 Testing database connectivity...
+2025-09-08 19:26:54,965 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-08 19:26:54,965 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-08 19:26:55,002 - machine_control - INFO - Supabase client initialized successfully
+2025-09-08 19:26:56,136 - machine_control - INFO - ✅ Connected to database - Machine: MACHINE-001 (Status: idle)
+2025-09-08 19:26:56,136 - machine_control - INFO - ✅ Database Connectivity: PASSED
+2025-09-08 19:26:56,136 - machine_control - INFO - 
+🧪 Running: New Schema Tables
+2025-09-08 19:26:56,136 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:26:56,136 - machine_control - INFO - 🔧 Testing new schema tables...
+2025-09-08 19:26:56,758 - machine_control - INFO - ✅ Table 'component_parameter_definitions': 5 records found
+2025-09-08 19:26:57,362 - machine_control - INFO - ✅ Table 'valve_step_config': 5 records found
+2025-09-08 19:26:57,955 - machine_control - INFO - ✅ Table 'purge_step_config': 5 records found
+2025-09-08 19:26:58,556 - machine_control - INFO - ✅ Table 'loop_step_config': 5 records found
+2025-09-08 19:26:59,151 - machine_control - INFO - ✅ Table 'process_execution_state': 5 records found
+2025-09-08 19:26:59,740 - machine_control - INFO - ✅ Table 'recipe_parameters': 5 records found
+2025-09-08 19:26:59,740 - machine_control - INFO - ✅ All 6 new schema tables are accessible
+2025-09-08 19:26:59,740 - machine_control - INFO - ✅ New Schema Tables: PASSED
+2025-09-08 19:26:59,740 - machine_control - INFO - 
+🧪 Running: Parameter Definitions Join
+2025-09-08 19:26:59,740 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:26:59,740 - machine_control - INFO - 🔧 Testing parameter definitions join...
+2025-09-08 19:27:00,088 - machine_control - INFO - ✅ Parameter join successful: 10/10 parameters have definitions
+2025-09-08 19:27:00,088 - machine_control - INFO - ✅ Example enhanced parameter: ultrathink (units)
+2025-09-08 19:27:00,088 - machine_control - INFO - ✅ Parameter Definitions Join: PASSED
+2025-09-08 19:27:00,088 - machine_control - INFO - 
+🧪 Running: Step Configurations
+2025-09-08 19:27:00,088 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:27:00,088 - machine_control - INFO - 🔧 Testing step configurations...
+2025-09-08 19:27:00,422 - machine_control - INFO - ✅ Valve steps: 5 configurations found
+2025-09-08 19:27:00,422 - machine_control - INFO -   📋 Example valve config: {'valve_id': 'valve_1', 'valve_number': 1, 'duration_ms': 2000}
+2025-09-08 19:27:00,787 - machine_control - INFO - ✅ Purge steps: 5 configurations found
+2025-09-08 19:27:00,787 - machine_control - INFO -   📋 Example purge config: {'duration_ms': 1000, 'gas_type': 'N2', 'flow_rate': 100.0}
+2025-09-08 19:27:01,129 - machine_control - INFO - ✅ Loop steps: 5 configurations found
+2025-09-08 19:27:01,129 - machine_control - INFO -   📋 Example loop config: {'iteration_count': 5}
+2025-09-08 19:27:01,129 - machine_control - INFO - ✅ All 3 step configuration types working
+2025-09-08 19:27:01,129 - machine_control - INFO - ✅ Step Configurations: PASSED
+2025-09-08 19:27:01,129 - machine_control - INFO - 
+🧪 Running: Process Execution State
+2025-09-08 19:27:01,129 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:27:01,129 - machine_control - INFO - 🔧 Testing process execution state...
+2025-09-08 19:27:01,470 - machine_control - INFO - ✅ Process execution state table accessible: 5 records found
+2025-09-08 19:27:01,470 - machine_control - INFO -   📊 Example progress: 2/2 steps
+2025-09-08 19:27:01,470 - machine_control - INFO -   🔄 Current step: purge - PURGE
+2025-09-08 19:27:03,159 - machine_control - ERROR - ❌ Process execution state test failed: {'message': 'insert or update on table "process_executions" violates foreign key constraint "process_executions_session_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (session_id)=(bd44dc9e-e086-4ac2-ba6b-b18a11207d37) is not present in table "operator_sessions".'}
+2025-09-08 19:27:03,159 - machine_control - ERROR - ❌ Process Execution State: FAILED
+2025-09-08 19:27:03,159 - machine_control - INFO - 
+🧪 Running: Recipe Parameters
+2025-09-08 19:27:03,159 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:27:03,159 - machine_control - INFO - 🔧 Testing recipe parameters...
+2025-09-08 19:27:03,767 - machine_control - INFO - ✅ Recipe parameters: 10 parameters for 6 recipes
+2025-09-08 19:27:03,767 - machine_control - INFO -   📋 simple recipe -albaraa: chamber_temperature, pressure
+2025-09-08 19:27:03,767 - machine_control - INFO -   📋 second recipe: chamber_temperature, pressure
+2025-09-08 19:27:03,767 - machine_control - INFO -   📋 valve on/off recipe: chamber_temperature
+2025-09-08 19:27:03,767 - machine_control - INFO - ✅ Recipe Parameters: PASSED
+2025-09-08 19:27:03,767 - machine_control - INFO - 
+🧪 Running: Schema Relationships
+2025-09-08 19:27:03,767 - machine_control - INFO - --------------------------------------------------
+2025-09-08 19:27:03,767 - machine_control - INFO - 🔧 Testing schema relationships...
+2025-09-08 19:27:04,123 - machine_control - INFO - ✅ component_parameters -> component_parameter_definitions: 5 linked records
+2025-09-08 19:27:04,487 - machine_control - INFO - ✅ valve_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:27:04,851 - machine_control - INFO - ✅ purge_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:27:05,203 - machine_control - INFO - ✅ loop_step_config -> recipe_steps: 3/3 linked records
+2025-09-08 19:27:05,552 - machine_control - INFO - ✅ process_execution_state records: 5 found
+2025-09-08 19:27:05,552 - machine_control - INFO - ✅ Schema Relationships: PASSED
+2025-09-08 19:27:05,552 - machine_control - INFO - 
+================================================================================
+2025-09-08 19:27:05,552 - machine_control - INFO - 📊 DATABASE INTEGRATION TEST SUMMARY
+2025-09-08 19:27:05,552 - machine_control - INFO - ================================================================================
+2025-09-08 19:27:05,552 - machine_control - INFO -   Database Connectivity               ✅ PASS
+2025-09-08 19:27:05,552 - machine_control - INFO -   New Schema Tables                   ✅ PASS
+2025-09-08 19:27:05,552 - machine_control - INFO -   Parameter Definitions Join          ✅ PASS
+2025-09-08 19:27:05,552 - machine_control - INFO -   Step Configurations                 ✅ PASS
+2025-09-08 19:27:05,552 - machine_control - INFO -   Process Execution State             ❌ FAIL
+2025-09-08 19:27:05,552 - machine_control - INFO -   Recipe Parameters                   ✅ PASS
+2025-09-08 19:27:05,552 - machine_control - INFO -   Schema Relationships                ✅ PASS
+2025-09-08 19:27:05,552 - machine_control - INFO - 
+🎯 Results: 6/7 tests passed
+2025-09-08 19:27:05,552 - machine_control - WARNING - ⚠️ Some database tests failed - check logs for details
+2025-09-08 19:27:05,552 - machine_control - INFO - 💡 Fix database issues before proceeding to full recipe testing

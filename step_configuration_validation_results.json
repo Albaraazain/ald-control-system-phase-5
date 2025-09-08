@@ -1,0 +1,1039 @@
+{
+  "valve_steps": [
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "dec9a43a-fde8-49c6-a66f-96e9afeec59b",
+        "step_id": "77db8c3f-821b-4998-a819-fc59e46a98ad",
+        "valve_id": "valve_1",
+        "valve_number": 1,
+        "duration_ms": 2000,
+        "created_at": "2025-05-06T16:59:20.878175+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "VALVE",
+      "step_id": "77db8c3f-821b-4998-a819-fc59e46a98ad"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "9f639ef3-520e-420d-90bb-05047943f318",
+        "step_id": "416e3a3d-1547-44f5-897d-77942bc66cbf",
+        "valve_id": "valve_1",
+        "valve_number": 1,
+        "duration_ms": 2000,
+        "created_at": "2025-05-07T14:31:58.538295+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "VALVE",
+      "step_id": "416e3a3d-1547-44f5-897d-77942bc66cbf"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "e1e0cbfc-877c-4816-9cbd-71f67edfee24",
+        "step_id": "a29b324c-6ac2-4650-8941-528087e58d77",
+        "valve_id": "valve_2",
+        "valve_number": 2,
+        "duration_ms": 2000,
+        "created_at": "2025-05-07T14:32:00.887375+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "Opening valve (Click to edit)",
+      "step_id": "a29b324c-6ac2-4650-8941-528087e58d77"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "e265b3fd-dbe7-48dd-b12d-ec912254ba94",
+        "step_id": "d2b66d6d-8562-454c-b801-dcdfa62c3377",
+        "valve_id": "valve_1",
+        "valve_number": 1,
+        "duration_ms": 2000,
+        "created_at": "2025-05-07T14:32:37.08613+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "VALVE",
+      "step_id": "d2b66d6d-8562-454c-b801-dcdfa62c3377"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "dd5570a9-a3d5-4c90-a9b5-c35377dac5f6",
+        "step_id": "478e1ed6-f655-4659-9232-abf517686f34",
+        "valve_id": "valve_1",
+        "valve_number": 1,
+        "duration_ms": 2000,
+        "created_at": "2025-05-07T14:36:46.395114+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "VALVE",
+      "step_id": "478e1ed6-f655-4659-9232-abf517686f34"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "d86b7a9e-c6f9-4c75-95d4-b534fd2c06a3",
+        "step_id": "75f7284a-e742-40f2-8afc-f9924faa8206",
+        "valve_id": "valve_1",
+        "valve_number": 1,
+        "duration_ms": 2000,
+        "created_at": "2025-05-07T15:01:55.963512+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "VALVE",
+      "step_id": "75f7284a-e742-40f2-8afc-f9924faa8206"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "c55e3239-e1c8-447b-a1ee-aa80f7b77014",
+        "step_id": "3a1c7145-a2c0-40e8-b78a-ff430c80fdf7",
+        "valve_id": "valve_1",
+        "valve_number": 1,
+        "duration_ms": 2000,
+        "created_at": "2025-05-07T15:30:16.543563+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "VALVE",
+      "step_id": "3a1c7145-a2c0-40e8-b78a-ff430c80fdf7"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "6a51eb48-806e-4389-baa0-731b2d272b40",
+        "step_id": "58f878e3-8f35-40d9-8d70-834e19c49dde",
+        "valve_id": "pump_valve",
+        "valve_number": 1,
+        "duration_ms": 5000,
+        "created_at": "2025-08-17T02:34:55.634763+00:00",
+        "updated_at": "2025-09-08T14:13:02.580699+00:00"
+      },
+      "step_name": "Initial Pump Down",
+      "step_id": "58f878e3-8f35-40d9-8d70-834e19c49dde"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "63bfef6a-8556-4c33-beb4-54ef944de605",
+        "step_id": "bc63144b-e9a9-45e6-8fa9-b856112d1f8e",
+        "valve_id": "tma_valve",
+        "valve_number": 2,
+        "duration_ms": 1500,
+        "created_at": "2025-08-17T02:34:55.634763+00:00",
+        "updated_at": "2025-09-08T14:13:02.580699+00:00"
+      },
+      "step_name": "TMA Pulse",
+      "step_id": "bc63144b-e9a9-45e6-8fa9-b856112d1f8e"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "8dedf38b-57a9-4cbe-9611-5ce67e75de48",
+        "step_id": "cc44f385-945c-46d9-af49-e51a354a06bc",
+        "valve_id": "h2o_valve",
+        "valve_number": 3,
+        "duration_ms": 1200,
+        "created_at": "2025-08-17T02:34:55.634763+00:00",
+        "updated_at": "2025-09-08T14:13:02.580699+00:00"
+      },
+      "step_name": "H2O Pulse",
+      "step_id": "cc44f385-945c-46d9-af49-e51a354a06bc"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "ff34f012-fc73-49c1-8cd1-b8be329d06fd",
+        "step_id": "0fcdf7b0-cce5-4ddd-a9f7-d72c5c86a3b9",
+        "valve_id": "tma_valve",
+        "valve_number": 2,
+        "duration_ms": 1500,
+        "created_at": "2025-08-17T02:34:55.634763+00:00",
+        "updated_at": "2025-09-08T14:13:02.580699+00:00"
+      },
+      "step_name": "TMA Pulse (Cycle 2)",
+      "step_id": "0fcdf7b0-cce5-4ddd-a9f7-d72c5c86a3b9"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "cbff577d-8b1d-4f91-94ad-71a8a5ef1f2e",
+        "step_id": "90e015a0-368a-42f7-bb8c-a20aaaa2c7f1",
+        "valve_id": "h2o_valve",
+        "valve_number": 3,
+        "duration_ms": 1200,
+        "created_at": "2025-08-17T02:34:55.634763+00:00",
+        "updated_at": "2025-09-08T14:13:02.580699+00:00"
+      },
+      "step_name": "H2O Pulse (Cycle 2)",
+      "step_id": "90e015a0-368a-42f7-bb8c-a20aaaa2c7f1"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "7a5feea5-1fc5-4262-915c-48b98ca0f556",
+        "step_id": "813ea21a-b360-467e-bede-8176242cf31d",
+        "valve_id": "vent_valve",
+        "valve_number": 5,
+        "duration_ms": 10000,
+        "created_at": "2025-08-17T02:34:55.634763+00:00",
+        "updated_at": "2025-08-17T02:34:55.634763+00:00"
+      },
+      "step_name": "Vent",
+      "step_id": "813ea21a-b360-467e-bede-8176242cf31d"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "c7ab1243-05ff-46e6-ae1b-2aa5a915fb72",
+        "step_id": "a563dbf4-de9c-41fd-b1c9-a179630745b8",
+        "valve_id": "valve_1",
+        "valve_number": 1,
+        "duration_ms": 5000,
+        "created_at": "2025-09-08T14:07:20.434282+00:00",
+        "updated_at": "2025-09-08T14:07:20.434282+00:00"
+      },
+      "step_name": "Open Valve 1",
+      "step_id": "a563dbf4-de9c-41fd-b1c9-a179630745b8"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "49553e28-369c-4178-93c0-1e71525a50aa",
+        "step_id": "c0fdcc2e-2cfe-4a99-b92b-56a4c7feede3",
+        "valve_id": "valve_2",
+        "valve_number": 2,
+        "duration_ms": 2000,
+        "created_at": "2025-09-08T14:07:20.434282+00:00",
+        "updated_at": "2025-09-08T14:07:20.434282+00:00"
+      },
+      "step_name": "Open Valve 2 (Loop Child)",
+      "step_id": "c0fdcc2e-2cfe-4a99-b92b-56a4c7feede3"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "3f9ca46c-0056-491f-8d31-40f7b4d607b2",
+        "step_id": "8f699333-93b9-4a07-a744-12ebfdb042ed",
+        "valve_id": "valve_precursor_a",
+        "valve_number": 1,
+        "duration_ms": 3000,
+        "created_at": "2025-09-08T14:08:43.486895+00:00",
+        "updated_at": "2025-09-08T14:08:43.486895+00:00"
+      },
+      "step_name": "Precursor A Valve",
+      "step_id": "8f699333-93b9-4a07-a744-12ebfdb042ed"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "cd6d1f72-2811-4ded-a8f3-205d1939479c",
+        "step_id": "be0cc91f-cb2a-46cb-abe1-9691919ab7f6",
+        "valve_id": "valve_precursor_b",
+        "valve_number": 2,
+        "duration_ms": 2500,
+        "created_at": "2025-09-08T14:08:43.486895+00:00",
+        "updated_at": "2025-09-08T14:08:43.486895+00:00"
+      },
+      "step_name": "Precursor B Valve",
+      "step_id": "be0cc91f-cb2a-46cb-abe1-9691919ab7f6"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "d0e0b406-62c0-43e1-bdfc-73a55c11271a",
+        "step_id": "0b680f91-6c05-4c9d-8217-c4e79a22234c",
+        "valve_id": "valve_reactant",
+        "valve_number": 3,
+        "duration_ms": 4000,
+        "created_at": "2025-09-08T14:08:43.486895+00:00",
+        "updated_at": "2025-09-08T14:08:43.486895+00:00"
+      },
+      "step_name": "Reactant Valve",
+      "step_id": "0b680f91-6c05-4c9d-8217-c4e79a22234c"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "8cd99bcd-864b-4731-917b-44e97071a3a6",
+        "step_id": "a965436a-ee61-4734-a857-fdda3f85af2b",
+        "valve_id": "valve_1",
+        "valve_number": 1,
+        "duration_ms": 5000,
+        "created_at": "2025-09-08T14:29:17.29052+00:00",
+        "updated_at": "2025-09-08T14:29:17.29052+00:00"
+      },
+      "step_name": "Initialize Chamber - Valve 1",
+      "step_id": "a965436a-ee61-4734-a857-fdda3f85af2b"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "0d78c7b0-eb35-43b4-8c82-0ab5e8e16eb6",
+        "step_id": "8e941294-3bc2-4493-98c2-64c74fa32ad1",
+        "valve_id": "valve_2",
+        "valve_number": 2,
+        "duration_ms": 2000,
+        "created_at": "2025-09-08T14:29:17.29052+00:00",
+        "updated_at": "2025-09-08T14:29:17.29052+00:00"
+      },
+      "step_name": "Final Valve - Valve 2",
+      "step_id": "8e941294-3bc2-4493-98c2-64c74fa32ad1"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "d124d7be-9ead-4eca-86b0-aee69b9f3b63",
+        "step_id": "dc734c52-4774-4216-b8d9-836d458a6004",
+        "valve_id": "valve_1",
+        "valve_number": 1,
+        "duration_ms": 2000,
+        "created_at": "2025-09-08T14:29:17.29052+00:00",
+        "updated_at": "2025-09-08T14:29:17.29052+00:00"
+      },
+      "step_name": "Pre-cycle Valve",
+      "step_id": "dc734c52-4774-4216-b8d9-836d458a6004"
+    },
+    {
+      "status": "PASS",
+      "message": "Valve configuration loaded successfully",
+      "config": {
+        "id": "088a1c2d-1355-4420-91cd-fa86c8060bb7",
+        "step_id": "5eba8c25-dddd-4c4a-ac85-51215d6f87e8",
+        "valve_id": "valve_2",
+        "valve_number": 2,
+        "duration_ms": 1500,
+        "created_at": "2025-09-08T14:29:17.29052+00:00",
+        "updated_at": "2025-09-08T14:29:17.29052+00:00"
+      },
+      "step_name": "Loop Step 1 - Valve 2",
+      "step_id": "5eba8c25-dddd-4c4a-ac85-51215d6f87e8"
+    }
+  ],
+  "purge_steps": [
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "93cea70a-e11a-4f22-949d-9eb33c4d74d7",
+        "step_id": "b62b022c-bfca-4166-8b45-06b57ae6adb2",
+        "duration_ms": 1000,
+        "gas_type": "N2",
+        "flow_rate": 100.0,
+        "created_at": "2025-05-06T16:59:22.825418+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "PURGE",
+      "step_id": "b62b022c-bfca-4166-8b45-06b57ae6adb2"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "e8c4f65d-52d6-41e4-a36e-3dcbb5a5ef14",
+        "step_id": "c06fbd5c-4c14-4786-b619-abe1db3fbfb0",
+        "duration_ms": 1000,
+        "gas_type": "N2",
+        "flow_rate": 100.0,
+        "created_at": "2025-05-07T14:36:47.445464+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "PURGE",
+      "step_id": "c06fbd5c-4c14-4786-b619-abe1db3fbfb0"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "e44056a7-00a5-413c-9e31-62ea9710ce51",
+        "step_id": "9c489280-05ae-4e40-80d9-717f0260842a",
+        "duration_ms": 1000,
+        "gas_type": "N2",
+        "flow_rate": 100.0,
+        "created_at": "2025-05-07T15:01:40.1316+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "PURGE",
+      "step_id": "9c489280-05ae-4e40-80d9-717f0260842a"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "ce0e4c2b-2f25-4776-8335-f11ae8a45033",
+        "step_id": "18d15cc1-d4ef-4dc5-b9d8-4d081f1d8107",
+        "duration_ms": 3000,
+        "gas_type": "N2",
+        "flow_rate": 200.0,
+        "created_at": "2025-08-17T02:34:55.634763+00:00",
+        "updated_at": "2025-09-08T14:13:11.419644+00:00"
+      },
+      "step_name": "N2 Purge 1",
+      "step_id": "18d15cc1-d4ef-4dc5-b9d8-4d081f1d8107"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "0c50a21c-4e88-4ec0-bd34-3edd1a3f7d02",
+        "step_id": "16ef1d2e-f8a4-426c-8273-92b1c20bfa47",
+        "duration_ms": 3000,
+        "gas_type": "N2",
+        "flow_rate": 200.0,
+        "created_at": "2025-08-17T02:34:55.634763+00:00",
+        "updated_at": "2025-09-08T14:13:11.419644+00:00"
+      },
+      "step_name": "N2 Purge 2",
+      "step_id": "16ef1d2e-f8a4-426c-8273-92b1c20bfa47"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "3773a0b9-8caa-4dcb-af49-5ee045b5e39a",
+        "step_id": "3a44f636-109f-450d-96f3-36f16278b0d8",
+        "duration_ms": 3000,
+        "gas_type": "N2",
+        "flow_rate": 200.0,
+        "created_at": "2025-08-17T02:34:55.634763+00:00",
+        "updated_at": "2025-09-08T14:13:11.419644+00:00"
+      },
+      "step_name": "N2 Purge 3",
+      "step_id": "3a44f636-109f-450d-96f3-36f16278b0d8"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "5b2ca63d-d3d0-47de-b092-8db3869bc896",
+        "step_id": "40a670b0-108a-4239-94ce-a9290f7c0feb",
+        "duration_ms": 3000,
+        "gas_type": "N2",
+        "flow_rate": 200.0,
+        "created_at": "2025-08-17T02:34:55.634763+00:00",
+        "updated_at": "2025-09-08T14:13:11.419644+00:00"
+      },
+      "step_name": "N2 Purge 4",
+      "step_id": "40a670b0-108a-4239-94ce-a9290f7c0feb"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "cfe646b4-1b4a-4512-9a91-61f119802a8b",
+        "step_id": "a09b16d3-1de4-40dc-86a6-d4487b82a8dd",
+        "duration_ms": 3000,
+        "gas_type": "N2",
+        "flow_rate": 200.0,
+        "created_at": "2025-09-08T14:07:26.900911+00:00",
+        "updated_at": "2025-09-08T14:07:26.900911+00:00"
+      },
+      "step_name": "Purge Chamber",
+      "step_id": "a09b16d3-1de4-40dc-86a6-d4487b82a8dd"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "5e87cc36-0ad0-4ef4-a59a-9d6a46fbdfaa",
+        "step_id": "bcc26d7a-e4e5-4bb6-a422-d4986125b65a",
+        "duration_ms": 5000,
+        "gas_type": "N2",
+        "flow_rate": 150.0,
+        "created_at": "2025-09-08T14:08:43.486895+00:00",
+        "updated_at": "2025-09-08T14:13:11.419644+00:00"
+      },
+      "step_name": "Initial Chamber Purge",
+      "step_id": "bcc26d7a-e4e5-4bb6-a422-d4986125b65a"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "98595fbf-3a96-4416-84e5-2ab8aef54018",
+        "step_id": "884000ad-74e3-45f4-8c76-6fb2f8473d1e",
+        "duration_ms": 10000,
+        "gas_type": "N2",
+        "flow_rate": 500.0,
+        "created_at": "2025-09-08T14:08:43.486895+00:00",
+        "updated_at": "2025-09-08T14:08:43.486895+00:00"
+      },
+      "step_name": "Final Chamber Clean",
+      "step_id": "884000ad-74e3-45f4-8c76-6fb2f8473d1e"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "1da59d38-cce4-4e48-97f5-7c24d6c97c54",
+        "step_id": "4d61d76a-2b51-45f3-9f78-2267e21d080c",
+        "duration_ms": 2000,
+        "gas_type": "Ar",
+        "flow_rate": 250.0,
+        "created_at": "2025-09-08T14:08:43.486895+00:00",
+        "updated_at": "2025-09-08T14:08:43.486895+00:00"
+      },
+      "step_name": "Purge After B",
+      "step_id": "4d61d76a-2b51-45f3-9f78-2267e21d080c"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "ee4ba444-2bad-4b9f-96f0-7ff37b25046a",
+        "step_id": "08e15e73-af76-485c-925f-579adddffcba",
+        "duration_ms": 3000,
+        "gas_type": "N2",
+        "flow_rate": 300.0,
+        "created_at": "2025-09-08T14:08:43.486895+00:00",
+        "updated_at": "2025-09-08T14:08:43.486895+00:00"
+      },
+      "step_name": "Final Purge",
+      "step_id": "08e15e73-af76-485c-925f-579adddffcba"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "f2b3cfd0-1412-4ada-bbc4-3183d75845e8",
+        "step_id": "b8d42e3b-a240-448d-b14e-d728d074c720",
+        "duration_ms": 3000,
+        "gas_type": "N2",
+        "flow_rate": 200.0,
+        "created_at": "2025-09-08T14:29:26.029169+00:00",
+        "updated_at": "2025-09-08T14:29:26.029169+00:00"
+      },
+      "step_name": "Purge with N2",
+      "step_id": "b8d42e3b-a240-448d-b14e-d728d074c720"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "0e9be52b-9159-42c3-a157-d954c1ef7860",
+        "step_id": "dad30900-3d3b-4b7c-aede-e7fc00a81a21",
+        "duration_ms": 4000,
+        "gas_type": "N2",
+        "flow_rate": 250.0,
+        "created_at": "2025-09-08T14:29:26.029169+00:00",
+        "updated_at": "2025-09-08T14:29:26.029169+00:00"
+      },
+      "step_name": "Post-cycle Purge",
+      "step_id": "dad30900-3d3b-4b7c-aede-e7fc00a81a21"
+    },
+    {
+      "status": "PASS",
+      "message": "Purge configuration loaded successfully",
+      "config": {
+        "id": "6896a21c-6fcd-4442-b50c-5e4149904652",
+        "step_id": "601bfe07-ab82-47cc-b0ed-e674bf621629",
+        "duration_ms": 2500,
+        "gas_type": "Ar",
+        "flow_rate": 180.0,
+        "created_at": "2025-09-08T14:29:26.029169+00:00",
+        "updated_at": "2025-09-08T14:29:26.029169+00:00"
+      },
+      "step_name": "Loop Step 2 - Purge",
+      "step_id": "601bfe07-ab82-47cc-b0ed-e674bf621629"
+    }
+  ],
+  "loop_steps": [
+    {
+      "status": "PASS",
+      "message": "Loop configuration loaded successfully",
+      "config": {
+        "id": "23b26e6b-d6f3-484a-9879-54de1611f97e",
+        "step_id": "4a9f7130-12e5-4bee-b2ce-659511f7547b",
+        "iteration_count": 5,
+        "created_at": "2025-05-07T15:01:42.113485+00:00",
+        "updated_at": "2025-08-16T20:51:40.337443+00:00"
+      },
+      "step_name": "LOOP",
+      "step_id": "4a9f7130-12e5-4bee-b2ce-659511f7547b"
+    },
+    {
+      "status": "PASS",
+      "message": "Loop configuration loaded successfully",
+      "config": {
+        "id": "5e74c77d-e43d-41de-be26-9012ee946082",
+        "step_id": "be7ea9dd-2e83-4259-a911-58c143d16b2c",
+        "iteration_count": 2,
+        "created_at": "2025-09-08T14:07:32.616502+00:00",
+        "updated_at": "2025-09-08T14:07:32.616502+00:00"
+      },
+      "step_name": "Test Loop",
+      "step_id": "be7ea9dd-2e83-4259-a911-58c143d16b2c"
+    },
+    {
+      "status": "PASS",
+      "message": "Loop configuration loaded successfully",
+      "config": {
+        "id": "ed260df5-91ec-4826-b24e-e5c5b77c9095",
+        "step_id": "40713116-5da6-4606-ab51-45d4832d535c",
+        "iteration_count": 5,
+        "created_at": "2025-09-08T14:08:43.486895+00:00",
+        "updated_at": "2025-09-08T14:13:18.709248+00:00"
+      },
+      "step_name": "Main ALD Cycle Loop",
+      "step_id": "40713116-5da6-4606-ab51-45d4832d535c"
+    },
+    {
+      "status": "PASS",
+      "message": "Loop configuration loaded successfully",
+      "config": {
+        "id": "e881bf4e-a08b-4616-a9e8-ef1e0ab60aee",
+        "step_id": "b5388422-bb02-40da-8d85-6d77a54f2e72",
+        "iteration_count": 3,
+        "created_at": "2025-09-08T14:08:43.486895+00:00",
+        "updated_at": "2025-09-08T14:13:18.709248+00:00"
+      },
+      "step_name": "Precursor Pulse Loop",
+      "step_id": "b5388422-bb02-40da-8d85-6d77a54f2e72"
+    },
+    {
+      "status": "PASS",
+      "message": "Loop configuration loaded successfully",
+      "config": {
+        "id": "e372a2bb-8a07-497b-a983-bae4b16fcc1d",
+        "step_id": "72269620-a8d1-4930-9461-fdebeaaa31c6",
+        "iteration_count": 3,
+        "created_at": "2025-09-08T14:29:32.269585+00:00",
+        "updated_at": "2025-09-08T14:29:32.269585+00:00"
+      },
+      "step_name": "Main Processing Loop",
+      "step_id": "72269620-a8d1-4930-9461-fdebeaaa31c6"
+    }
+  ],
+  "backwards_compatibility": [
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "VALVE",
+      "step_id": "77db8c3f-821b-4998-a819-fc59e46a98ad",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "PURGE",
+      "step_id": "b62b022c-bfca-4166-8b45-06b57ae6adb2",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "VALVE",
+      "step_id": "416e3a3d-1547-44f5-897d-77942bc66cbf",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Opening valve (Click to edit)",
+      "step_id": "a29b324c-6ac2-4650-8941-528087e58d77",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "VALVE",
+      "step_id": "d2b66d6d-8562-454c-b801-dcdfa62c3377",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "VALVE",
+      "step_id": "478e1ed6-f655-4659-9232-abf517686f34",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "PURGE",
+      "step_id": "c06fbd5c-4c14-4786-b619-abe1db3fbfb0",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "PURGE",
+      "step_id": "9c489280-05ae-4e40-80d9-717f0260842a",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing loop count",
+      "extracted_params": {},
+      "step_name": "LOOP",
+      "step_id": "4a9f7130-12e5-4bee-b2ce-659511f7547b",
+      "step_type": "loop"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "VALVE",
+      "step_id": "75f7284a-e742-40f2-8afc-f9924faa8206",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "VALVE",
+      "step_id": "3a1c7145-a2c0-40e8-b78a-ff430c80fdf7",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Initial Pump Down",
+      "step_id": "58f878e3-8f35-40d9-8d70-834e19c49dde",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "TMA Pulse",
+      "step_id": "bc63144b-e9a9-45e6-8fa9-b856112d1f8e",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "N2 Purge 1",
+      "step_id": "18d15cc1-d4ef-4dc5-b9d8-4d081f1d8107",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "H2O Pulse",
+      "step_id": "cc44f385-945c-46d9-af49-e51a354a06bc",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "N2 Purge 2",
+      "step_id": "16ef1d2e-f8a4-426c-8273-92b1c20bfa47",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "TMA Pulse (Cycle 2)",
+      "step_id": "0fcdf7b0-cce5-4ddd-a9f7-d72c5c86a3b9",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "N2 Purge 3",
+      "step_id": "3a44f636-109f-450d-96f3-36f16278b0d8",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "H2O Pulse (Cycle 2)",
+      "step_id": "90e015a0-368a-42f7-bb8c-a20aaaa2c7f1",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "N2 Purge 4",
+      "step_id": "40a670b0-108a-4239-94ce-a9290f7c0feb",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Vent",
+      "step_id": "813ea21a-b360-467e-bede-8176242cf31d",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Open Valve 1",
+      "step_id": "a563dbf4-de9c-41fd-b1c9-a179630745b8",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "Purge Chamber",
+      "step_id": "a09b16d3-1de4-40dc-86a6-d4487b82a8dd",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing loop count",
+      "extracted_params": {},
+      "step_name": "Test Loop",
+      "step_id": "be7ea9dd-2e83-4259-a911-58c143d16b2c",
+      "step_type": "loop"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Open Valve 2 (Loop Child)",
+      "step_id": "c0fdcc2e-2cfe-4a99-b92b-56a4c7feede3",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "Initial Chamber Purge",
+      "step_id": "bcc26d7a-e4e5-4bb6-a422-d4986125b65a",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Precursor A Valve",
+      "step_id": "8f699333-93b9-4a07-a744-12ebfdb042ed",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing loop count",
+      "extracted_params": {},
+      "step_name": "Main ALD Cycle Loop",
+      "step_id": "40713116-5da6-4606-ab51-45d4832d535c",
+      "step_type": "loop"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "Final Chamber Clean",
+      "step_id": "884000ad-74e3-45f4-8c76-6fb2f8473d1e",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing loop count",
+      "extracted_params": {},
+      "step_name": "Precursor Pulse Loop",
+      "step_id": "b5388422-bb02-40da-8d85-6d77a54f2e72",
+      "step_type": "loop"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Precursor B Valve",
+      "step_id": "be0cc91f-cb2a-46cb-abe1-9691919ab7f6",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "Purge After B",
+      "step_id": "4d61d76a-2b51-45f3-9f78-2267e21d080c",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Reactant Valve",
+      "step_id": "0b680f91-6c05-4c9d-8217-c4e79a22234c",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "Final Purge",
+      "step_id": "08e15e73-af76-485c-925f-579adddffcba",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Initialize Chamber - Valve 1",
+      "step_id": "a965436a-ee61-4734-a857-fdda3f85af2b",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "Purge with N2",
+      "step_id": "b8d42e3b-a240-448d-b14e-d728d074c720",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Final Valve - Valve 2",
+      "step_id": "8e941294-3bc2-4493-98c2-64c74fa32ad1",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Pre-cycle Valve",
+      "step_id": "dc734c52-4774-4216-b8d9-836d458a6004",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing loop count",
+      "extracted_params": {},
+      "step_name": "Main Processing Loop",
+      "step_id": "72269620-a8d1-4930-9461-fdebeaaa31c6",
+      "step_type": "loop"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "Post-cycle Purge",
+      "step_id": "dad30900-3d3b-4b7c-aede-e7fc00a81a21",
+      "step_type": "purge"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing valve parameters",
+      "extracted_params": {
+        "valve_number": null,
+        "duration_ms": null
+      },
+      "step_name": "Loop Step 1 - Valve 2",
+      "step_id": "5eba8c25-dddd-4c4a-ac85-51215d6f87e8",
+      "step_type": "valve"
+    },
+    {
+      "status": "FAIL",
+      "message": "Backwards compatibility failed - missing purge duration",
+      "extracted_params": {},
+      "step_name": "Loop Step 2 - Purge",
+      "step_id": "601bfe07-ab82-47cc-b0ed-e674bf621629",
+      "step_type": "purge"
+    }
+  ],
+  "summary": {
+    "total_steps": 43,
+    "valid_configs": 42,
+    "missing_configs": 0,
+    "invalid_configs": 0,
+    "errors": 0
+  }
+}

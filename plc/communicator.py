@@ -1,10 +1,12 @@
 # File: plc/communicator.py
 """
 Provides low-level Modbus TCP communication with PLC.
+Now supports dynamic PLC discovery and hostname resolution for DHCP environments.
 """
 from pymodbus.client import ModbusTcpClient
 import struct
 import time
+import asyncio
 from log_setup import logger
 from config import PLC_BYTE_ORDER
 
@@ -12,16 +14,40 @@ class PLCCommunicator:
     """
     A class to handle Modbus TCP communication between the system and PLC.
     Handles low-level communication protocols and data conversion.
+    Now supports dynamic PLC discovery for DHCP environments.
     """
-    def __init__(self, plc_ip='192.168.1.11', port=502, slave_id=1, byte_order=PLC_BYTE_ORDER):
-        """Initialize the PLC communicator with connection parameters."""
+    def __init__(self, plc_ip='192.168.1.11', port=502, slave_id=1, byte_order=PLC_BYTE_ORDER, 
+                 hostname=None, auto_discover=False, connection_timeout=10, retries=3):
+        """
+        Initialize the PLC communicator with connection parameters.
+        
+        Args:
+            plc_ip: Static IP address of the PLC (fallback)
+            port: Port number for PLC communication
+            slave_id: Modbus slave ID
+            byte_order: Byte order for multi-register operations
+            hostname: Hostname for dynamic resolution (e.g., 'plc.local')
+            auto_discover: Enable automatic network discovery if hostname fails
+            connection_timeout: Connection timeout in seconds
+            retries: Number of connection retries
+        """
         self.plc_ip = plc_ip
+        self.hostname = hostname
         self.port = port
         self.slave_id = slave_id
         self.client = None
         self.debug = True  # Set to False to disable debug messages
         self.byte_order = byte_order
+        self.auto_discover = auto_discover
+        self.connection_timeout = connection_timeout
+        self.retries = retries
+        self._current_ip = None  # Track the currently connected IP
+        
         self.log("INFO", f"Using byte order: {self.byte_order}")
+        if hostname:
+            self.log("INFO", f"Hostname resolution enabled: {hostname}")
+        if auto_discover:
+            self.log("INFO", "Auto-discovery enabled for DHCP environments")
     
     def log(self, level, message):
         """Log messages using the application's logger."""
@@ -34,16 +60,131 @@ class PLCCommunicator:
                 logger.error(message)
     
     def connect(self):
-        """Establish connection to the PLC."""
-        self.log("DEBUG", f"Connecting to PLC at {self.plc_ip}:{self.port} with slave ID {self.slave_id}")
-        self.client = ModbusTcpClient(self.plc_ip, port=self.port)
+        """
+        Establish connection to the PLC using dynamic discovery if configured.
         
-        if self.client.connect():
-            self.log("INFO", f"Connected to PLC successfully (IP: {self.plc_ip}, Port: {self.port}, Slave ID: {self.slave_id})")
-            return True
-        else:
-            self.log("ERROR", f"Failed to connect to PLC at {self.plc_ip}:{self.port} with slave ID {self.slave_id}")
-            return False
+        Connection priority:
+        1. Hostname resolution (if hostname provided)
+        2. Auto-discovery (if enabled)
+        3. Static IP address (fallback)
+        """
+        connection_targets = []
+        
+        # Priority 1: Try hostname resolution
+        if self.hostname:
+            self.log("INFO", f"Attempting hostname resolution: {self.hostname}")
+            connection_targets.append(('hostname', self.hostname))
+        
+        # Priority 2: Try auto-discovery
+        if self.auto_discover:
+            self.log("INFO", "Attempting auto-discovery...")
+            try:
+                # Import here to avoid circular imports
+                from plc.discovery import auto_discover_plc
+                
+                # Run discovery synchronously (quick network scan)
+                discovered_ip = self._run_discovery_sync()
+                if discovered_ip:
+                    connection_targets.append(('discovery', discovered_ip))
+            except ImportError:
+                self.log("WARNING", "Discovery module not available, using static IP")
+            except Exception as e:
+                self.log("WARNING", f"Auto-discovery failed: {e}")
+        
+        # Priority 3: Static IP fallback
+        connection_targets.append(('static', self.plc_ip))
+        
+        # Try each connection target
+        for method, target in connection_targets:
+            if self._attempt_connection(target, method):
+                self._current_ip = target
+                return True
+        
+        self.log("ERROR", "All connection attempts failed")
+        return False
+    
+    def _run_discovery_sync(self):
+        """Run async discovery in a synchronous context."""
+        try:
+            import asyncio
+            from plc.discovery import auto_discover_plc
+            
+            # Try to use existing event loop, or create new one
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If loop is running, we can't use run_until_complete
+                    # Instead, we'll do a quick network scan synchronously
+                    return self._quick_network_scan()
+                else:
+                    return loop.run_until_complete(auto_discover_plc(port=self.port))
+            except RuntimeError:
+                # No event loop exists, create one
+                return asyncio.run(auto_discover_plc(port=self.port))
+                
+        except Exception as e:
+            self.log("WARNING", f"Discovery sync execution failed: {e}")
+            return None
+    
+    def _quick_network_scan(self):
+        """Quick synchronous network scan for common PLC IP ranges."""
+        import socket
+        common_ranges = [
+            "192.168.1.{}",
+            "192.168.0.{}",
+            "10.0.0.{}",
+            "10.5.5.{}"  # Your current network
+        ]
+        
+        self.log("INFO", "Running quick network scan...")
+        
+        for range_template in common_ranges:
+            for i in range(1, 21):  # Check first 20 IPs in each range
+                ip = range_template.format(i)
+                if self._quick_test_modbus(ip):
+                    self.log("INFO", f"Found PLC candidate at {ip}")
+                    return ip
+        
+        return None
+    
+    def _quick_test_modbus(self, ip, timeout=2):
+        """Quick test if IP responds to Modbus."""
+        try:
+            test_client = ModbusTcpClient(ip, port=self.port, timeout=timeout)
+            if test_client.connect():
+                test_client.close()
+                return True
+        except:
+            pass
+        return False
+    
+    def _attempt_connection(self, target, method):
+        """Attempt connection to a specific target."""
+        for attempt in range(self.retries):
+            try:
+                self.log("DEBUG", f"Connecting to PLC at {target}:{self.port} via {method} (attempt {attempt + 1}/{self.retries})")
+                
+                self.client = ModbusTcpClient(
+                    target, 
+                    port=self.port,
+                    timeout=self.connection_timeout
+                )
+                
+                if self.client.connect():
+                    self.log("INFO", f"Connected to PLC successfully via {method} (Target: {target}, Port: {self.port}, Slave ID: {self.slave_id})")
+                    return True
+                else:
+                    self.log("DEBUG", f"Connection attempt {attempt + 1} failed for {target}")
+                    
+            except Exception as e:
+                self.log("DEBUG", f"Connection attempt {attempt + 1} failed for {target}: {e}")
+            
+            # Wait before retry (except on last attempt)
+            if attempt < self.retries - 1:
+                time.sleep(1)
+        
+        self.log("ERROR", f"Failed to connect to PLC at {target} via {method} after {self.retries} attempts")
+        return False
     
     def disconnect(self):
         """Close the connection to the PLC."""

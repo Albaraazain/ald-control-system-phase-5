@@ -37,8 +37,13 @@ class PLCFactory:
             # Extract connection parameters from config
             ip_address = config.get('ip_address', '127.0.0.1')
             port = config.get('port', 502)  # Default Modbus port
+            hostname = config.get('hostname')  # Optional hostname for DHCP
+            auto_discover = config.get('auto_discover', False)  # Enable auto-discovery
             
-            plc = RealPLC(ip_address, port)
+            logger.info(f"PLC connection config - IP: {ip_address}, Port: {port}, "
+                       f"Hostname: {hostname}, Auto-discover: {auto_discover}")
+            
+            plc = RealPLC(ip_address, port, hostname=hostname, auto_discover=auto_discover)
             
         else:
             raise ValueError(f"Invalid PLC type: {plc_type}. Must be 'simulation' or 'real'")

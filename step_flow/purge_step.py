@@ -14,36 +14,57 @@ async def execute_purge_step(process_id: str, step: dict):
         process_id: The ID of the current process execution
         step: The step data including parameters
     """
-    parameters = step.get('parameters', {})
-    
-    # Check for both possible parameter names
-    duration_ms = None
-    if 'duration_ms' in parameters:
-        duration_ms = int(parameters['duration_ms'])
-    elif 'duration' in parameters:
-        duration_ms = int(parameters['duration'])
-    
-    # Validate parameters
-    if duration_ms is None:
-        raise ValueError("Purging step is missing required parameter: duration_ms or duration")
-    
-    logger.info(f"Executing purging step for {duration_ms}ms")
-    
-    # Update process execution with purge details and progress
     supabase = get_supabase()
+    step_id = step.get('id')
     
-    # Get current progress
-    process_result = supabase.table('process_executions').select('current_step_type, current_step_name, progress').eq('id', process_id).single().execute()
-    current_progress = process_result.data['progress']
+    # Load purge configuration from purge_step_config table
+    result = supabase.table('purge_step_config').select('*').eq('step_id', step_id).execute()
+    purge_config = result.data[0] if result.data else None
     
-    # Update step details and progress
+    if not purge_config:
+        # Fallback to old method for backwards compatibility
+        parameters = step.get('parameters', {})
+        
+        # Check for both possible parameter names
+        duration_ms = None
+        if 'duration_ms' in parameters:
+            duration_ms = int(parameters['duration_ms'])
+        elif 'duration' in parameters:
+            duration_ms = int(parameters['duration'])
+        
+        # Validate parameters
+        if duration_ms is None:
+            raise ValueError("Purging step is missing required parameter: duration_ms or duration")
+        
+        # Set default values for new fields
+        gas_type = parameters.get('gas_type', 'N2')
+        flow_rate = parameters.get('flow_rate', 0.0)
+    else:
+        # Use new purge_step_config table
+        duration_ms = purge_config['duration_ms']
+        gas_type = purge_config['gas_type']
+        flow_rate = purge_config['flow_rate']
+    
+    logger.info(f"Executing purging step for {duration_ms}ms with {gas_type} gas at {flow_rate} flow rate")
+    
+    # Get current progress from process_execution_state
+    state_result = supabase.table('process_execution_state').select('progress').eq('execution_id', process_id).single().execute()
+    current_progress = state_result.data['progress'] if state_result.data else {}
+    
+    # Update only basic fields in process_executions
     supabase.table('process_executions').update({
+        'updated_at': get_current_timestamp()
+    }).eq('id', process_id).execute()
+    
+    # Update process_execution_state
+    state_update = {
         'current_step_type': 'purge',
         'current_step_name': step['name'],
         'current_purge_duration_ms': duration_ms,
-        'updated_at': get_current_timestamp(),
-        'progress': current_progress  # Include current progress to maintain counts
-    }).eq('id', process_id).execute()
+        'progress': current_progress,
+        'last_updated': 'now()'
+    }
+    supabase.table('process_execution_state').update(state_update).eq('execution_id', process_id).execute()
     
     # Execute the purge via PLC
     plc = plc_manager.plc

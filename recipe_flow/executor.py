@@ -41,15 +41,17 @@ async def execute_recipe(process_id: str):
             elif not step.get('parent_step_id'):  # Only count non-child steps
                 total_steps += 1
                 
-        # Update process with total steps count and initialize progress
-        supabase.table('process_executions').update({
+        # Initialize progress in process_execution_state
+        state_progress_update = {
             'progress': {
                 'total_steps': total_steps,
                 'completed_steps': 0,
                 'total_cycles': total_cycles,
                 'completed_cycles': 0
-            }
-        }).eq('id', process_id).execute()
+            },
+            'last_updated': 'now()'
+        }
+        supabase.table('process_execution_state').update(state_progress_update).eq('execution_id', process_id).execute()
         
         # 2. Build parent-child step map
         parent_to_child_steps = await build_parent_child_step_map(all_steps)
@@ -59,17 +61,60 @@ async def execute_recipe(process_id: str):
         top_level_steps.sort(key=lambda x: x['sequence_number'])
         
         # 4. Execute top-level steps sequentially
-        for step in top_level_steps:
+        overall_step_count = 0
+        for step_index, step in enumerate(top_level_steps):
             logger.info(f"Executing top-level step: {step['name']} (Type: {step['type']})")
             
             # Update process with current step
             supabase.table('process_executions').update({
                 'current_step': step,
+                'current_step_index': step_index,
                 'updated_at': get_current_timestamp()
             }).eq('id', process_id).execute()
             
+            # Get current progress from process_execution_state
+            progress_result = supabase.table('process_execution_state').select('progress').eq('execution_id', process_id).execute()
+            current_progress = progress_result.data[0]['progress'] if progress_result.data else {'total_steps': total_steps, 'completed_steps': 0}
+            
+            # Update process execution state for current step
+            state_update = {
+                'current_step_index': step_index,
+                'current_step_type': step['type'],
+                'current_step_name': step.get('name', ''),
+                'current_overall_step': overall_step_count,
+                'progress': current_progress,
+                'last_updated': 'now()'
+            }
+            
+            # Add step-specific fields based on type
+            if step['type'].lower() == 'valve':
+                valve_params = step.get('parameters', {})
+                state_update['current_valve_number'] = valve_params.get('valve_number')
+                state_update['current_valve_duration_ms'] = valve_params.get('duration_ms')
+            elif step['type'].lower() == 'purge':
+                purge_params = step.get('parameters', {})
+                state_update['current_purge_duration_ms'] = purge_params.get('duration_ms')
+            elif step['type'].lower() == 'loop':
+                loop_params = step.get('parameters', {})
+                state_update['current_loop_count'] = loop_params.get('count')
+                state_update['current_loop_iteration'] = 0  # Will be updated by loop_step
+            
+            # Update the process execution state
+            state_result = supabase.table('process_execution_state').update(state_update).eq('execution_id', process_id).execute()
+            if not state_result.data:
+                logger.warning(f"Failed to update process_execution_state for step {step_index}")
+            
             # Execute the step
-            await execute_step(process_id, step, all_steps, parent_to_child_steps)
+            await execute_step(process_id, step, all_steps, parent_to_child_steps, overall_step_count)
+            
+            # Update step count based on step type
+            if step['type'].lower() == 'loop':
+                # Loop steps handle their own counting
+                loop_count = int(step['parameters']['count'])
+                child_steps = [s for s in all_steps if s.get('parent_step_id') == step['id']]
+                overall_step_count += len(child_steps) * loop_count
+            else:
+                overall_step_count += 1
             
             # Record data points after each step
             await record_process_data(process_id)
@@ -129,6 +174,18 @@ async def complete_recipe(process_id: str):
         'updated_at': now
     }).eq('id', process_id).execute()
     
+    # Mark process_execution_state as completed
+    final_progress_result = supabase.table('process_execution_state').select('progress').eq('execution_id', process_id).execute()
+    final_progress = final_progress_result.data[0]['progress'] if final_progress_result.data else {}
+    
+    state_completion_update = {
+        'current_step_type': 'completed',
+        'current_step_name': 'Recipe Completed',
+        'progress': final_progress,
+        'last_updated': 'now()'
+    }
+    supabase.table('process_execution_state').update(state_completion_update).eq('execution_id', process_id).execute()
+    
     # Update machine status
     supabase.table('machines').update({
         'status': 'idle',
@@ -167,6 +224,14 @@ async def handle_recipe_error(process_id: str, error_message: str):
         'error_message': error_message,
         'updated_at': now
     }).eq('id', process_id).execute()
+    
+    # Update process_execution_state with error
+    state_error_update = {
+        'current_step_type': 'error',
+        'current_step_name': f'Error: {error_message[:100]}',  # Truncate long error messages
+        'last_updated': 'now()'
+    }
+    supabase.table('process_execution_state').update(state_error_update).eq('execution_id', process_id).execute()
     
     # Update machine state to error
     supabase.table('machine_state').update({
