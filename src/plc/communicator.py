@@ -80,7 +80,7 @@ class PLCCommunicator:
             self.log("INFO", "Attempting auto-discovery...")
             try:
                 # Import here to avoid circular imports
-                from plc.discovery import auto_discover_plc
+                from src.plc.discovery import auto_discover_plc
                 
                 # Run discovery synchronously (quick network scan)
                 discovered_ip = self._run_discovery_sync()

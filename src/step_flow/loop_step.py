@@ -114,7 +114,7 @@ async def execute_loop_step(process_id: str, step: dict, all_steps: list, parent
             step_type = child_step['type'].lower()
             
             if step_type == 'purge':
-                from step_flow.purge_step import execute_purge_step
+                from src.step_flow.purge_step import execute_purge_step
                 purge_step = {
                     'type': 'purging',
                     'name': child_step['name'],
@@ -123,7 +123,7 @@ async def execute_loop_step(process_id: str, step: dict, all_steps: list, parent
                 await execute_purge_step(process_id, purge_step)
                 
             elif step_type == 'valve':
-                from step_flow.valve_step import execute_valve_step
+                from src.step_flow.valve_step import execute_valve_step
                 valve_params = child_step['parameters']
                 if 'valve_number' not in valve_params:
                     raise ValueError(f"Valve step missing valve_number parameter: {child_step['name']}")
@@ -137,7 +137,7 @@ async def execute_loop_step(process_id: str, step: dict, all_steps: list, parent
                 await execute_valve_step(process_id, valve_step)
                 
             elif step_type == 'set parameter':
-                from step_flow.parameter_step import execute_parameter_step
+                from src.step_flow.parameter_step import execute_parameter_step
                 await execute_parameter_step(process_id, child_step)
             
             # Record data points after each step execution
