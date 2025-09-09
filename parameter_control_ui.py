@@ -208,8 +208,29 @@ def main():
         
         preset = parameter_presets[selected_preset]
         
-        # Show parameter details
-        st.info(f"**Type:** {preset['type']}\n**Address:** {preset['address']}\n**Modbus:** {preset['modbus_type']}")
+        # Show parameter details and allow editing modbus address
+        st.info(f"**Type:** {preset['type']}\n**Default Address:** {preset['address']}\n**Modbus:** {preset['modbus_type']}")
+        
+        # Allow custom modbus address
+        with st.expander("🔧 Advanced Settings", expanded=False):
+            custom_address = st.number_input(
+                "Custom Modbus Address", 
+                min_value=1, 
+                max_value=65535, 
+                value=preset['address'], 
+                step=1,
+                help="Override the default modbus address for this parameter"
+            )
+            
+            custom_modbus_type = st.selectbox(
+                "Modbus Type",
+                options=["coil", "holding_register", "input_register", "discrete_input"],
+                index=["coil", "holding_register", "input_register", "discrete_input"].index(preset['modbus_type']),
+                help="Type of modbus register"
+            )
+            
+            if custom_address != preset['address'] or custom_modbus_type != preset['modbus_type']:
+                st.warning(f"⚠️ Using custom settings: Address={custom_address}, Type={custom_modbus_type}")
         
         # Value input based on parameter type
         if preset['type'] == 'binary':
@@ -233,8 +254,8 @@ def main():
                 parameter_name=selected_preset,
                 parameter_type=preset['type'],
                 target_value=target_value,
-                modbus_address=preset['address'],
-                modbus_type=preset['modbus_type'],
+                modbus_address=custom_address,
+                modbus_type=custom_modbus_type,
                 priority=priority
             )
             
@@ -281,6 +302,44 @@ def main():
                 st.success(f"Sent OFF commands to {len(pumps)} pumps")
                 time.sleep(0.5)
                 st.rerun()
+        
+        # Custom parameter creation
+        st.divider()
+        st.subheader("🛠️ Custom Parameter")
+        
+        with st.expander("Create Custom Parameter", expanded=False):
+            custom_name = st.text_input("Parameter Name", placeholder="e.g., custom_pump_4", help="Unique name for your parameter")
+            custom_param_type = st.selectbox("Parameter Type", options=["binary", "flow_rate", "pressure", "temperature", "numeric"], key="custom_type")
+            custom_param_address = st.number_input("Modbus Address", min_value=1, max_value=65535, value=300, key="custom_addr")
+            custom_param_modbus_type = st.selectbox("Modbus Type", options=["coil", "holding_register", "input_register", "discrete_input"], key="custom_modbus")
+            
+            # Value input for custom parameter
+            if custom_param_type == 'binary':
+                custom_target_value = st.selectbox("Value", options=[0, 1], format_func=lambda x: "OFF" if x == 0 else "ON", key="custom_val")
+            else:
+                custom_target_value = st.number_input("Value", value=1.0, key="custom_num_val")
+            
+            custom_priority = st.selectbox("Priority", options=[0, 1, 2, 3], index=1, key="custom_prio")
+            
+            if st.button("🎯 Send Custom Command", key="custom_cmd"):
+                if custom_name.strip():
+                    success, message = create_parameter_command(
+                        parameter_name=custom_name.strip(),
+                        parameter_type=custom_param_type,
+                        target_value=custom_target_value,
+                        modbus_address=custom_param_address,
+                        modbus_type=custom_param_modbus_type,
+                        priority=custom_priority
+                    )
+                    
+                    if success:
+                        st.success(message)
+                        time.sleep(0.5)
+                        st.rerun()
+                    else:
+                        st.error(message)
+                else:
+                    st.error("Please enter a parameter name")
         
         # Clear all commands
         st.divider()
@@ -365,8 +424,8 @@ def main():
         
         # Select and reorder columns
         display_columns = [
-            'parameter_name', 'parameter_type', 'target_value', 'status', 
-            'priority', 'created_at', 'executed_at', 'completed_at', 'error_message'
+            'parameter_name', 'parameter_type', 'target_value', 'modbus_address', 'modbus_type',
+            'status', 'priority', 'created_at', 'executed_at', 'completed_at', 'error_message'
         ]
         
         available_columns = [col for col in display_columns if col in df.columns]
@@ -393,8 +452,10 @@ def main():
                 "parameter_name": "Parameter",
                 "parameter_type": "Type", 
                 "target_value": "Value",
+                "modbus_address": "Address",
+                "modbus_type": "Modbus",
                 "status": "Status",
-                "priority": "Priority",
+                "priority": "Priority", 
                 "created_at": "Created",
                 "executed_at": "Executed", 
                 "completed_at": "Completed",
