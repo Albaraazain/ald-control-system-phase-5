@@ -185,31 +185,32 @@ def main():
     with st.sidebar:
         st.header("🔧 Create Parameter Command")
         
-        # Predefined parameter options
+        # Real machine parameter addresses
         parameter_presets = {
-            "pump_1": {"type": "binary", "address": 100, "modbus_type": "coil"},
-            "pump_2": {"type": "binary", "address": 101, "modbus_type": "coil"},
-            "pump_3": {"type": "binary", "address": 104, "modbus_type": "coil"},
-            "nitrogen_generator": {"type": "binary", "address": 102, "modbus_type": "coil"},
-            "vacuum_pump": {"type": "binary", "address": 105, "modbus_type": "coil"},
-            "chamber_heater": {"type": "binary", "address": 103, "modbus_type": "coil"},
-            "mfc_1_flow_rate": {"type": "flow_rate", "address": 200, "modbus_type": "holding_register"},
-            "mfc_2_flow_rate": {"type": "flow_rate", "address": 202, "modbus_type": "holding_register"},
-            "pressure_setpoint": {"type": "pressure", "address": 201, "modbus_type": "holding_register"},
-            "temperature_setpoint": {"type": "temperature", "address": 203, "modbus_type": "holding_register"}
+            "pressure_gauge": {"type": "binary", "address": 2072, "modbus_type": "coil", "description": "Pressure gauge on/off"},
+            "exhaust": {"type": "binary", "address": 11, "modbus_type": "coil", "description": "Exhaust valve on/off"},
+            "n2_generator": {"type": "binary", "address": 37, "modbus_type": "coil", "description": "Nitrogen generator on/off"},
+            "pump": {"type": "binary", "address": 10, "modbus_type": "coil", "description": "Main pump on/off"},
+            "mfc_setpoint": {"type": "flow_rate", "address": 2066, "modbus_type": "holding_register", "description": "MFC flow rate setpoint"},
+            "mfc_current_value": {"type": "flow_rate", "address": 2082, "modbus_type": "input_register", "description": "MFC current flow rate (read-only)"},
+            # Keep some old ones for backward compatibility
+            "pump_1": {"type": "binary", "address": 100, "modbus_type": "coil", "description": "Test pump 1 (legacy)"},
+            "pump_2": {"type": "binary", "address": 101, "modbus_type": "coil", "description": "Test pump 2 (legacy)"},
+            "chamber_heater": {"type": "binary", "address": 103, "modbus_type": "coil", "description": "Chamber heater on/off (legacy)"},
+            "temperature_setpoint": {"type": "temperature", "address": 203, "modbus_type": "holding_register", "description": "Temperature setpoint (legacy)"}
         }
         
         # Parameter selection
         selected_preset = st.selectbox(
             "Select Parameter",
             options=list(parameter_presets.keys()),
-            format_func=lambda x: x.replace("_", " ").title()
+            format_func=lambda x: f"{x.replace('_', ' ').title()} ({parameter_presets[x]['description']})"
         )
         
         preset = parameter_presets[selected_preset]
         
         # Show parameter details and allow editing modbus address
-        st.info(f"**Type:** {preset['type']}\n**Default Address:** {preset['address']}\n**Modbus:** {preset['modbus_type']}")
+        st.info(f"**Description:** {preset['description']}\n**Type:** {preset['type']}\n**Address:** {preset['address']}\n**Modbus:** {preset['modbus_type']}")
         
         # Allow custom modbus address
         with st.expander("🔧 Advanced Settings", expanded=False):
@@ -270,36 +271,59 @@ def main():
         st.divider()
         st.subheader("🎯 Quick Actions")
         
+        # Real machine quick actions
+        if st.button("🚀 System Startup", type="primary"):
+            startup_sequence = [
+                ("pump", 1, 3),  # Pump ON, priority 3
+                ("n2_generator", 1, 2),  # N2 Generator ON, priority 2
+                ("pressure_gauge", 1, 1)  # Pressure gauge ON, priority 1
+            ]
+            for param, value, priority in startup_sequence:
+                if param in parameter_presets:
+                    create_parameter_command(
+                        parameter_name=param,
+                        parameter_type=parameter_presets[param]['type'],
+                        target_value=value,
+                        modbus_address=parameter_presets[param]['address'],
+                        modbus_type=parameter_presets[param]['modbus_type'],
+                        priority=priority
+                    )
+            st.success("🚀 System startup sequence initiated!")
+            time.sleep(0.5)
+            st.rerun()
+            
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("💨 All Pumps ON"):
-                pumps = ["pump_1", "pump_2", "pump_3", "vacuum_pump"]
-                for i, pump in enumerate(pumps):
-                    create_parameter_command(
-                        parameter_name=pump,
-                        parameter_type="binary",
-                        target_value=1,
-                        modbus_address=parameter_presets[pump]['address'],
-                        modbus_type="coil",
-                        priority=2
-                    )
-                st.success(f"Sent ON commands to {len(pumps)} pumps")
+            if st.button("🔛 All Equipment ON"):
+                equipment = ["pump", "n2_generator", "pressure_gauge", "exhaust"]
+                for i, equip in enumerate(equipment):
+                    if equip in parameter_presets:
+                        create_parameter_command(
+                            parameter_name=equip,
+                            parameter_type=parameter_presets[equip]['type'],
+                            target_value=1,
+                            modbus_address=parameter_presets[equip]['address'],
+                            modbus_type=parameter_presets[equip]['modbus_type'],
+                            priority=2
+                        )
+                st.success(f"Sent ON commands to {len(equipment)} equipment")
                 time.sleep(0.5)
                 st.rerun()
         
         with col2:
-            if st.button("🛑 All Pumps OFF"):
-                pumps = ["pump_1", "pump_2", "pump_3", "vacuum_pump"]
-                for i, pump in enumerate(pumps):
-                    create_parameter_command(
-                        parameter_name=pump,
-                        parameter_type="binary",
-                        target_value=0,
-                        modbus_address=parameter_presets[pump]['address'],
-                        modbus_type="coil",
-                        priority=1
-                    )
-                st.success(f"Sent OFF commands to {len(pumps)} pumps")
+            if st.button("⚠️ Emergency STOP"):
+                equipment = ["pump", "n2_generator", "exhaust"]  # Don't turn off pressure gauge
+                for i, equip in enumerate(equipment):
+                    if equip in parameter_presets:
+                        create_parameter_command(
+                            parameter_name=equip,
+                            parameter_type=parameter_presets[equip]['type'],
+                            target_value=0,
+                            modbus_address=parameter_presets[equip]['address'],
+                            modbus_type=parameter_presets[equip]['modbus_type'],
+                            priority=3  # High priority for emergency stop
+                        )
+                st.error(f"🚨 Emergency STOP sent to {len(equipment)} equipment")
                 time.sleep(0.5)
                 st.rerun()
         
