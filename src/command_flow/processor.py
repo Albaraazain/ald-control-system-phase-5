@@ -1,13 +1,13 @@
 """
 Command processor for handling different types of commands.
 """
-from log_setup import logger
-from config import CommandStatus
-from command_flow.status import update_command_status
-from recipe_flow.starter import start_recipe
-from recipe_flow.stopper import stop_recipe
-from step_flow.parameter_step import set_parameter
-from command_flow.state import state
+from src.log_setup import logger
+from src.config import CommandStatus
+from src.command_flow.status import update_command_status
+from src.recipe_flow.starter import start_recipe
+from src.recipe_flow.stopper import stop_recipe
+from src.step_flow.parameter_step import set_parameter
+from src.command_flow.state import state
 
 async def process_command(command):
     """

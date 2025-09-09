@@ -3,10 +3,10 @@ Command listener for receiving and dispatching commands from Supabase.
 """
 
 import asyncio
-from log_setup import logger
-from config import MACHINE_ID, CommandStatus
-from db import get_supabase
-from command_flow.processor import process_command
+from src.log_setup import logger
+from src.config import MACHINE_ID, CommandStatus
+from src.db import get_supabase
+from src.command_flow.processor import process_command
 
 
 async def check_pending_commands():

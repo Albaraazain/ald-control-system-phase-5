@@ -5,10 +5,10 @@ Real hardware implementation of the PLC interface.
 import asyncio
 import re
 from typing import Dict, Optional, List, Tuple, Any
-from log_setup import logger
-from plc.interface import PLCInterface
-from plc.communicator import PLCCommunicator
-from db import get_supabase
+from src.log_setup import logger
+from src.plc.interface import PLCInterface
+from src.plc.communicator import PLCCommunicator
+from src.db import get_supabase
 
 class RealPLC(PLCInterface):
     """Real PLC implementation for production use."""

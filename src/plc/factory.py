@@ -3,10 +3,10 @@
 Factory for creating PLC interface instances.
 """
 from typing import Dict, Any, Optional
-from log_setup import logger
-from plc.interface import PLCInterface
-from plc.simulation import SimulationPLC
-from plc.real_plc import RealPLC
+from src.log_setup import logger
+from src.plc.interface import PLCInterface
+from src.plc.simulation import SimulationPLC
+from src.plc.real_plc import RealPLC
 
 class PLCFactory:
     """Factory for creating PLC interface instances."""

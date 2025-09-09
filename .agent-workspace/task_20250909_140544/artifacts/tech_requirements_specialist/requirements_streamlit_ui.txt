@@ -1,0 +1,122 @@
+# ALD Control System Streamlit UI - Complete Dependencies
+# Generated: 2025-09-09
+# Purpose: Comprehensive dependency list for Streamlit PLC Testing UI
+
+# ============================================================================
+# EXISTING SYSTEM DEPENDENCIES (DO NOT REMOVE)
+# ============================================================================
+supabase==2.15.0
+python-dotenv==1.1.0
+pymodbus==3.6.6
+
+# ============================================================================
+# STREAMLIT CORE DEPENDENCIES
+# ============================================================================
+streamlit>=1.28.0                    # Core Streamlit framework
+streamlit-autorefresh>=0.0.6          # Auto-refresh for real-time updates
+streamlit-option-menu>=0.3.6          # Enhanced navigation menu
+streamlit-elements>=0.1.0             # Advanced UI elements
+
+# ============================================================================
+# ASYNC INTEGRATION DEPENDENCIES
+# ============================================================================
+nest-asyncio>=1.5.8                   # Nested asyncio support for Streamlit
+threading-pool-executor>=1.0.0        # Thread management for async operations
+
+# ============================================================================
+# DATA HANDLING AND VISUALIZATION
+# ============================================================================
+pandas>=2.1.0                         # Data manipulation and display
+numpy>=1.24.0                         # Numerical operations
+plotly>=5.17.0                        # Interactive charts and graphs
+streamlit-aggrid>=0.3.4               # Advanced data grids (already added)
+
+# ============================================================================
+# UI ENHANCEMENTS AND COMPONENTS
+# ============================================================================
+streamlit-ace>=0.1.1                  # Code editor for Modbus scripts
+streamlit-toggle-switch>=1.0.2        # Toggle switches for valve controls
+streamlit-card>=0.0.5                 # Card components for organized layout
+streamlit-metrics>=0.1.0              # Metrics display components
+streamlit-echarts>=0.4.0              # Additional charting options
+
+# ============================================================================
+# MONITORING AND SYSTEM DIAGNOSTICS
+# ============================================================================
+psutil>=5.9.5                         # System resource monitoring
+memory-profiler>=0.61.0               # Memory usage profiling
+streamlit-profiler>=0.1.0             # Streamlit-specific profiling
+
+# ============================================================================
+# LOGGING AND DEBUG ENHANCEMENTS
+# ============================================================================
+rich>=13.7.0                          # Enhanced logging and console output
+colorama>=0.4.6                       # Colored terminal output
+loguru>=0.7.2                         # Advanced logging capabilities
+
+# ============================================================================
+# DEVELOPMENT AND TESTING DEPENDENCIES
+# ============================================================================
+pytest>=7.4.0                         # Testing framework
+pytest-asyncio>=0.23.0                # Async testing support
+pytest-streamlit>=0.1.0               # Streamlit-specific testing
+streamlit-debug>=0.1.0                # Debug tools for Streamlit
+black>=23.9.0                         # Code formatting
+pylint>=3.0.0                         # Code linting
+mypy>=1.6.0                           # Type checking
+
+# ============================================================================
+# OPTIONAL ENHANCEMENTS (Comment out if not needed)
+# ============================================================================
+streamlit-authenticator>=0.2.3        # User authentication (optional)
+streamlit-lottie>=0.0.5               # Animation support (optional)
+streamlit-camera-input-live>=0.2.0    # Camera integration (optional)
+qrcode[pil]>=7.4.2                     # QR code generation for sharing (optional)
+
+# ============================================================================
+# SECURITY AND VALIDATION
+# ============================================================================
+validators>=0.22.0                     # Input validation utilities
+cryptography>=41.0.7                  # Encryption for sensitive data
+pydantic>=2.4.0                       # Data validation and settings
+
+# ============================================================================
+# PERFORMANCE AND CACHING
+# ============================================================================
+diskcache>=5.6.3                      # Persistent caching
+redis>=5.0.1                          # Optional Redis caching (comment out if not using Redis)
+
+# ============================================================================
+# EXPORT AND REPORTING
+# ============================================================================
+openpyxl>=3.1.2                       # Excel export functionality
+fpdf2>=2.7.6                          # PDF report generation
+pillow>=10.0.1                        # Image processing for reports
+
+# ============================================================================
+# SYSTEM INTEGRATION
+# ============================================================================
+watchdog>=3.0.0                       # File system monitoring
+schedule>=1.2.0                       # Task scheduling
+python-dateutil>=2.8.2                # Date/time utilities
+
+# ============================================================================
+# VERSION COMPATIBILITY NOTES
+# ============================================================================
+# Python: >=3.9,<3.14 (tested with 3.11)
+# Streamlit: Compatible with all specified versions
+# PyModbus: 3.6.6 is compatible with all above dependencies
+# Supabase: 2.15.0 is compatible with all above dependencies
+
+# ============================================================================
+# INSTALLATION NOTES
+# ============================================================================
+# To install core dependencies only:
+# pip install streamlit pandas plotly streamlit-autorefresh streamlit-option-menu
+# 
+# To install all dependencies:
+# pip install -r requirements_streamlit_ui.txt
+#
+# For development environment:
+# pip install -r requirements_streamlit_ui.txt
+# pip install pytest pytest-asyncio black pylint mypy

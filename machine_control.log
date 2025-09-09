@@ -59,3 +59,64 @@
 2025-09-09 01:18:43,282 - __main__ - INFO - ✅ Recipe parameters: SUCCESS
 2025-09-09 01:18:43,282 - __main__ - INFO - ==================================================
 2025-09-09 01:18:43,282 - __main__ - INFO - 🚀 All basic integration tests PASSED!
+2025-09-09 14:15:14,159 - __main__ - INFO - 🧪 Starting Simple Integration Test
+2025-09-09 14:15:14,159 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-09 14:15:14,159 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-09 14:15:14,190 - machine_control - INFO - Supabase client initialized successfully
+2025-09-09 14:15:14,190 - __main__ - INFO - ✅ Supabase client initialized
+2025-09-09 14:15:14,190 - __main__ - INFO - 🔍 Testing recipe existence...
+2025-09-09 14:15:14,826 - __main__ - INFO - ✅ Simple recipe found: Integration Test Recipe - Simple
+2025-09-09 14:15:15,027 - __main__ - INFO - ✅ Complex recipe found: Integration Test Recipe - Complex
+2025-09-09 14:15:15,027 - __main__ - INFO - 🔍 Testing recipe steps...
+2025-09-09 14:15:15,132 - __main__ - INFO - ✅ Simple recipe has 3 steps
+2025-09-09 14:15:15,334 - __main__ - INFO - ✅ Complex recipe has 5 steps
+2025-09-09 14:15:15,334 - __main__ - INFO - 🔍 Testing step configurations...
+2025-09-09 14:15:15,705 - __main__ - INFO - ✅ Found 22 valve configurations
+2025-09-09 14:15:15,705 - __main__ - INFO - ✅ Found 15 purge configurations
+2025-09-09 14:15:15,705 - __main__ - INFO - ✅ Found 5 loop configurations
+2025-09-09 14:15:15,705 - __main__ - INFO - 🔍 Testing recipe parameters...
+2025-09-09 14:15:15,880 - __main__ - INFO - ✅ Simple recipe has 3 parameters
+2025-09-09 14:15:15,880 - __main__ - INFO - ✅ Complex recipe has 4 parameters
+2025-09-09 14:15:15,880 - __main__ - INFO - ==================================================
+2025-09-09 14:15:15,880 - __main__ - INFO - 🎉 SIMPLE INTEGRATION TEST RESULTS
+2025-09-09 14:15:15,880 - __main__ - INFO - ==================================================
+2025-09-09 14:15:15,880 - __main__ - INFO - ✅ Database connection: SUCCESS
+2025-09-09 14:15:15,881 - __main__ - INFO - ✅ Recipe creation: SUCCESS
+2025-09-09 14:15:15,881 - __main__ - INFO - ✅ Recipe steps: SUCCESS
+2025-09-09 14:15:15,881 - __main__ - INFO - ✅ Step configurations: SUCCESS
+2025-09-09 14:15:15,881 - __main__ - INFO - ✅ Recipe parameters: SUCCESS
+2025-09-09 14:15:15,881 - __main__ - INFO - ==================================================
+2025-09-09 14:15:15,881 - __main__ - INFO - 🚀 All basic integration tests PASSED!
+2025-09-09 14:15:20,994 - __main__ - INFO - 🧪 Starting Lightweight Recipe Test
+2025-09-09 14:15:20,994 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-09 14:15:20,994 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-09 14:15:21,024 - machine_control - INFO - Supabase client initialized successfully
+2025-09-09 14:15:21,024 - __main__ - INFO - 🔍 Testing comprehensive recipe loading...
+2025-09-09 14:15:21,940 - __main__ - INFO - ✅ Simple recipe loaded: Integration Test Recipe - Simple
+2025-09-09 14:15:21,940 - __main__ - INFO - ✅ Recipe structure: Integration Test Recipe - Simple
+2025-09-09 14:15:21,940 - __main__ - INFO -    - 3 steps total
+2025-09-09 14:15:21,940 - __main__ - INFO -    - Step types: ['valve', 'purge', 'valve']
+2025-09-09 14:15:21,940 - __main__ - INFO -    - Expected: ['valve', 'purge', 'valve']
+2025-09-09 14:15:21,940 - __main__ - INFO - ✅ Simple recipe step types match expected
+2025-09-09 14:15:21,940 - __main__ - INFO - 🔍 Testing complex recipe with loop...
+2025-09-09 14:15:22,103 - __main__ - INFO - ✅ Complex recipe loaded with 5 steps
+2025-09-09 14:15:22,103 - __main__ - INFO -    - Loop steps: 1
+2025-09-09 14:15:22,103 - __main__ - INFO -    - Child steps: 2
+2025-09-09 14:15:22,172 - __main__ - INFO -    - Loop iteration count: 3
+2025-09-09 14:15:22,172 - __main__ - INFO - ✅ Complex recipe loop structure validated
+2025-09-09 14:15:22,172 - __main__ - INFO - 🔍 Testing recipe parameters...
+2025-09-09 14:15:22,318 - __main__ - INFO - ✅ Simple recipe parameters: {'chamber_pressure': 100.0, 'base_temperature': 25.0, 'flow_rate_multiplier': 1.0}
+2025-09-09 14:15:22,318 - __main__ - INFO - ✅ Simple recipe parameters match expected
+2025-09-09 14:15:22,318 - __main__ - INFO - ============================================================
+2025-09-09 14:15:22,318 - __main__ - INFO - 🏁 LIGHTWEIGHT RECIPE TEST RESULTS
+2025-09-09 14:15:22,318 - __main__ - INFO - ============================================================
+2025-09-09 14:15:22,318 - __main__ - INFO - ✅ Database connection: SUCCESS
+2025-09-09 14:15:22,318 - __main__ - INFO - ✅ Recipe loading: SUCCESS
+2025-09-09 14:15:22,318 - __main__ - INFO - ✅ Step configuration loading: SUCCESS
+2025-09-09 14:15:22,318 - __main__ - INFO - ✅ Loop structure validation: SUCCESS
+2025-09-09 14:15:22,318 - __main__ - INFO - ✅ Parameter loading: SUCCESS
+2025-09-09 14:15:22,318 - __main__ - INFO - ============================================================
+2025-09-09 14:15:22,318 - __main__ - INFO - 🚀 Recipe integration test PASSED!
+2025-09-09 14:50:20,546 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-09 14:50:20,546 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-09 14:50:20,597 - machine_control - INFO - Supabase client initialized successfully

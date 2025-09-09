@@ -5,9 +5,9 @@ Simulation implementation of the PLC interface.
 import asyncio
 import random
 from typing import Dict, Optional, Set
-from log_setup import logger
-from db import get_supabase
-from plc.interface import PLCInterface
+from src.log_setup import logger
+from src.db import get_supabase
+from src.plc.interface import PLCInterface
 
 class SimulationPLC(PLCInterface):
     """Simulated PLC implementation for testing without hardware."""

@@ -1,0 +1,518 @@
+{
+  "project": "ALD Control System Streamlit PLC Testing UI",
+  "version": "1.0",
+  "created": "2025-09-09",
+  "specification_type": "technical_requirements",
+
+  "executive_summary": {
+    "objective": "Create a comprehensive Streamlit web UI for PLC testing, debugging, and monitoring that integrates seamlessly with the existing async PLC system",
+    "complexity_tier": "Complex",
+    "integration_level": "Deep",
+    "development_phases": 4
+  },
+
+  "dependency_analysis": {
+    "existing_dependencies": {
+      "supabase": "2.15.0",
+      "python-dotenv": "1.1.0",
+      "pymodbus": "3.6.6"
+    },
+    
+    "new_streamlit_dependencies": {
+      "core": {
+        "streamlit": ">=1.28.0",
+        "streamlit-autorefresh": ">=0.0.6",
+        "streamlit-option-menu": ">=0.3.6",
+        "streamlit-elements": ">=0.1.0"
+      },
+      "async_integration": {
+        "asyncio": "built-in",
+        "nest-asyncio": ">=1.5.8",
+        "threading": "built-in"
+      },
+      "ui_enhancements": {
+        "plotly": ">=5.17.0",
+        "pandas": ">=2.1.0",
+        "numpy": ">=1.24.0"
+      },
+      "monitoring": {
+        "psutil": ">=5.9.5",
+        "streamlit-metrics": ">=0.1.0"
+      }
+    },
+    
+    "development_dependencies": {
+      "streamlit-debug": ">=0.1.0",
+      "pytest-asyncio": ">=0.23.0",
+      "streamlit-profiler": ">=0.1.0"
+    },
+    
+    "compatibility_matrix": {
+      "python": ">=3.9,<3.14",
+      "streamlit_python_compatibility": "3.9-3.13",
+      "pymodbus_compatibility": "compatible",
+      "supabase_compatibility": "compatible"
+    }
+  },
+
+  "integration_architecture": {
+    "async_sync_bridge": {
+      "description": "Handle async PLC operations within Streamlit's synchronous context",
+      "implementation": "asyncio.run() wrapper functions with thread management",
+      "patterns": [
+        "Async wrapper functions for all PLC operations",
+        "Thread-safe session state updates",
+        "Background task management for continuous operations"
+      ]
+    },
+    
+    "plc_integration_points": {
+      "plc_manager_singleton": {
+        "access_pattern": "Streamlit session state wrapper",
+        "connection_handling": "Per-session connection management",
+        "error_propagation": "Exception to UI error display"
+      },
+      "parameter_operations": {
+        "read_parameter": "UI form → async wrapper → plc_manager.read_parameter",
+        "write_parameter": "UI input → validation → async wrapper → plc_manager.write_parameter",
+        "read_all_parameters": "Background refresh → async wrapper → plc_manager.read_all_parameters"
+      },
+      "valve_control": {
+        "valve_operations": "UI controls → async wrapper → plc_manager.control_valve",
+        "duration_management": "Timer display in UI during operations"
+      },
+      "purge_operations": {
+        "execution": "UI button → async wrapper → plc_manager.execute_purge",
+        "progress_tracking": "Real-time progress display"
+      }
+    },
+    
+    "database_integration": {
+      "parameter_definitions": "Direct Supabase queries for component_parameters table",
+      "logging": "Log PLC operations to custom streamlit_logs table",
+      "session_tracking": "Track user sessions and operations"
+    }
+  },
+
+  "ui_architecture": {
+    "application_structure": "Multi-page Streamlit application",
+    "navigation": "Sidebar navigation with streamlit-option-menu",
+    
+    "page_definitions": {
+      "connection_panel": {
+        "purpose": "PLC connection testing and configuration",
+        "components": [
+          "Connection status indicator",
+          "IP/Hostname input fields",
+          "Connection test button",
+          "Connection metrics display",
+          "Auto-discovery controls"
+        ]
+      },
+      
+      "parameter_browser": {
+        "purpose": "Browse, read, and edit PLC parameters",
+        "components": [
+          "Parameter tree/table display",
+          "Search and filter controls",
+          "Read/Write forms",
+          "Value history charts",
+          "Bulk parameter operations"
+        ]
+      },
+      
+      "valve_control": {
+        "purpose": "Manual valve control and testing",
+        "components": [
+          "Valve status grid",
+          "Individual valve controls",
+          "Duration setting controls",
+          "Valve operation logging",
+          "Emergency stop functionality"
+        ]
+      },
+      
+      "purge_operations": {
+        "purpose": "Purge operation control and monitoring",
+        "components": [
+          "Purge duration input",
+          "Start/Stop controls",
+          "Progress indicators",
+          "Operation history",
+          "Safety interlocks"
+        ]
+      },
+      
+      "modbus_debugger": {
+        "purpose": "Low-level Modbus debugging and diagnostics",
+        "components": [
+          "Raw Modbus register viewer",
+          "Custom register read/write",
+          "Protocol analyzer",
+          "Connection diagnostics",
+          "Register mapping tools"
+        ]
+      },
+      
+      "logging_monitor": {
+        "purpose": "Real-time logging and system monitoring",
+        "components": [
+          "Live log stream display",
+          "Log level filtering",
+          "System metrics dashboard",
+          "Error tracking",
+          "Export functionality"
+        ]
+      }
+    }
+  },
+
+  "session_state_design": {
+    "state_structure": {
+      "plc_connection": {
+        "connected": "boolean",
+        "connection_params": "dict",
+        "last_connection_test": "timestamp",
+        "connection_errors": "list"
+      },
+      "parameter_cache": {
+        "parameters": "dict[str, float]",
+        "last_refresh": "timestamp",
+        "refresh_interval": "int (seconds)",
+        "selected_parameters": "list[str]"
+      },
+      "valve_states": {
+        "valve_status": "dict[int, bool]",
+        "active_operations": "dict[int, dict]",
+        "last_valve_update": "timestamp"
+      },
+      "ui_state": {
+        "current_page": "str",
+        "error_messages": "list",
+        "success_messages": "list",
+        "loading_states": "dict[str, bool]"
+      },
+      "logging": {
+        "log_buffer": "deque",
+        "log_level": "str",
+        "auto_refresh": "boolean"
+      }
+    },
+    
+    "state_management_patterns": {
+      "initialization": "Session state initialization with defaults",
+      "persistence": "Critical state persistence across page refreshes",
+      "cleanup": "Session cleanup on disconnection",
+      "thread_safety": "Thread-safe updates for background operations"
+    }
+  },
+
+  "async_operation_handling": {
+    "streamlit_async_integration": {
+      "primary_method": "asyncio.run() within wrapper functions",
+      "threading": "Background threads for long-running operations",
+      "progress_updates": "Session state updates with auto-refresh"
+    },
+    
+    "operation_patterns": {
+      "single_operations": {
+        "pattern": "Button click → async wrapper → result display",
+        "error_handling": "Try/catch with user-friendly error display",
+        "loading_states": "Spinner/progress indicators"
+      },
+      "continuous_operations": {
+        "pattern": "Background thread → periodic session state updates",
+        "examples": ["Parameter monitoring", "Connection health checks"],
+        "refresh_mechanism": "streamlit-autorefresh component"
+      },
+      "batch_operations": {
+        "pattern": "Progress bar → async batch processing → results summary",
+        "examples": ["Bulk parameter read", "System health check"]
+      }
+    },
+    
+    "performance_optimizations": {
+      "caching": "Streamlit @st.cache_data for expensive operations",
+      "connection_pooling": "Reuse PLC connections across operations",
+      "lazy_loading": "Load parameter definitions on demand",
+      "debouncing": "Prevent rapid API calls from UI interactions"
+    }
+  },
+
+  "error_handling_framework": {
+    "error_categories": {
+      "connection_errors": {
+        "types": ["PLC unreachable", "Timeout", "Authentication"],
+        "handling": "User-friendly messages with retry options"
+      },
+      "parameter_errors": {
+        "types": ["Invalid parameter ID", "Read/write failures", "Type conversion"],
+        "handling": "Inline error messages with validation hints"
+      },
+      "system_errors": {
+        "types": ["Database connection", "Configuration issues", "Resource limits"],
+        "handling": "Global error handler with diagnostic information"
+      }
+    },
+    
+    "error_display_patterns": {
+      "inline_errors": "st.error() for operation-specific errors",
+      "toast_notifications": "st.toast() for non-blocking notifications",
+      "error_modals": "Custom error dialogs for critical issues",
+      "error_logging": "Comprehensive logging with user context"
+    },
+    
+    "recovery_mechanisms": {
+      "automatic_retry": "Configurable retry logic for transient errors",
+      "connection_recovery": "Automatic reconnection attempts",
+      "state_restoration": "Restore UI state after errors",
+      "graceful_degradation": "Partial functionality during errors"
+    }
+  },
+
+  "security_considerations": {
+    "access_control": {
+      "authentication": "Optional user authentication integration",
+      "authorization": "Role-based access to dangerous operations",
+      "session_management": "Secure session handling"
+    },
+    "operation_safety": {
+      "confirmation_dialogs": "Required confirmation for destructive operations",
+      "operation_limits": "Rate limiting and resource constraints",
+      "audit_logging": "Complete audit trail of all operations"
+    },
+    "data_protection": {
+      "parameter_masking": "Optional masking of sensitive parameters",
+      "connection_security": "Secure storage of connection credentials",
+      "log_sanitization": "Remove sensitive data from logs"
+    }
+  },
+
+  "performance_requirements": {
+    "response_times": {
+      "single_parameter_read": "<2 seconds",
+      "bulk_parameter_read": "<5 seconds for 100 parameters",
+      "valve_operation": "<1 second for command acknowledgment",
+      "ui_refresh": "<500ms for interface updates"
+    },
+    "scalability": {
+      "concurrent_users": "Support 5-10 concurrent users",
+      "parameter_count": "Handle 1000+ parameters efficiently",
+      "log_retention": "Maintain 10,000 log entries in memory"
+    },
+    "resource_usage": {
+      "memory_usage": "<500MB for typical operations",
+      "cpu_usage": "<20% during normal operations",
+      "network_bandwidth": "Minimize unnecessary PLC polling"
+    }
+  },
+
+  "development_phases": {
+    "phase_1_foundation": {
+      "duration": "1-2 weeks",
+      "deliverables": [
+        "Basic Streamlit app structure",
+        "Async wrapper functions for PLC operations",
+        "Connection panel implementation",
+        "Basic parameter browser"
+      ],
+      "acceptance_criteria": [
+        "Successful PLC connection through UI",
+        "Basic parameter read/write functionality",
+        "Error handling for connection issues"
+      ]
+    },
+    
+    "phase_2_core_functionality": {
+      "duration": "2-3 weeks",
+      "deliverables": [
+        "Complete parameter browser with filtering",
+        "Valve control interface",
+        "Purge operation controls",
+        "Real-time monitoring"
+      ],
+      "acceptance_criteria": [
+        "Full parameter CRUD operations",
+        "Safe valve control with confirmations",
+        "Successful purge operations",
+        "Real-time parameter monitoring"
+      ]
+    },
+    
+    "phase_3_advanced_features": {
+      "duration": "2 weeks",
+      "deliverables": [
+        "Modbus debugger interface",
+        "Advanced logging and monitoring",
+        "Data visualization and charts",
+        "Bulk operations"
+      ],
+      "acceptance_criteria": [
+        "Low-level Modbus debugging capability",
+        "Comprehensive logging with filtering",
+        "Parameter trend visualization",
+        "Efficient bulk operations"
+      ]
+    },
+    
+    "phase_4_polish_deployment": {
+      "duration": "1 week",
+      "deliverables": [
+        "UI polish and optimization",
+        "Documentation and help system",
+        "Deployment configuration",
+        "Testing and validation"
+      ],
+      "acceptance_criteria": [
+        "Professional UI appearance",
+        "Complete user documentation",
+        "Production-ready deployment",
+        "Full test coverage"
+      ]
+    }
+  },
+
+  "testing_strategy": {
+    "unit_tests": {
+      "async_wrappers": "Test all async operation wrappers",
+      "session_state": "Test session state management",
+      "error_handling": "Test error scenarios and recovery"
+    },
+    "integration_tests": {
+      "plc_integration": "Test with simulation PLC",
+      "database_integration": "Test Supabase operations",
+      "end_to_end": "Complete workflow testing"
+    },
+    "ui_tests": {
+      "component_tests": "Test individual UI components",
+      "navigation_tests": "Test page navigation and state preservation",
+      "responsive_tests": "Test UI responsiveness and layout"
+    },
+    "performance_tests": {
+      "load_testing": "Test with multiple concurrent users",
+      "stress_testing": "Test with high parameter counts",
+      "memory_testing": "Monitor memory usage patterns"
+    }
+  },
+
+  "deployment_configuration": {
+    "streamlit_config": {
+      "server_port": "8501",
+      "server_address": "0.0.0.0",
+      "server_max_upload_size": "200MB",
+      "theme": "light",
+      "wide_mode": true
+    },
+    "environment_variables": {
+      "required": [
+        "SUPABASE_URL",
+        "SUPABASE_KEY",
+        "PLC_IP",
+        "PLC_PORT",
+        "PLC_TYPE"
+      ],
+      "optional": [
+        "STREAMLIT_DEBUG",
+        "LOG_LEVEL",
+        "REFRESH_INTERVAL"
+      ]
+    },
+    "docker_considerations": {
+      "base_image": "python:3.11-slim",
+      "port_exposure": "8501",
+      "volume_mounts": ["logs", "config"],
+      "health_checks": "HTTP health endpoint"
+    }
+  },
+
+  "monitoring_and_observability": {
+    "application_monitoring": {
+      "metrics": [
+        "User session count",
+        "PLC operation success rates",
+        "Response times",
+        "Error frequencies"
+      ],
+      "logging": [
+        "User actions audit log",
+        "PLC operation logs",
+        "System performance logs",
+        "Error and exception logs"
+      ]
+    },
+    "system_health": {
+      "health_checks": [
+        "PLC connectivity",
+        "Database connectivity",
+        "Memory usage",
+        "CPU utilization"
+      ],
+      "alerting": [
+        "Connection failures",
+        "High error rates",
+        "Resource exhaustion",
+        "Critical system errors"
+      ]
+    }
+  },
+
+  "documentation_requirements": {
+    "user_documentation": {
+      "user_manual": "Complete UI user guide with screenshots",
+      "operation_procedures": "Step-by-step procedures for common tasks",
+      "troubleshooting_guide": "Common issues and solutions",
+      "safety_guidelines": "Safe operation practices"
+    },
+    "technical_documentation": {
+      "architecture_overview": "System architecture and integration points",
+      "api_documentation": "Internal API and function documentation",
+      "deployment_guide": "Installation and deployment instructions",
+      "maintenance_guide": "System maintenance and updates"
+    }
+  },
+
+  "risk_assessment": {
+    "technical_risks": {
+      "async_integration_complexity": {
+        "risk": "HIGH",
+        "mitigation": "Thorough testing of async wrappers, fallback patterns"
+      },
+      "streamlit_performance": {
+        "risk": "MEDIUM", 
+        "mitigation": "Caching strategies, optimized refresh patterns"
+      },
+      "plc_connection_stability": {
+        "risk": "MEDIUM",
+        "mitigation": "Robust error handling, automatic retry mechanisms"
+      }
+    },
+    "operational_risks": {
+      "user_error": {
+        "risk": "HIGH",
+        "mitigation": "Confirmation dialogs, input validation, safety interlocks"
+      },
+      "system_overload": {
+        "risk": "MEDIUM",
+        "mitigation": "Rate limiting, resource monitoring, graceful degradation"
+      }
+    }
+  },
+
+  "success_metrics": {
+    "functionality": [
+      "100% of required PLC operations accessible through UI",
+      "Sub-2-second response time for common operations",
+      "Zero data loss during normal operations"
+    ],
+    "usability": [
+      "Intuitive navigation requiring minimal training",
+      "Clear error messages enabling self-service troubleshooting",
+      "Professional appearance suitable for production use"
+    ],
+    "reliability": [
+      "99.9% uptime during operational hours",
+      "Graceful handling of PLC disconnections",
+      "Automatic recovery from transient errors"
+    ]
+  }
+}

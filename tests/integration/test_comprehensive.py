@@ -20,7 +20,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from src.log_setup import setup_logger
 from src.db import get_supabase
 from src.plc.manager import plc_manager
-from src.recipe_flow.executor import RecipeExecutor
+from src.recipe_flow.executor import execute_recipe
 from src.recipe_flow.starter import RecipeStarter
 from src.command_flow.processor import CommandProcessor
 

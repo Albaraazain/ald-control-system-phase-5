@@ -1,9 +1,9 @@
 """
 Records process data during recipe execution.
 """
-from log_setup import logger
-from config import MACHINE_ID
-from db import get_supabase, get_current_timestamp
+from src.log_setup import logger
+from src.config import MACHINE_ID
+from src.db import get_supabase, get_current_timestamp
 
 async def record_process_data(process_id: str):
     """

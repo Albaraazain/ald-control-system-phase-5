@@ -5,8 +5,8 @@ Provides continuous data recording functionality for recipe execution.
 import asyncio
 import time
 from typing import Optional
-from log_setup import logger
-from recipe_flow.data_recorder import record_process_data
+from src.log_setup import logger
+from src.recipe_flow.data_recorder import record_process_data
 
 class ContinuousDataRecorder:
     """Records process data at regular intervals during recipe execution."""

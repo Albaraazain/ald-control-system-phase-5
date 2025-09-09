@@ -2,8 +2,8 @@
 Status management for commands.
 """
 from typing import Optional
-from log_setup import logger
-from db import get_supabase, get_current_timestamp
+from src.log_setup import logger
+from src.db import get_supabase, get_current_timestamp
 
 async def update_command_status(command_id: int, status: str, error_message: Optional[str] = None):
     """

@@ -3,10 +3,10 @@
 Manager for PLC interface instances.
 """
 from typing import Dict, Any, Optional
-from log_setup import logger
-from config import PLC_TYPE, PLC_CONFIG
-from plc.interface import PLCInterface
-from plc.factory import PLCFactory
+from src.log_setup import logger
+from src.config import PLC_TYPE, PLC_CONFIG
+from src.plc.interface import PLCInterface
+from src.plc.factory import PLCFactory
 
 class PLCManager:
     """Singleton manager for PLC interfaces."""

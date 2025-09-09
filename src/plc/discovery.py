@@ -12,7 +12,7 @@ import ipaddress
 import concurrent.futures
 from typing import Optional, List, Dict, Tuple
 from pymodbus.client import ModbusTcpClient
-from log_setup import logger
+from src.log_setup import logger
 import json
 import os
 import time

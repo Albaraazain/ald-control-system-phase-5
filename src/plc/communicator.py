@@ -7,8 +7,8 @@ from pymodbus.client import ModbusTcpClient
 import struct
 import time
 import asyncio
-from log_setup import logger
-from config import PLC_BYTE_ORDER
+from src.log_setup import logger
+from src.config import PLC_BYTE_ORDER
 
 class PLCCommunicator:
     """

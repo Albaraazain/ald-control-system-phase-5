@@ -6,15 +6,16 @@ Sets up listeners and runs the main application loop.
 import asyncio
 import signal
 import sys
-from log_setup import logger
-from db import create_async_supabase, get_supabase
-from command_flow.listener import setup_command_listener
-from command_flow.status import update_command_status
-from config import MACHINE_ID
-from recipe_flow.stopper import update_process_status, update_machine_status, update_machine_state
-from command_flow.state import state
-from plc.manager import plc_manager
-from recipe_flow.continuous_data_recorder import continuous_recorder
+from src.log_setup import logger
+from src.db import create_async_supabase, get_supabase
+from src.command_flow.listener import setup_command_listener
+from src.parameter_control_listener import setup_parameter_control_listener
+from src.command_flow.status import update_command_status
+from src.config import MACHINE_ID
+from src.recipe_flow.stopper import update_process_status, update_machine_status, update_machine_state
+from src.command_flow.state import state
+from src.plc.manager import plc_manager
+from src.recipe_flow.continuous_data_recorder import continuous_recorder
 
 async def cleanup_handler():
     """Perform cleanup when application is interrupted"""
@@ -82,6 +83,9 @@ async def main():
         
         # Set up command listener
         await setup_command_listener(async_supabase)
+        
+        # Set up parameter control listener
+        await setup_parameter_control_listener(async_supabase)
         
         logger.info("Machine control application running")
         

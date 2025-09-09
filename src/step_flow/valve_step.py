@@ -2,9 +2,9 @@
 Executes valve steps in a recipe.
 """
 import asyncio
-from log_setup import logger
-from db import get_supabase, get_current_timestamp
-from plc.manager import plc_manager
+from src.log_setup import logger
+from src.db import get_supabase, get_current_timestamp
+from src.plc.manager import plc_manager
 
 async def execute_valve_step(process_id: str, step: dict):
     """
