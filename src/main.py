@@ -16,6 +16,7 @@ from src.recipe_flow.stopper import update_process_status, update_machine_status
 from src.command_flow.state import state
 from src.plc.manager import plc_manager
 from src.recipe_flow.continuous_data_recorder import continuous_recorder
+from src.connection_monitor import connection_monitor
 
 async def cleanup_handler():
     """Perform cleanup when application is interrupted"""
@@ -76,9 +77,19 @@ async def main():
         signal.signal(signal.SIGINT, lambda s, f: asyncio.create_task(signal_handler(s, f)))
         
         # Initialize PLC connection
-        await plc_manager.initialize()
+        logger.info("Initializing PLC connection...")
+        plc_connected = await plc_manager.initialize()
+        if not plc_connected:
+            logger.warning("⚠️ Failed to initialize PLC connection, will retry in background")
+        else:
+            logger.info("✅ PLC connection initialized successfully")
+        
+        # Start connection monitor
+        logger.info("Starting connection monitor...")
+        await connection_monitor.start_monitoring()
         
         # Create async Supabase client for realtime features
+        logger.info("Creating async Supabase client...")
         async_supabase = await create_async_supabase()
         
         # Set up command listener

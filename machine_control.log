@@ -147,3 +147,10 @@
 2025-09-09 15:08:25,097 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
 2025-09-09 15:08:25,097 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
 2025-09-09 15:08:25,101 - machine_control - INFO - Supabase client initialized successfully
+2025-09-09 16:22:37,495 - machine_control - INFO - Starting machine control application
+2025-09-09 16:22:37,495 - machine_control - INFO - Initializing PLC connection...
+2025-09-09 16:22:37,495 - machine_control - INFO - Initializing PLC of type real
+2025-09-09 16:22:37,495 - machine_control - INFO - Creating real PLC connection
+2025-09-09 16:22:37,495 - machine_control - INFO - PLC connection config - IP: 10.5.5.80, Port: 502, Hostname: None, Auto-discover: False
+2025-09-09 16:22:37,495 - machine_control - INFO - Using byte order: badc
+2025-09-09 16:22:37,495 - machine_control - INFO - Connecting to real PLC at 10.5.5.80:502
