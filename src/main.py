@@ -76,13 +76,27 @@ async def main():
         # Set up signal handler
         signal.signal(signal.SIGINT, lambda s, f: asyncio.create_task(signal_handler(s, f)))
         
-        # Initialize PLC connection
-        logger.info("Initializing PLC connection...")
-        plc_connected = await plc_manager.initialize()
-        if not plc_connected:
-            logger.warning("⚠️ Failed to initialize PLC connection, will retry in background")
-        else:
-            logger.info("✅ PLC connection initialized successfully")
+        # Initialize PLC connection (non-blocking)
+        logger.info("Attempting initial PLC connection...")
+        try:
+            # Try to connect with a short timeout
+            plc_connected = await asyncio.wait_for(
+                plc_manager.initialize(),
+                timeout=5.0  # 5 second timeout for initial connection
+            )
+            if plc_connected:
+                logger.info("✅ PLC connection initialized successfully")
+            else:
+                logger.warning("⚠️ PLC not connected, will retry in background")
+        except asyncio.TimeoutError:
+            logger.warning("⚠️ PLC connection timed out, service will continue and retry in background")
+            plc_connected = False
+        except Exception as e:
+            logger.warning(f"⚠️ PLC connection failed: {str(e)}, will retry in background")
+            plc_connected = False
+        
+        # Service continues regardless of PLC status
+        logger.info(f"Service starting with PLC connected: {plc_connected}")
         
         # Start connection monitor
         logger.info("Starting connection monitor...")
@@ -99,10 +113,28 @@ async def main():
         await setup_parameter_control_listener(async_supabase)
         
         logger.info("Machine control application running")
+        logger.info("="*60)
+        logger.info("System Status:")
+        logger.info(f"  - PLC Connection: {'✅ Connected' if connection_monitor.plc_status['connected'] else '❌ Disconnected'}")
+        logger.info(f"  - Realtime Channels: {'✅ Active' if connection_monitor.realtime_status['connected'] else '⚠️ Using Polling'}")
+        logger.info(f"  - Machine ID: {MACHINE_ID}")
+        logger.info("="*60)
+        logger.info("Service is ready to receive commands")
         
         # Keep the application running indefinitely
+        status_log_interval = 300  # Log status every 5 minutes
+        last_status_log = asyncio.get_event_loop().time()
+        
         while True:
             await asyncio.sleep(1)
+            
+            # Periodic status logging
+            current_time = asyncio.get_event_loop().time()
+            if current_time - last_status_log > status_log_interval:
+                logger.info(f"[Health Check] PLC: {connection_monitor.plc_status['connected']}, "
+                           f"Realtime: {connection_monitor.realtime_status['connected']}, "
+                           f"Uptime: {int(current_time)}s")
+                last_status_log = current_time
             
     except Exception as e:
         logger.error(f"Error in main application loop: {str(e)}", exc_info=True)
