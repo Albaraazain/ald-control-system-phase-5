@@ -6,8 +6,8 @@ import traceback
 from supabase import create_client, Client
 from supabase import create_async_client
 
-from config import SUPABASE_URL, SUPABASE_KEY
-from log_setup import logger
+from .config import SUPABASE_URL, SUPABASE_KEY
+from .log_setup import logger
 
 # Singleton instance for the synchronized client
 _supabase_client = None

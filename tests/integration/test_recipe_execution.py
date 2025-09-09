@@ -10,10 +10,10 @@ import json
 from datetime import datetime
 
 # Add the project root to Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from log_setup import setup_logger
-from db import get_supabase
+from src.log_setup import setup_logger
+from src.db import get_supabase
 
 # Set up logging
 logger = setup_logger(__name__)

@@ -15,12 +15,12 @@ from typing import Dict, List, Optional, Any
 import uuid
 
 # Add the project root to Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from log_setup import setup_logger
-from db import get_supabase
-from command_flow.listener import CommandListener
-from command_flow.processor import CommandProcessor
+from src.log_setup import setup_logger
+from src.db import get_supabase
+from src.command_flow.listener import CommandListener
+from src.command_flow.processor import CommandProcessor
 
 # Get the supabase client
 supabase = get_supabase()

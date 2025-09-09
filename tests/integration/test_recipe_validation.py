@@ -15,13 +15,13 @@ from typing import Dict, List, Optional, Any
 import uuid
 
 # Add the project root to Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from log_setup import setup_logger
-from db import get_supabase
-from recipe_flow.starter import RecipeStarter
-from recipe_flow.executor import RecipeExecutor
-from step_flow.executor import StepExecutor
+from src.log_setup import setup_logger
+from src.db import get_supabase
+from src.recipe_flow.starter import RecipeStarter
+from src.recipe_flow.executor import RecipeExecutor
+from src.step_flow.executor import StepExecutor
 
 # Get the supabase client
 supabase = get_supabase()
