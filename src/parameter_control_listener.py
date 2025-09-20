@@ -1,6 +1,6 @@
 """
 Parameter control listener for receiving and executing parameter control commands from Supabase.
-This listens to the parameter_control_commands table for testing UI to machine communication.
+Listens to the parameter_control_commands table to validate the end-to-end control path.
 """
 
 import asyncio
@@ -72,10 +72,9 @@ async def check_pending_parameter_commands():
         result = (
             supabase.table("parameter_control_commands")
             .select("*")
-            .eq("status", "pending")
+            .is_("executed_at", None)
             .eq("machine_id", MACHINE_ID)
-            .order("priority", desc=True)  # Higher priority first
-            .order("created_at", desc=False)  # Older commands first within same priority
+            .order("created_at", desc=False)
             .execute()
         )
         
@@ -250,7 +249,7 @@ async def setup_parameter_control_listener(async_supabase):
             callback=on_insert
         )
         
-        # Also subscribe to UPDATE events to track status changes
+        # Also subscribe to UPDATE events to observe completion/error changes
         realtime_channel = realtime_channel.on_postgres_changes(
             event="UPDATE",
             schema="public",
@@ -321,60 +320,55 @@ async def handle_parameter_command_insert(payload):
                 )
                 return
 
-        # Only process pending commands
-        if record["status"] == "pending":
-            command_id = record["id"]
-            parameter_name = record["parameter_name"]
-            
-            # Check if we've already processed this command
-            if command_id in processed_commands:
-                logger.debug(f"Command {command_id} already processed, skipping")
-                return
-            
-            # Check if this command has exceeded retry limit
-            if failed_commands.get(command_id, 0) >= MAX_RETRIES:
-                logger.warning(f"Command {command_id} has exceeded max retries ({MAX_RETRIES}), skipping")
-                # Mark as permanently failed
-                await update_parameter_command_status(
-                    command_id, 
-                    "failed", 
-                    error_message=f"Exceeded maximum retry attempts ({MAX_RETRIES})"
-                )
-                processed_commands.add(command_id)
-                return
-            
-            logger.info(f"New pending parameter control command: {command_id}, parameter: {parameter_name}")
+        # Process if not yet executed
+        command_id = record["id"]
+        parameter_name = record.get("parameter_name", "?")
 
-            # Check PLC connection before attempting to claim
-            if not await ensure_plc_connection():
-                logger.warning(f"Cannot process command {command_id}: PLC is not connected")
-                # Don't mark as failed, will retry later
-                return
+        # Already processed?
+        if command_id in processed_commands:
+            logger.debug(f"Command {command_id} already processed, skipping")
+            return
 
-            # Try to claim the command by updating its status
-            supabase = get_supabase()
-            result = (
-                supabase.table("parameter_control_commands")
-                .update({
-                    "status": "executing",
-                    "executed_at": datetime.utcnow().isoformat()
-                })
-                .eq("id", command_id)
-                .eq("status", "pending")
-                .execute()
-            )
+        # Skip if already claimed/executed
+        if record.get("executed_at") is not None:
+            logger.debug(f"Command {command_id} already executed, skipping")
+            processed_commands.add(command_id)
+            return
 
-            # Check if we successfully claimed the command
-            if result.data and len(result.data) > 0:
-                logger.info(f"Successfully claimed parameter command {command_id}")
-                # Mark as being processed
-                processed_commands.add(command_id)
-                # Process the command
-                await process_parameter_command(record)
-            else:
-                logger.info(f"Parameter command {command_id} already claimed or status changed")
-                # Mark as processed to avoid retrying
-                processed_commands.add(command_id)
+        # Retry budget check
+        if failed_commands.get(command_id, 0) >= MAX_RETRIES:
+            logger.warning(f"Command {command_id} exceeded max retries ({MAX_RETRIES}), marking failed")
+            await finalize_parameter_command(command_id, success=False, error_message=f"Exceeded maximum retry attempts ({MAX_RETRIES})")
+            processed_commands.add(command_id)
+            return
+
+        logger.info(f"New pending parameter control command: {command_id}, parameter: {parameter_name}")
+
+        # Ensure PLC connection before claiming
+        if not await ensure_plc_connection():
+            logger.warning(f"Cannot process command {command_id}: PLC is not connected")
+            return
+
+        # Claim by setting executed_at if still NULL
+        supabase = get_supabase()
+        result = (
+            supabase.table("parameter_control_commands")
+            .update({
+                "executed_at": datetime.utcnow().isoformat(),
+                "error_message": None
+            })
+            .eq("id", command_id)
+            .is_("executed_at", None)
+            .execute()
+        )
+
+        if result.data and len(result.data) > 0:
+            logger.info(f"Successfully claimed parameter command {command_id}")
+            processed_commands.add(command_id)
+            await process_parameter_command(record)
+        else:
+            logger.info(f"Parameter command {command_id} already claimed by another worker")
+            processed_commands.add(command_id)
 
     except Exception as e:
         logger.error(f"Error handling parameter command insert: {str(e)}", exc_info=True)
@@ -389,10 +383,7 @@ async def process_parameter_command(command: Dict[str, Any]):
     """
     command_id = command['id']
     parameter_name = command['parameter_name']
-    parameter_type = command['parameter_type']
     target_value = float(command['target_value'])
-    modbus_address = command.get('modbus_address')
-    modbus_type = command.get('modbus_type')
     timeout_ms = command.get('timeout_ms', 30000)
     
     logger.info(f"Processing parameter command {command_id}: {parameter_name} = {target_value}")
@@ -412,11 +403,10 @@ async def process_parameter_command(command: Dict[str, Any]):
             error_msg = f"PLC is not connected (retry {retry_count}/{MAX_RETRIES})"
             logger.warning(f"{error_msg}. Will retry in {backoff_delay} seconds")
             
-            # Reset to pending for retry if under limit
+            # Record the error but keep as uncompleted for retry
             if retry_count < MAX_RETRIES:
                 supabase = get_supabase()
                 supabase.table("parameter_control_commands").update({
-                    "status": "pending",
                     "error_message": error_msg
                 }).eq("id", command_id).execute()
                 
@@ -429,57 +419,69 @@ async def process_parameter_command(command: Dict[str, Any]):
             else:
                 raise RuntimeError(f"PLC connection failed after {MAX_RETRIES} attempts")
         
-        # Execute the parameter change based on modbus_type
+        # Resolve the parameter by name from component_parameters_full
+        # Prefer exact match on 'parameter_name'; fallback to 'name' if needed
         success = False
         current_value = None
-        
-        if modbus_type == 'coil':
-            # Binary parameter (pump on/off, etc.)
-            binary_value = bool(target_value)
-            logger.info(f"Writing coil at address {modbus_address}: {binary_value}")
-            
-            # For coils, we use the PLC's direct modbus interface
-            # This is a simplified approach - you may want to extend PLCInterface
-            if hasattr(plc_manager.plc, 'write_coil'):
-                success = await plc_manager.plc.write_coil(modbus_address, binary_value)
-                current_value = float(binary_value) if success else None
-            else:
-                # Fallback to generic parameter write
-                success = await plc_manager.write_parameter(parameter_name, target_value)
-                if success:
-                    current_value = await plc_manager.read_parameter(parameter_name)
-                    
-        elif modbus_type == 'holding_register':
-            # Numeric parameter (flow rates, temperatures, etc.)
-            logger.info(f"Writing holding register at address {modbus_address}: {target_value}")
-            
-            if hasattr(plc_manager.plc, 'write_holding_register'):
-                success = await plc_manager.plc.write_holding_register(modbus_address, target_value)
-                if success and hasattr(plc_manager.plc, 'read_holding_register'):
-                    current_value = await plc_manager.plc.read_holding_register(modbus_address)
-            else:
-                # Fallback to generic parameter write
-                success = await plc_manager.write_parameter(parameter_name, target_value)
-                if success:
-                    current_value = await plc_manager.read_parameter(parameter_name)
-                    
+
+        param_row = None
+        try:
+            # Primary lookup
+            q1 = (
+                supabase.table('component_parameters_full')
+                .select('*')
+                .eq('parameter_name', parameter_name)
+                .execute()
+            )
+            rows = q1.data or []
+            if not rows:
+                q2 = (
+                    supabase.table('component_parameters_full')
+                    .select('*')
+                    .eq('name', parameter_name)
+                    .execute()
+                )
+                rows = q2.data or []
+
+            if rows:
+                # Prefer writable parameter when multiple rows
+                writable_rows = [r for r in rows if r.get('is_writable')]
+                param_row = (writable_rows[0] if writable_rows else rows[0])
+        except Exception as lookup_err:
+            logger.error(f"Parameter lookup error for '{parameter_name}': {lookup_err}")
+
+        if not param_row:
+            raise ValueError(
+                f"Parameter '{parameter_name}' not found in component_parameters_full"
+            )
+
+        parameter_id = param_row['id']
+        data_type = param_row.get('data_type')
+
+        # Prefer high-level write via PLC manager
+        logger.info(
+            f"Writing parameter id={parameter_id} name={parameter_name} value={target_value}"
+        )
+        success = await plc_manager.write_parameter(parameter_id, target_value)
+        if success:
+            # Confirmation read when available
+            try:
+                current_value = await plc_manager.read_parameter(parameter_id)
+            except Exception as read_err:
+                logger.debug(f"Confirmation read failed for '{parameter_name}': {read_err}")
         else:
-            # Generic parameter write using the existing PLC interface
-            logger.info(f"Writing parameter {parameter_name}: {target_value}")
-            success = await plc_manager.write_parameter(parameter_name, target_value)
-            if success:
-                current_value = await plc_manager.read_parameter(parameter_name)
+            # Fallback (simulation only) by address when write fails and helpers exist
+            addr = param_row.get('write_modbus_address')
+            if addr is not None and hasattr(plc_manager.plc, 'write_coil') and data_type == 'binary':
+                success = await plc_manager.plc.write_coil(addr, bool(target_value))
+            elif addr is not None and hasattr(plc_manager.plc, 'write_holding_register'):
+                success = await plc_manager.plc.write_holding_register(addr, float(target_value))
         
         # Update command status based on result
         if success:
             logger.info(f"Parameter command {command_id} executed successfully")
-            # Clear from failed commands if it was there
             failed_commands.pop(command_id, None)
-            await update_parameter_command_status(
-                command_id, 
-                "completed", 
-                current_value=current_value
-            )
+            await finalize_parameter_command(command_id, success=True)
         else:
             # Track retry count
             retry_count = failed_commands.get(command_id, 0) + 1
@@ -489,10 +491,9 @@ async def process_parameter_command(command: Dict[str, Any]):
                 error_msg = f"Failed to write parameter to PLC (retry {retry_count}/{MAX_RETRIES})"
                 logger.warning(f"Parameter command {command_id}: {error_msg}")
                 
-                # Reset to pending for retry
+                # Record the error for visibility and allow retry
                 supabase = get_supabase()
                 supabase.table("parameter_control_commands").update({
-                    "status": "pending",
                     "error_message": error_msg
                 }).eq("id", command_id).execute()
                 
@@ -500,11 +501,7 @@ async def process_parameter_command(command: Dict[str, Any]):
                 processed_commands.discard(command_id)
             else:
                 logger.error(f"Parameter command {command_id} failed after {MAX_RETRIES} attempts")
-                await update_parameter_command_status(
-                    command_id, 
-                    "failed", 
-                    error_message=f"Failed to write parameter to PLC after {MAX_RETRIES} attempts"
-                )
+                await finalize_parameter_command(command_id, success=False, error_message=f"Failed to write parameter to PLC after {MAX_RETRIES} attempts")
             
     except Exception as e:
         error_msg = f"Error executing parameter command: {str(e)}"
@@ -518,10 +515,9 @@ async def process_parameter_command(command: Dict[str, Any]):
             # For PLC-related errors, allow retry
             error_msg_with_retry = f"{error_msg} (retry {retry_count}/{MAX_RETRIES})"
             
-            # Reset to pending for retry
+            # Record the error and allow retry after backoff
             supabase = get_supabase()
             supabase.table("parameter_control_commands").update({
-                "status": "pending",
                 "error_message": error_msg_with_retry
             }).eq("id", command_id).execute()
             
@@ -533,56 +529,35 @@ async def process_parameter_command(command: Dict[str, Any]):
             await asyncio.sleep(backoff_delay)
         else:
             # Non-PLC errors or exceeded retries
-            await update_parameter_command_status(
-                command_id, 
-                "failed", 
-                error_message=f"{error_msg} (after {retry_count} attempts)"
-            )
+            await finalize_parameter_command(command_id, success=False, error_message=f"{error_msg} (after {retry_count} attempts)")
 
 
-async def update_parameter_command_status(
-    command_id: str, 
-    status: str, 
-    current_value: Optional[float] = None,
-    error_message: Optional[str] = None
+async def finalize_parameter_command(
+    command_id: str,
+    success: bool,
+    error_message: Optional[str] = None,
 ):
-    """
-    Update the status of a parameter control command.
-    
-    Args:
-        command_id: The ID of the command to update
-        status: The new status ('executing', 'completed', 'failed')
-        current_value: The current value after execution (if successful)
-        error_message: Error message if failed
-    """
+    """Finalize a parameter control command by setting completed_at and optional error message."""
     try:
         supabase = get_supabase()
-        
         update_data = {
-            "status": status,
-            "completed_at": datetime.utcnow().isoformat() if status in ['completed', 'failed'] else None
+            "completed_at": datetime.utcnow().isoformat()
         }
-        
-        if current_value is not None:
-            update_data["current_value"] = current_value
-            
-        if error_message is not None:
+        if not success and error_message is not None:
             update_data["error_message"] = error_message
-        
+
         result = (
             supabase.table("parameter_control_commands")
             .update(update_data)
             .eq("id", command_id)
             .execute()
         )
-        
         if result.data:
-            logger.info(f"Updated parameter command {command_id} status to {status}")
+            logger.info(f"Command {command_id} finalized: {'completed' if success else 'failed'}")
         else:
-            logger.warning(f"Failed to update parameter command {command_id} status")
-            
+            logger.warning(f"Failed to finalize parameter command {command_id}")
     except Exception as e:
-        logger.error(f"Error updating parameter command status: {str(e)}", exc_info=True)
+        logger.error(f"Error finalizing parameter command: {str(e)}", exc_info=True)
 
 
 # Test function to create sample parameter commands
@@ -597,30 +572,18 @@ async def create_test_parameter_commands():
         test_commands = [
             {
                 "parameter_name": "pump_1",
-                "parameter_type": "binary", 
                 "target_value": 1,
-                "modbus_address": 100,
-                "modbus_type": "coil",
-                "machine_id": MACHINE_ID,
-                "priority": 1
+                "machine_id": MACHINE_ID
             },
             {
                 "parameter_name": "nitrogen_generator",
-                "parameter_type": "binary",
                 "target_value": 1,
-                "modbus_address": 102, 
-                "modbus_type": "coil",
-                "machine_id": MACHINE_ID,
-                "priority": 1
+                "machine_id": MACHINE_ID
             },
             {
                 "parameter_name": "mfc_1_flow_rate",
-                "parameter_type": "flow_rate",
                 "target_value": 200.0,
-                "modbus_address": 200,
-                "modbus_type": "holding_register", 
-                "machine_id": MACHINE_ID,
-                "priority": 0
+                "machine_id": MACHINE_ID
             }
         ]
         

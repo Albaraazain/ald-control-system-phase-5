@@ -65,10 +65,8 @@ async def execute_recipe(process_id: str):
         for step_index, step in enumerate(top_level_steps):
             logger.info(f"Executing top-level step: {step['name']} (Type: {step['type']})")
             
-            # Update process with current step
+            # Touch process record updated_at for activity
             supabase.table('process_executions').update({
-                'current_step': step,
-                'current_step_index': step_index,
                 'updated_at': get_current_timestamp()
             }).eq('id', process_id).execute()
             
@@ -240,6 +238,13 @@ async def handle_recipe_error(process_id: str, error_message: str):
         'failure_description': f"Recipe execution error: {error_message}",
         'updated_at': now
     }).eq('machine_id', MACHINE_ID).execute()
+
+    # Also mark machine status as error and clear current process association
+    supabase.table('machines').update({
+        'status': 'error',
+        'current_process_id': None,
+        'updated_at': now
+    }).eq('id', MACHINE_ID).execute()
     
     # Update machine status
     supabase.table('machines').update({

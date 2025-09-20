@@ -1,6 +1,12 @@
 # File: plc/simulation.py (updated)
 """
 Simulation implementation of the PLC interface.
+
+Notes on Modbus types:
+- The simulation intentionally ignores specific Modbus read/write types
+  (coil, discrete_input, holding, input) and treats parameters by behavior
+  only. This keeps simulated behavior consistent while the real PLC honors
+  read/write Modbus types when provided.
 """
 import asyncio
 import random
@@ -10,7 +16,12 @@ from src.db import get_supabase
 from src.plc.interface import PLCInterface
 
 class SimulationPLC(PLCInterface):
-    """Simulated PLC implementation for testing without hardware."""
+    """Simulated PLC implementation for testing without hardware.
+
+    In simulation, reads/writes do not distinguish between coil/register
+    types. Binary-like params still behave as on/off, and numeric ones as
+    ranged values, independent of Modbus type metadata.
+    """
     
     # Parameter types that should not fluctuate
     NON_FLUCTUATING_TYPES = {
@@ -65,19 +76,19 @@ class SimulationPLC(PLCInterface):
             
             # Store metadata for making fluctuation decisions
             self.param_metadata[param_id] = {
-                'name': param['name'].lower(),
-                'min_value': param['min_value'],
-                'max_value': param['max_value'],
-                'unit': param['unit'],
-                'component_id': param['component_id'],
-                'is_writable': param['is_writable']
+                'name': (param.get('name') or str(param_id)).lower(),
+                'min_value': param.get('min_value', 0),
+                'max_value': param.get('max_value', 0),
+                'unit': param.get('unit'),
+                'component_id': param.get('component_id'),
+                'is_writable': param.get('is_writable', False)
             }
             
             # Determine if this parameter should fluctuate
             should_fluctuate = self._should_parameter_fluctuate(param)
             if not should_fluctuate:
                 self.non_fluctuating_params.add(param_id)
-                logger.debug(f"Parameter {param_id} ({param['name']}) will not fluctuate")
+                logger.debug(f"Parameter {param_id} ({param.get('name', str(param_id))}) will not fluctuate")
     
     def _should_parameter_fluctuate(self, param) -> bool:
         """
@@ -94,7 +105,7 @@ class SimulationPLC(PLCInterface):
             return False
         
         # Check parameter name for keywords that suggest it's a state or discrete parameter
-        param_name = param['name'].lower()
+        param_name = (param.get('name') or '').lower()
         for keyword in self.NON_FLUCTUATING_TYPES:
             if keyword in param_name:
                 return False
@@ -173,12 +184,12 @@ class SimulationPLC(PLCInterface):
         
         # Store metadata for making fluctuation decisions
         self.param_metadata[parameter_id] = {
-            'name': param['name'].lower(),
-            'min_value': param['min_value'],
-            'max_value': param['max_value'],
-            'unit': param['unit'],
-            'component_id': param['component_id'],
-            'is_writable': param['is_writable']
+            'name': (param.get('name') or str(parameter_id)).lower(),
+            'min_value': param.get('min_value', 0),
+            'max_value': param.get('max_value', 0),
+            'unit': param.get('unit'),
+            'component_id': param.get('component_id'),
+            'is_writable': param.get('is_writable', False)
         }
         
         # Determine if this parameter should fluctuate
@@ -251,3 +262,35 @@ class SimulationPLC(PLCInterface):
         
         logger.info("Simulation: Purge completed")
         return True
+
+    # --- Minimal Modbus-like helpers for parameter_control_listener smoke tests ---
+    # NOTE: These helpers intentionally operate by address only and make no attempt to
+    #       interpret any legacy 'modbus_type'. This mirrors the real PLC behavior shift
+    #       to the dual-address model where 'binary' data_type => coils and others =>
+    #       holding registers. TODO: Consider mapping addresses to parameter IDs if
+    #       richer simulation becomes necessary.
+    async def write_holding_register(self, address: int, value: float) -> bool:
+        """Simulate writing a holding register by address."""
+        # Store in a simple map; in a richer sim we could map addresses to params
+        if not hasattr(self, "_holding_registers"):
+            self._holding_registers = {}
+        self._holding_registers[address] = float(value)
+        return True
+
+    async def read_holding_register(self, address: int) -> Optional[float]:
+        if hasattr(self, "_holding_registers") and address in self._holding_registers:
+            return self._holding_registers[address]
+        return 0.0
+
+    async def write_coil(self, address: int, value: bool) -> bool:
+        if not hasattr(self, "_coils"):
+            self._coils = {}
+        self._coils[address] = bool(value)
+        return True
+
+    async def read_coils(self, address: int, count: int = 1):
+        # Return a simple list of bools of length count
+        vals = []
+        for i in range(count):
+            vals.append(bool(getattr(self, "_coils", {}).get(address + i, False)))
+        return vals

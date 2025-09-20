@@ -21,13 +21,9 @@ class RealPLC(PLCInterface):
         'binary': 'binary'
     }
     
-    # Modbus type mapping
-    MODBUS_TYPES = {
-        'holding_register': 'holding',
-        'input_register': 'input',
-        'coil': 'coil',
-        'discrete_input': 'discrete_input'
-    }
+    # Modbus register selection is inferred from data_type only.
+    # - binary uses coils
+    # - int16/int32/float use holding registers
     
     def __init__(self, ip_address: str, port: int, hostname: str = None, auto_discover: bool = False):
         """
@@ -126,55 +122,43 @@ class RealPLC(PLCInterface):
     async def _load_parameter_metadata(self):
         """
         Load parameter metadata from the database.
-        This includes Modbus addresses, data types, etc.
+        Uses dual-address model (read_modbus_address/write_modbus_address) only.
         """
         try:
             supabase = get_supabase()
             
-            # Query all parameters with Modbus information
-            # Join with component_parameter_definitions to get name, unit, description
-            result = supabase.table('component_parameters').select(
-                '*, component_parameter_definitions!definition_id(name, unit, description)'
-            ).execute()
-            
-            # Filter out entries where modbus_address is None manually
-            result.data = [param for param in result.data if param.get('modbus_address') is not None]
-            logger.info(f"Found {len(result.data)} parameters with Modbus addresses")
+            # Query all parameters from the view that already denormalizes
+            # parameter definition fields and component name
+            result = supabase.table('component_parameters_full').select('*').execute()
             
             if result.data:
                 for param in result.data:
                     parameter_id = param['id']
-                    # Determine the modbus_type based on data_type if not specified
-                    modbus_type = param.get('modbus_type')
-                    if not modbus_type:
-                        # Set default modbus_type based on data_type
-                        if param.get('data_type') == 'binary':
-                            modbus_type = 'coil'
-                        elif param.get('data_type') in ['float', 'int32', 'int16']:
-                            modbus_type = 'holding'
-                        else:
-                            modbus_type = 'unknown'
-                    else:
-                        # Map database modbus_type to internal representation
-                        modbus_type = self.MODBUS_TYPES.get(modbus_type, modbus_type)
                     
-                    # Get component name and truncate if needed to avoid log overflow
+                    # Get component name directly from the denormalized view
                     component_name = param.get('component_name', '')
                     if component_name and len(component_name) > 30:
                         short_component_name = component_name[:27] + "..."
                     else:
                         short_component_name = component_name
                     
-                    # Get name, unit, and description from definition if available
-                    definition = param.get('component_parameter_definitions', {})
-                    param_name = definition.get('name') if definition else param.get('name')
-                    param_unit = definition.get('unit') if definition else None
-                    param_description = definition.get('description') if definition else None
+                    # Names and metadata are denormalized in the view
+                    param_name = param.get('parameter_name') or param.get('name')
+                    param_unit = param.get('unit')
+                    param_description = param.get('description')
                     
+                    # Resolve read/write addresses (dual-address model only)
+                    read_addr = param.get('read_modbus_address')
+                    write_addr = param.get('write_modbus_address')
+
                     self._parameter_cache[parameter_id] = {
                         'name': param_name or param['name'],
-                        'modbus_address': param['modbus_address'],
-                        'modbus_type': modbus_type,
+                        'read_modbus_address': read_addr,
+                        'write_modbus_address': write_addr,
+                        # Prefer explicit Modbus types if provided by the view
+                        # TODO: Add explicit input-register/discrete-input support in communicator
+                        'read_modbus_type': param.get('read_modbus_type'),
+                        'write_modbus_type': param.get('write_modbus_type'),
                         'data_type': param['data_type'],
                         'min_value': param['min_value'],
                         'max_value': param['max_value'],
@@ -185,13 +169,28 @@ class RealPLC(PLCInterface):
                         'unit': param_unit,
                         'description': param_description
                     }
-                    # Log each parameter with its Modbus address and type (using short component name)
-                    logger.info(f"Parameter '{param_name or param['name']}' ({short_component_name}) (ID: {parameter_id}) has Modbus address: {param['modbus_address']}, "
-                               f"data_type: {param['data_type']}, modbus_type: {modbus_type}")
+                    # Log each parameter with its addresses (using short component name)
+                    logger.info(
+                        f"Parameter '{param_name or param['name']}' ({short_component_name}) "
+                        f"(ID: {parameter_id}) read_addr: {read_addr}, write_addr: {write_addr}, "
+                        f"data_type: {param['data_type']}"
+                    )
+
+                    # Validate required presence of addresses; log explicit errors
+                    if read_addr is None:
+                        logger.error(
+                            f"Parameter {parameter_id} ({param_name}) missing read_modbus_address; "
+                            f"reads will fail until populated."
+                        )
+                    if self._parameter_cache[parameter_id].get('is_writable') and write_addr is None:
+                        logger.error(
+                            f"Parameter {parameter_id} ({param_name}) is writable but missing "
+                            f"write_modbus_address; writes will fail until populated."
+                        )
                     
                 logger.info(f"Loaded metadata for {len(self._parameter_cache)} parameters")
             else:
-                logger.warning("No parameters with Modbus addresses found in database")
+                logger.warning("No component parameters found in database")
                 
         except Exception as e:
             logger.error(f"Error loading parameter metadata: {str(e)}", exc_info=True)
@@ -204,10 +203,8 @@ class RealPLC(PLCInterface):
         try:
             supabase = get_supabase()
             
-            # Query all parameters with definition information
-            query = supabase.table('component_parameters').select(
-                '*, component_parameter_definitions!definition_id(name, unit, description)'
-            ).execute()
+            # Use the denormalized view for component and definition info
+            query = supabase.table('component_parameters_full').select('*').execute()
             
             # Manually filter for valve parameters by checking:
             # 1. name is 'valve_state' (or definition name is 'valve_state')
@@ -215,11 +212,11 @@ class RealPLC(PLCInterface):
             valve_params = []
             for param in query.data:
                 # Check both the parameter name and the definition name
-                definition = param.get('component_parameter_definitions', {})
-                param_name = definition.get('name') if definition else param.get('name')
+                param_name = param.get('parameter_name') or param.get('name')
                 
+                component_name = param.get('component_name', '')
                 if ((param_name == 'valve_state' or param.get('name') == 'valve_state') and 
-                    param.get('component_name', '').lower().startswith('valve')):
+                    component_name.lower().startswith('valve')):
                     valve_params.append(param)
             
             logger.info(f"Found {len(valve_params)} valve parameters")
@@ -235,29 +232,31 @@ class RealPLC(PLCInterface):
                         if match:
                             valve_number = int(match.group(1))
                             
-                            # Only add to cache if Modbus address is present
-                            if valve_param.get('modbus_address'):
-                                # For valves, always set the proper modbus_type
-                                modbus_type = valve_param.get('modbus_type')
-                                if not modbus_type:
-                                    modbus_type = 'coil'  # Valves are always coils
-                                
+                            # Only add to cache if WRITE address is present
+                            write_addr = valve_param.get('write_modbus_address')
+                            if write_addr is not None:
                                 self._valve_cache[valve_number] = {
                                     'parameter_id': valve_param['id'],
-                                    'modbus_address': valve_param['modbus_address'],
-                                    'modbus_type': modbus_type,
+                                    'address': write_addr,
                                     'component_name': component_name,
-                                    'data_type': 'binary'  # Valves are always binary
+                                    'data_type': 'binary'  # Valves are always binary coils
                                 }
-                                logger.info(f"Added Valve {valve_number} with Modbus address {valve_param['modbus_address']}, modbus_type: {modbus_type}")
+                                logger.info(
+                                    f"Added Valve {valve_number} with write_modbus_address {write_addr}"
+                                )
                             else:
-                                logger.warning(f"Valve {valve_number} ({component_name}) has no Modbus address defined in database")
+                                logger.error(
+                                    f"Valve {valve_number} ({component_name}) missing write_modbus_address"
+                                )
                     except (ValueError, AttributeError) as e:
                         logger.warning(f"Could not extract valve number from component name: {component_name}. Error: {e}")
                 
                 # Log detailed valve mapping information
                 for valve_num, valve_data in self._valve_cache.items():
-                    logger.info(f"Valve {valve_num} ({valve_data['component_name']}) mapped to Modbus address: {valve_data['modbus_address']}")
+                    logger.info(
+                        f"Valve {valve_num} ({valve_data['component_name']}) mapped to address: "
+                        f"{valve_data['address']}"
+                    )
                 
                 logger.info(f"Loaded mappings for {len(self._valve_cache)} valves")
             else:
@@ -273,21 +272,18 @@ class RealPLC(PLCInterface):
         try:
             supabase = get_supabase()
             
-            # Try looking for purge parameters in database with definition information
-            query = supabase.table('component_parameters').select(
-                '*, component_parameter_definitions!definition_id(name, unit, description)'
-            ).execute()
+            # Use the denormalized view for definition and component info
+            query = supabase.table('component_parameters_full').select('*').execute()
             
             # Look for components/parameters with 'purge' in name or component_name
             purge_params = []
             for param in query.data:
                 # Check both the parameter name and the definition name
-                definition = param.get('component_parameter_definitions', {})
-                param_name = definition.get('name') if definition else param.get('name', '')
-                
+                param_name = param.get('parameter_name') or param.get('name', '')
+                component_name = param.get('component_name', '')
                 if ('purge' in param_name.lower() or
                     'purge' in param.get('name', '').lower() or
-                    'purge' in param.get('component_name', '').lower() or
+                    'purge' in component_name.lower() or
                     param.get('operand') == 'W_Purge'):
                     purge_params.append(param)
             
@@ -296,46 +292,30 @@ class RealPLC(PLCInterface):
             if purge_params:
                 purge_param = purge_params[0]  # Use the first matching parameter
                 
-                if purge_param.get('modbus_address'):
-                    self._purge_address = purge_param['modbus_address']
-                    self._purge_data_type = purge_param.get('data_type') or 'binary'
-                    
-                    # Set the modbus_type based on data_type or existing modbus_type
-                    modbus_type = purge_param.get('modbus_type')
-                    if not modbus_type:
-                        if self._purge_data_type == 'binary':
-                            modbus_type = 'coil'
-                        else:
-                            modbus_type = 'holding'
-                    
-                    self._purge_modbus_type = modbus_type
-                    
-                    logger.info(f"Loaded purge operation from database: address {self._purge_address}, "
-                               f"data_type: {self._purge_data_type}, modbus_type: {self._purge_modbus_type}, "
-                               f"parameter_id: {purge_param['id']}, name: {purge_param['name']}, "
-                               f"component: {purge_param.get('component_name')}")
-                else:
-                    # Use purge from components database
-                    logger.warning(f"Purge parameter found but has no Modbus address: {purge_param.get('name')}, "
-                                  f"Component: {purge_param.get('component_name')}")
-                    self._purge_address = 20  # Default from CSV
+                write_addr = purge_param.get('write_modbus_address')
+                if write_addr is not None:
+                    self._purge_address = write_addr
+                    # Purge is a binary coil trigger
                     self._purge_data_type = 'binary'
-                    self._purge_modbus_type = 'coil'
-                    logger.info(f"Using default purge address: address {self._purge_address}, data_type: {self._purge_data_type}")
+                    purge_component_name = purge_param.get('component_name', '')
+                    logger.info(
+                        f"Loaded purge operation from database: write_modbus_address {self._purge_address}, "
+                        f"data_type: {self._purge_data_type}, parameter_id: {purge_param['id']}, "
+                        f"name: {purge_param.get('name')}, component: {purge_component_name}"
+                    )
+                else:
+                    purge_component_name = purge_param.get('component_name', '')
+                    logger.error(
+                        f"Purge parameter found but missing write_modbus_address: "
+                        f"{purge_param.get('name')} (Component: {purge_component_name})"
+                    )
             else:
                 logger.warning("No purge operation parameter found in database")
-                self._purge_address = 20  # Default from CSV
-                self._purge_data_type = 'binary'
-                self._purge_modbus_type = 'coil'
-                logger.info(f"Using default purge address: address {self._purge_address}, data_type: {self._purge_data_type}")
+                # TODO: Consider configurable fallback purge address if schema incomplete
                 
         except Exception as e:
             logger.error(f"Error loading purge parameters: {str(e)}", exc_info=True)
-            # Fallback to default purge address
-            self._purge_address = 20  # Default from CSV
-            self._purge_data_type = 'binary'
-            self._purge_modbus_type = 'coil'
-            logger.info(f"Using fallback purge address: {self._purge_address}, data_type: {self._purge_data_type}")
+            # TODO: Decide on safe fallback behavior for purge if addresses are missing
     
     async def read_parameter(self, parameter_id: str) -> float:
         """
@@ -355,69 +335,74 @@ class RealPLC(PLCInterface):
         if not param_meta:
             raise ValueError(f"Parameter {parameter_id} not found in metadata cache")
         
-        address = param_meta.get('modbus_address')
+        address = param_meta.get('read_modbus_address')
         data_type = param_meta['data_type']
-        modbus_type = param_meta['modbus_type']
-        
-        # Handle case where Modbus address is missing (e.g., MFC power_on)
-        if not address:
-            logger.warning(f"Parameter {parameter_id} ({param_meta.get('name')}) has no Modbus address. Returning current value from database.")
+        read_type = (param_meta.get('read_modbus_type') or '').lower()
+
+        # Require presence of read address
+        if address is None:
+            logger.error(
+                f"Parameter {parameter_id} ({param_meta.get('name')}) missing read_modbus_address"
+            )
+            # TODO: Decide if we should raise instead of returning DB value
             return param_meta.get('current_value', 0.0)
-        
-        # Read the parameter based on Modbus type and data type
+
+        # Read the parameter using explicit read_modbus_type when available.
+        # Fallback: infer from data_type (binary -> coils, else holding regs).
+        # TODO: Add communicator methods for input registers and discrete inputs
+        #       and switch 'input'/'discrete_input' to those when available.
         value = None
         try:
-            # First check modbus_type
-            if modbus_type == 'coil':
+            if read_type in ('coil', 'discrete_input'):
+                # For now, read discrete inputs via coils until supported
                 result = self.communicator.read_coils(address, count=1)
                 if result is not None:
                     value = 1.0 if result[0] else 0.0
-            elif modbus_type == 'discrete_input':
-                result = self.communicator.client.read_discrete_inputs(address, count=1, slave=self.communicator.slave_id)
-                if not result.isError():
-                    value = 1.0 if result.bits[0] else 0.0
-                else:
-                    logger.error(f"Failed to read discrete input: {result}")
-            elif modbus_type == 'input':
-                # Handle input registers based on data type
-                if data_type == 'float':
-                    value = self.communicator.read_float(address, register_type='input')
-                elif data_type == 'int32':
-                    value = self.communicator.read_integer_32bit(address, register_type='input')
-                elif data_type == 'int16':
-                    result = self.communicator.client.read_input_registers(address, count=1, slave=self.communicator.slave_id)
-                    if not result.isError():
-                        value = result.registers[0]
-                    else:
-                        logger.error(f"Failed to read input register: {result}")
-            elif modbus_type == 'holding':
-                # Handle holding registers based on data type
+            elif read_type in ('holding', 'input'):
+                # For now, treat input registers like holding until supported
                 if data_type == 'float':
                     value = self.communicator.read_float(address)
                 elif data_type == 'int32':
                     value = self.communicator.read_integer_32bit(address)
                 elif data_type == 'int16':
-                    result = self.communicator.client.read_holding_registers(address, count=1, slave=self.communicator.slave_id)
+                    result = self.communicator.client.read_holding_registers(
+                        address, count=1, slave=self.communicator.slave_id
+                    )
                     if not result.isError():
                         value = result.registers[0]
                     else:
-                        logger.error(f"Failed to read holding register: {result}")
-            else:
-                # Fallback based on data_type for backwards compatibility
-                if data_type == 'float':
-                    value = self.communicator.read_float(address)
-                elif data_type == 'int32':
-                    value = self.communicator.read_integer_32bit(address)
-                elif data_type == 'int16':
-                    result = self.communicator.client.read_holding_registers(address, count=1, slave=self.communicator.slave_id)
-                    if not result.isError():
-                        value = result.registers[0]
-                    else:
-                        logger.error(f"Failed to read int16: {result}")
+                        logger.error(
+                            f"Failed to read holding register: {result}"
+                        )
                 elif data_type == 'binary':
+                    # Edge case: binary stored in a register
+                    result = self.communicator.client.read_holding_registers(
+                        address, count=1, slave=self.communicator.slave_id
+                    )
+                    if not result.isError():
+                        value = 1.0 if result.registers[0] else 0.0
+                else:
+                    raise ValueError(f"Unsupported data type: {data_type}")
+            else:
+                # Fallback to data_type-based behavior
+                if data_type == 'binary':
                     result = self.communicator.read_coils(address, count=1)
                     if result is not None:
                         value = 1.0 if result[0] else 0.0
+                elif data_type == 'float':
+                    value = self.communicator.read_float(address)
+                elif data_type == 'int32':
+                    value = self.communicator.read_integer_32bit(address)
+                elif data_type == 'int16':
+                    result = self.communicator.client.read_holding_registers(
+                        address, count=1, slave=self.communicator.slave_id
+                    )
+                    if not result.isError():
+                        value = result.registers[0]
+                    else:
+                        logger.error(
+                            f"Failed to read holding register: {result}"
+                        )
                 else:
                     raise ValueError(f"Unsupported data type: {data_type}")
             
@@ -528,18 +513,18 @@ class RealPLC(PLCInterface):
         if value < min_value or value > max_value:
             raise ValueError(f"Value {value} is outside allowed range ({min_value} to {max_value})")
         
-        address = param_meta.get('modbus_address')
+        address = param_meta.get('write_modbus_address')
         data_type = param_meta['data_type']
-        modbus_type = param_meta['modbus_type']
+        write_type = (param_meta.get('write_modbus_type') or '').lower()
         component_name = param_meta.get('component_name', '').lower()
         param_name = param_meta.get('name', '').lower()
         
-        # Special handling for MFC power_on parameter without Modbus address
-        if not address:
-            logger.warning(f"Parameter {parameter_id} ({param_meta.get('name')}) has no Modbus address. Updating database only.")
-            # Just update the database and return success
-            asyncio.create_task(self._update_parameter_set_value(parameter_id, value))
-            return True
+        # Require presence of write address for writes
+        if address is None:
+            logger.error(
+                f"Parameter {parameter_id} ({param_meta.get('name')}) missing write_modbus_address"
+            )
+            return False
             
         # Apply scaling for MFCs and Pressure Gauges if needed for write operations
         original_value = value
@@ -565,31 +550,47 @@ class RealPLC(PLCInterface):
         
         success = False
         try:
-            # Write parameter based on Modbus type and data type
-            if modbus_type == 'coil':
+            # Prefer explicit write_modbus_type when available.
+            # Fallback: infer from data_type (binary -> coil, else holding regs).
+            # TODO: Add communicator methods for input/discrete inputs (read-only types).
+            if write_type == 'coil':
                 success = self.communicator.write_coil(address, value > 0)
-            elif modbus_type == 'holding':
+            elif write_type == 'holding':
                 if data_type == 'float':
                     success = self.communicator.write_float(address, value)
                 elif data_type == 'int32':
-                    success = self.communicator.write_integer_32bit(address, int(value))
+                    success = self.communicator.write_integer_32bit(
+                        address, int(value)
+                    )
                 elif data_type == 'int16':
-                    result = self.communicator.client.write_register(address, int(value), slave=self.communicator.slave_id)
-                    success = not result.isError()
-                else:
-                    # Fall back to float for unknown data types in holding registers
-                    success = self.communicator.write_float(address, value)
-            else:
-                # Fallback method for backwards compatibility
-                if data_type == 'float':
-                    success = self.communicator.write_float(address, value)
-                elif data_type == 'int32':
-                    success = self.communicator.write_integer_32bit(address, int(value))
-                elif data_type == 'int16':
-                    result = self.communicator.client.write_register(address, int(value), slave=self.communicator.slave_id)
+                    result = self.communicator.client.write_register(
+                        address, int(value), slave=self.communicator.slave_id
+                    )
                     success = not result.isError()
                 elif data_type == 'binary':
+                    # Edge case: binary stored in register (treat non-zero as 1)
+                    result = self.communicator.client.write_register(
+                        address, 1 if value > 0 else 0,
+                        slave=self.communicator.slave_id
+                    )
+                    success = not result.isError()
+                else:
+                    raise ValueError(f"Unsupported data type: {data_type}")
+            else:
+                # Fallback to data_type-based behavior
+                if data_type == 'binary':
                     success = self.communicator.write_coil(address, value > 0)
+                elif data_type == 'float':
+                    success = self.communicator.write_float(address, value)
+                elif data_type == 'int32':
+                    success = self.communicator.write_integer_32bit(
+                        address, int(value)
+                    )
+                elif data_type == 'int16':
+                    result = self.communicator.client.write_register(
+                        address, int(value), slave=self.communicator.slave_id
+                    )
+                    success = not result.isError()
                 else:
                     raise ValueError(f"Unsupported data type: {data_type}")
         except Exception as e:
@@ -667,9 +668,12 @@ class RealPLC(PLCInterface):
             logger.error(f"Valve {valve_number} not found in valve cache. Available valves: {list(self._valve_cache.keys())}")
             raise ValueError(f"Valve {valve_number} not found in valve cache")
         
-        address = valve_meta['modbus_address']
+        address = valve_meta['address']
         
-        logger.info(f"{'Opening' if state else 'Closing'} valve {valve_number} at Modbus address {address} (Parameter ID: {valve_meta['parameter_id']})")
+        logger.info(
+            f"{'Opening' if state else 'Closing'} valve {valve_number} at address {address} "
+            f"(Parameter ID: {valve_meta['parameter_id']})"
+        )
         
         # Write to the valve coil
         success = self.communicator.write_coil(address, state)
@@ -850,8 +854,10 @@ class RealPLC(PLCInterface):
             logger.error("Purge operation parameters not found in database. Make sure there's a parameter with 'purge' in its name.")
             raise ValueError("Purge operation parameters not found")
         
-        logger.info(f"Starting purge operation for {duration_ms}ms at Modbus address {self._purge_address} "
-                  f"with data type {self._purge_data_type}, modbus_type: {getattr(self, '_purge_modbus_type', 'coil')}")
+        logger.info(
+            f"Starting purge operation for {duration_ms}ms at write_modbus_address {self._purge_address} "
+            f"with data type {self._purge_data_type}"
+        )
         
         # Activate purge operation
         if self._purge_data_type == 'binary':

@@ -50,8 +50,12 @@ class PLCManager:
         logger.info(f"Initializing PLC of type {plc_type}")
         try:
             self._plc = await PLCFactory.create_plc(plc_type, config)
-            
-            # Initialize the PLC connection
+
+            # If factory returned an already-initialized/connected instance, skip re-init
+            if self._plc and getattr(self._plc, 'connected', False):
+                return True
+
+            # Otherwise, initialize the PLC connection
             if self._plc:
                 success = await self._plc.initialize()
                 return success

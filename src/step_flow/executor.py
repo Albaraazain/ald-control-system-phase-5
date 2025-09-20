@@ -36,15 +36,17 @@ async def execute_step(process_id: str, step: dict, all_steps: list, parent_to_c
             await execute_loop_step(process_id, step, all_steps, parent_to_child_steps)
             
         elif step_type == 'purge':
+            # Some deployments store purge configuration in a separate table;
+            # tolerate missing inline parameters.
             step_data = {
                 'type': 'purging',
                 'name': step_name,
-                'parameters': step['parameters']
+                'parameters': step.get('parameters', {})
             }
             await execute_purge_step(process_id, step_data)
             
         elif step_type == 'valve':
-            valve_params = step['parameters']
+            valve_params = step.get('parameters', {})
             if 'valve_number' not in valve_params:
                 raise ValueError(f"Valve step missing valve_number parameter: {step_name}")
                 

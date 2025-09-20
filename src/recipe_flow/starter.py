@@ -92,19 +92,9 @@ async def start_recipe(command_id: int, parameters: dict):
         elif not step.get('parent_step_id'):  # Only count non-child steps
             total_steps += 1
     
-    # 8.6 Create process execution state record
-    state_data = {
-        'execution_id': process_id,
-        'current_step_index': 0,
-        'current_overall_step': 0,
-        'total_overall_steps': total_steps,
-        'progress': {'total_steps': total_steps, 'completed_steps': 0}
-    }
-    state_result = supabase.table('process_execution_state').insert(state_data).execute()
-    if not state_result.data:
-        logger.warning(f"Failed to create process_execution_state for process {process_id}")
-    else:
-        logger.info(f"Created process_execution_state for process {process_id} with {total_steps} total steps")
+    # 8.6 Create process execution state record (DB trigger may handle this)
+    # Many deployments auto-create this row via a DB trigger; avoid racing inserts here.
+    logger.info("Skipping explicit process_execution_state insert (handled by trigger if present)")
     
     # 9. Update machine status
     await update_machine_status('processing', process_id)
@@ -112,11 +102,17 @@ async def start_recipe(command_id: int, parameters: dict):
     # 10. Update machine state
     await update_machine_state('processing', process_id)
     
-    # 11. Start continuous data recording
-    await continuous_recorder.start(process_id)
-    
-    # 12. Start executing the recipe in the background
-    await execute_recipe(process_id)
+    # 11-12. Start continuous data recording and execute the recipe
+    # Wrap in try/except to ensure we transition to an error state if something
+    # fails before execute_recipe() can handle it.
+    try:
+        await continuous_recorder.start(process_id)
+        await execute_recipe(process_id)
+    except Exception as e:
+        # Defer to the shared error handler to keep DB state consistent
+        from src.recipe_flow.executor import handle_recipe_error  # local import to avoid cycles
+        await handle_recipe_error(process_id, str(e))
+        raise
     
     logger.info(f"Recipe {recipe_id} started successfully with process ID: {process_id}")
     
@@ -159,13 +155,10 @@ async def create_process_execution(session_id, recipe_id, recipe_version, operat
         'start_time': now,
         'operator_id': operator_id,
         'status': 'running',
-        'current_step_index': 0,
         'parameters': recipe_version.get('parameters', {
             'chamber_temperature_set_point': recipe_version.get('chamber_temperature_set_point'),
             'pressure_set_point': recipe_version.get('pressure_set_point')
-        }),
-        'current_step': recipe_steps[0] if recipe_steps else None,
-        'total_steps': len(recipe_steps)
+        })
     }
     process_result = supabase.table('process_executions').insert(process_data).execute()
     if not process_result.data or len(process_result.data) == 0:

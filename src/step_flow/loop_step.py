@@ -86,9 +86,8 @@ async def execute_loop_step(process_id: str, step: dict, all_steps: list, parent
         for child_step in child_steps:
             logger.info(f"Executing child step {child_step['name']} (Type: {child_step['type']})")
             
-            # Update process with current step
+            # Touch process record updated_at for activity
             supabase.table('process_executions').update({
-                'current_step': child_step,
                 'updated_at': get_current_timestamp()
             }).eq('id', process_id).execute()
             

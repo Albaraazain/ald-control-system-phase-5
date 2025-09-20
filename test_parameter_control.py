@@ -40,57 +40,33 @@ def create_parameter_test_commands():
         test_commands = [
             {
                 "parameter_name": "pump_1",
-                "parameter_type": "binary",
                 "target_value": 1,  # Turn ON
-                "modbus_address": 100,
-                "modbus_type": "coil",
                 "machine_id": machine_id,
-                "priority": 1
             },
             {
-                "parameter_name": "pump_2", 
-                "parameter_type": "binary",
+                "parameter_name": "pump_2",
                 "target_value": 0,  # Turn OFF
-                "modbus_address": 101,
-                "modbus_type": "coil",
                 "machine_id": machine_id,
-                "priority": 1
             },
             {
                 "parameter_name": "nitrogen_generator",
-                "parameter_type": "binary", 
                 "target_value": 1,  # Turn ON
-                "modbus_address": 102,
-                "modbus_type": "coil",
                 "machine_id": machine_id,
-                "priority": 2  # Higher priority
             },
             {
                 "parameter_name": "mfc_1_flow_rate",
-                "parameter_type": "flow_rate",
                 "target_value": 150.5,  # Set flow rate to 150.5 sccm
-                "modbus_address": 200,
-                "modbus_type": "holding_register",
                 "machine_id": machine_id,
-                "priority": 0
             },
             {
                 "parameter_name": "chamber_heater",
-                "parameter_type": "binary",
                 "target_value": 1,  # Turn ON
-                "modbus_address": 103,
-                "modbus_type": "coil",
                 "machine_id": machine_id,
-                "priority": 1
             },
             {
                 "parameter_name": "pressure_setpoint",
-                "parameter_type": "pressure",
                 "target_value": 0.75,  # Set pressure to 0.75 torr
-                "modbus_address": 201,
-                "modbus_type": "holding_register",
                 "machine_id": machine_id,
-                "priority": 1
             }
         ]
         
@@ -121,8 +97,7 @@ def show_pending_commands():
         result = (
             supabase.table("parameter_control_commands")
             .select("*")
-            .eq("status", "pending")
-            .order("priority", desc=True)
+            .is_("executed_at", None)
             .order("created_at")
             .execute()
         )
@@ -130,8 +105,7 @@ def show_pending_commands():
         if result.data:
             print(f"\n📋 Found {len(result.data)} pending parameter commands:")
             for cmd in result.data:
-                print(f"   • {cmd['parameter_name']} = {cmd['target_value']} "
-                      f"(Priority: {cmd['priority']}, Type: {cmd['parameter_type']})")
+                print(f"   • {cmd['parameter_name']} = {cmd['target_value']}")
         else:
             print("\n✅ No pending parameter commands found")
             
@@ -157,17 +131,24 @@ def show_recent_commands():
         if result.data:
             print(f"\n📊 Last 10 parameter commands:")
             for cmd in result.data:
+                executed = cmd.get('executed_at')
+                completed = cmd.get('completed_at')
+                error = cmd.get('error_message')
+                if completed:
+                    status = 'failed' if error else 'completed'
+                elif executed:
+                    status = 'executing'
+                else:
+                    status = 'pending'
                 status_emoji = {
                     'pending': '⏳',
                     'executing': '⚡',
                     'completed': '✅',
                     'failed': '❌'
-                }.get(cmd['status'], '❓')
-                
-                print(f"   {status_emoji} {cmd['parameter_name']} = {cmd['target_value']} "
-                      f"({cmd['status']})")
-                if cmd['error_message']:
-                    print(f"      Error: {cmd['error_message']}")
+                }.get(status, '❓')
+                print(f"   {status_emoji} {cmd['parameter_name']} = {cmd['target_value']} ({status})")
+                if error:
+                    print(f"      Error: {error}")
         else:
             print("\n✅ No parameter commands found")
             

@@ -1,12 +1,20 @@
 """
 Connection monitoring and health check module for ALD Control System.
 Monitors PLC connection, Supabase realtime channels, and system health.
+
+Intervals are configurable via environment variables (overridable by CLI):
+- MONITOR_HEALTH_INTERVAL (default 30s)
+- MONITOR_RECONNECT_DELAY (default 10s)
+- MONITOR_MAX_RECONNECTS (default 5)
+- MONITOR_RECONNECT_COOLDOWN (default 60s)
+- HEALTH_UPDATE_INTERVAL (default 60s)
 """
 
 import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
-from src.log_setup import logger
+import os
+from src.log_setup import logger, OK_MARK, WARN_MARK, FAIL_MARK
 from src.plc.manager import plc_manager
 from src.db import get_supabase
 from src.config import MACHINE_ID
@@ -29,9 +37,11 @@ class ConnectionMonitor:
             "last_message": None,
             "error": None
         }
-        self.health_check_interval = 30  # seconds
-        self.max_reconnect_attempts = 5
-        self.reconnect_delay = 10  # seconds
+        self.health_check_interval = int(os.getenv("MONITOR_HEALTH_INTERVAL", "30"))
+        self.max_reconnect_attempts = int(os.getenv("MONITOR_MAX_RECONNECTS", "5"))
+        self.reconnect_delay = int(os.getenv("MONITOR_RECONNECT_DELAY", "10"))
+        self.reconnect_cooldown = int(os.getenv("MONITOR_RECONNECT_COOLDOWN", "60"))
+        self.health_update_interval = int(os.getenv("HEALTH_UPDATE_INTERVAL", "60"))
         
     async def start_monitoring(self):
         """Start the connection monitoring tasks."""
@@ -53,14 +63,14 @@ class ConnectionMonitor:
                 
                 if is_connected:
                     if not self.plc_status["connected"]:
-                        logger.info("✅ PLC connection established")
+                        logger.info(f"{OK_MARK} PLC connection established")
                         self.plc_status["connected"] = True
                         self.plc_status["last_connected"] = datetime.utcnow()
                         self.plc_status["reconnect_attempts"] = 0
                         self.plc_status["error"] = None
                 else:
                     if self.plc_status["connected"]:
-                        logger.warning("⚠️ PLC connection lost")
+                        logger.warning(f"{WARN_MARK} PLC connection lost")
                         self.plc_status["connected"] = False
                     
                     # Attempt reconnection if not at max attempts
@@ -70,7 +80,7 @@ class ConnectionMonitor:
                         try:
                             success = await plc_manager.initialize()
                             if success:
-                                logger.info("✅ PLC reconnection successful")
+                                logger.info(f"{OK_MARK} PLC reconnection successful")
                                 self.plc_status["connected"] = True
                                 self.plc_status["last_connected"] = datetime.utcnow()
                                 self.plc_status["reconnect_attempts"] = 0
@@ -87,8 +97,11 @@ class ConnectionMonitor:
                     else:
                         # Max attempts reached, wait longer before resetting
                         if self.plc_status["reconnect_attempts"] >= self.max_reconnect_attempts:
-                            logger.error(f"❌ Max PLC reconnection attempts reached ({self.max_reconnect_attempts})")
-                            await asyncio.sleep(60)  # Wait 1 minute before resetting attempts
+                            logger.error(
+                                f"{FAIL_MARK} Max PLC reconnection attempts reached "
+                                f"({self.max_reconnect_attempts})"
+                            )
+                            await asyncio.sleep(self.reconnect_cooldown)
                             self.plc_status["reconnect_attempts"] = 0
                 
                 await asyncio.sleep(self.health_check_interval)
@@ -142,11 +155,13 @@ class ConnectionMonitor:
                     logger.debug("Machine health status updated in database")
                 
                 # Wait before next update
-                await asyncio.sleep(60)  # Update every minute
+                await asyncio.sleep(self.health_update_interval)
                 
             except Exception as e:
-                logger.error(f"Error updating machine health status: {str(e)}", exc_info=True)
-                await asyncio.sleep(60)
+                logger.error(
+                    f"Error updating machine health status: {str(e)}", exc_info=True
+                )
+                await asyncio.sleep(self.health_update_interval)
     
     def update_realtime_status(self, connected: bool, error: Optional[str] = None):
         """Update realtime connection status."""

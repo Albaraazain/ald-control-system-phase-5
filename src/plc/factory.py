@@ -6,7 +6,6 @@ from typing import Dict, Any, Optional
 from src.log_setup import logger
 from src.plc.interface import PLCInterface
 from src.plc.simulation import SimulationPLC
-from src.plc.real_plc import RealPLC
 
 class PLCFactory:
     """Factory for creating PLC interface instances."""
@@ -43,6 +42,8 @@ class PLCFactory:
             logger.info(f"PLC connection config - IP: {ip_address}, Port: {port}, "
                        f"Hostname: {hostname}, Auto-discover: {auto_discover}")
             
+            # Lazy import to avoid requiring pymodbus in simulation-only environments
+            from src.plc.real_plc import RealPLC  # noqa: WPS433
             plc = RealPLC(ip_address, port, hostname=hostname, auto_discover=auto_discover)
             
         else:

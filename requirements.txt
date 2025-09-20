@@ -3,19 +3,12 @@ supabase==2.15.0
 python-dotenv==1.1.0
 pymodbus==3.6.6
 
-# Web UI dependencies
-streamlit==1.28.0
-pandas>=1.5.0
-plotly==5.15.0
+# Note: Headless-only service; no UI deps here
 
 # HTTP client for Supabase
-httpx>=0.24.0
+httpx==0.27.2
 
-# Type checking support
-typing-extensions>=4.15.0
+# Typing support for older Python versions
+typing-extensions==4.12.2
 
-# Optional: Development and testing dependencies
-# Uncomment if needed for development
-# pytest>=7.0.0
-# mypy>=1.0.0
-# pylint>=2.15.0
+# Optional dev/test tools (unpin or add as needed)

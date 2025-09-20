@@ -39,7 +39,9 @@ async def stop_recipe(command_id: int, parameters: dict):
     await continuous_recorder.stop()
     
     # 2. Update the process execution record
-    await update_process_status(process_id, 'stopped')
+    # Use an allowed terminal status to reflect a user-initiated stop.
+    # 'aborted' is part of the allowed PROCESS_STATUSES and matches our DB enum.
+    await update_process_status(process_id, 'aborted')
     
     # 3. Update machine status to idle
     await update_machine_status(process_id)
