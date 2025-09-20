@@ -155,7 +155,7 @@ Recipe ID: 364a3703-7eee-42e8-9f1e-015c4c403103 ("hello")
 ### 1. Command Listener Optimization
 - Implement command priority queuing based on urgency
 - Add command timeout handling for stuck processes
-- Enhance real-time status updates for UI responsiveness
+- Enhance real-time status updates for operator observability
 
 ### 2. Database Performance
 - Consider indexing on `machine_id` and `status` columns for faster queries
@@ -170,7 +170,7 @@ Recipe ID: 364a3703-7eee-42e8-9f1e-015c4c403103 ("hello")
 ### 4. Monitoring and Alerting
 - Add command processing metrics collection
 - Implement alerting for failed commands
-- Create dashboard for command queue monitoring
+- Provide headless monitoring (logs/CLI) for command queue visibility
 
 ## Test Data Summary
 

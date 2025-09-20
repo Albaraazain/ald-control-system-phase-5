@@ -486,7 +486,7 @@
       },
       {
         "category": "administration",
-        "recommendation": "Develop admin UI for configuration management",
+        "recommendation": "Develop headless/CLI admin tooling for configuration management",
         "priority": "medium"
       },
       {

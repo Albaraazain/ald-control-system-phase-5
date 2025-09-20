@@ -283,7 +283,7 @@
     "immediate_actions": [
       "Deploy command listener with current configuration",
       "Monitor command processing performance in production",
-      "Implement command queue monitoring dashboard"
+      "Provide headless command queue monitoring (logs/CLI)"
     ],
     "short_term_improvements": [
       "Add command priority queuing",

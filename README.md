@@ -26,9 +26,19 @@ cp .env.example .env
 # Edit .env with your database credentials and PLC settings
 ```
 
-3. **Run the system:**
+3. **Run the system (with new CLI):**
 ```bash
-python src/main.py
+# Simulation (demo) mode
+python main.py --demo
+
+# Real PLC with explicit IP/port
+python main.py --plc real --ip 192.168.1.50 --port 502
+
+# Increase verbosity for debugging
+LOG_LEVEL=DEBUG python main.py --demo
+
+# One-shot connectivity check (doctor) and exit
+python main.py --doctor
 ```
 
 ### Quick Test
@@ -57,7 +67,6 @@ ald-control-system-phase-5/
 │   ├── debug/                   # Debug utilities
 │   └── utilities/               # Helper scripts
 ├── docs/                         # Documentation
-├── legacy/                       # Archived files
 ├── requirements.txt
 ├── pyproject.toml               # Modern Python config
 └── .env                         # Environment configuration
@@ -190,7 +199,7 @@ LOG_FILE=machine_control.log
 ### System Commands
 ```bash
 # Start system
-python src/main.py
+python main.py
 
 # Run specific test
 python tests/integration/test_basic_integration.py
@@ -223,171 +232,14 @@ This project is proprietary software for ALD system control.
 
 **🔬 Built for precision ALD process control with Python reliability and modern architecture**
 
-## Legacy Infrastructure Architecture
+## Agents (Headless Runtime)
 
-### System Components (Legacy Reference)
+The service runs as multiple cooperating agents managed by a lightweight supervisor:
+- Connection Monitor Agent – maintains PLC connectivity and writes machine health
+- Command Listener Agent – subscribes to `recipe_commands` and polls as fallback
+- Parameter Control Agent – consumes `parameter_control_commands` (optional for ops/testing)
 
-1. **ALD Machine**
-   - Physical deposition chamber
-   - Process control components (valves, sensors, heaters)
-   - Safety interlocks and emergency systems
-   - Component-specific controllers
-
-2. **PLC (Programmable Logic Controller)**
-   - Direct machine control interface
-   - Real-time component state management
-   - Safety system monitoring
-   - Low-level process execution
-   - Component parameter control
-   - Hardware I/O management
-
-3. **Raspberry Pi Gateway**
-   - Runs the machine control service
-   - Bridges PLC and cloud infrastructure
-   - Local command processing
-   - Real-time data collection
-   - State synchronization
-   - Offline operation capability
-   - Local error handling
-
-4. **Supabase Backend**
-   - Real-time database
-   - State synchronization
-   - Command queue management
-   - User authentication
-   - Process history storage
-   - Analytics data collection
-   - API endpoints for mobile/web
-
-5. **Mobile Application**
-   - Operator interface
-   - Real-time process monitoring
-   - Recipe management
-   - Machine control
-   - Alert notifications
-   - Process visualization
-   - Historical data access
-
-### Communication Flow
-
-1. **PLC ↔ Raspberry Pi**
-   - Modbus TCP/IP communication
-   - Real-time component state updates
-   - Command execution requests
-   - Parameter adjustments
-   - Safety state monitoring
-
-2. **Raspberry Pi ↔ Supabase**
-   - WebSocket connections for real-time updates
-   - REST API for data persistence
-   - State synchronization
-   - Command queue monitoring
-   - Process data recording
-
-3. **Supabase ↔ Mobile App**
-   - Real-time subscriptions
-   - REST API interactions
-   - User authentication
-   - Data visualization feeds
-   - Command submissions
-
-### Data Flow Architecture
-
-1. **Command Path**
-   ```
-   Mobile App → Supabase → Raspberry Pi → PLC → Machine
-   ```
-   - Operator initiates command in mobile app
-   - Command queued in Supabase
-   - Raspberry Pi processes command
-   - PLC executes physical operations
-   - State changes reflected back through chain
-
-2. **Monitoring Path**
-   ```
-   Machine → PLC → Raspberry Pi → Supabase → Mobile App
-   ```
-   - Machine components report to PLC
-   - PLC provides state to Raspberry Pi
-   - Raspberry Pi updates Supabase
-   - Mobile app receives real-time updates
-
-3. **Process Data Path**
-   ```
-   Machine → PLC → Raspberry Pi → Supabase → Analytics
-   ```
-   - Real-time parameter collection
-   - Periodic data aggregation
-   - Historical data storage
-   - Analytics processing
-
-## System Architecture
-
-### Core Components
-
-1. **Machine Control Service**
-   - Runs as standalone Python service on Raspberry Pi
-   - Maintains real-time connection with Supabase
-   - Handles recipe execution and machine state management
-   - Records process data points for monitoring and analysis
-   - Manages PLC communication
-
-2. **Database Schema**
-   - `machines`: Machine registry and status tracking
-   - `machine_state`: Real-time machine operational state
-   - `recipe_commands`: Command queue for machine operations
-   - `process_executions`: Active and historical process runs
-   - `operator_sessions`: Operator activity tracking
-   - `process_data_points`: Real-time process measurements
-
-### Command Handling System
-
-The system implements a command-based architecture where all operations are executed through a command queue:
-
-1. **Command Types**
-   - `start_recipe`: Initiates a new recipe execution
-   - `stop_recipe`: Halts an ongoing recipe
-   - `set_parameter`: Adjusts machine parameters
-
-2. **Command States**
-   - `pending`: New command waiting to be processed
-   - `processing`: Command currently being executed
-   - `completed`: Command successfully executed
-   - `error`: Command failed with error
-
-### Recipe Execution Flow
-
-1. **Recipe Start Process**
-   - Validate recipe and operator credentials
-   - Create operator session if needed
-   - Initialize process execution record
-   - Update machine status and state
-   - Begin step-by-step execution
-
-2. **Step Types**
-   - `purge`: Chamber purging operations
-   - `valve`: Valve control operations
-   - `set parameter`: Component parameter adjustments
-   - `loop`: Repetitive sequence execution
-
-3. **Data Recording**
-   - Continuous monitoring of component parameters
-   - Recording of process data points
-   - State tracking for analysis and troubleshooting
-
-### Machine States
-
-1. **Operational States**
-   - `idle`: Ready for new recipe
-   - `processing`: Executing recipe
-   - `error`: Error condition
-   - `offline`: Machine unavailable
-
-2. **State Management**
-   - Real-time state tracking
-   - Failure mode detection
-   - Automatic state recovery
-   - Process history maintenance
+All agents are asyncio tasks with backoff/restart and clean shutdown.
 
 ## Safety Features
 

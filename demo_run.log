@@ -1,0 +1,110 @@
+2025-09-20 14:34:53,534 - machine_control - INFO - ALD Control System starting via CLI
+2025-09-20 14:34:53,534 - machine_control - INFO - Effective Config -> PLC: simulation, IP: -, Port: -, Hostname: -, Auto-discover: false, LogLevel: DEBUG, LogFile: machine_control.log
+2025-09-20 14:34:53,650 - machine_control - INFO - Starting machine control application
+2025-09-20 14:34:53,650 - machine_control - INFO - Attempting initial PLC connection...
+2025-09-20 14:34:53,651 - machine_control - INFO - Initializing PLC of type simulation
+2025-09-20 14:34:53,651 - machine_control - INFO - Creating simulation PLC
+2025-09-20 14:34:53,651 - machine_control - INFO - Initializing simulation PLC
+2025-09-20 14:34:53,651 - machine_control - INFO - Initializing Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-20 14:34:53,651 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-20 14:34:53,686 - machine_control - INFO - Supabase client initialized successfully
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 2d983731-da39-4c5f-8576-10d2189c7743 (2d983731-da39-4c5f-8576-10d2189c7743) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 6dd9ff97-2e16-4717-96bb-0794575f9425 (6dd9ff97-2e16-4717-96bb-0794575f9425) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 1583a79b-079b-4b03-9c64-53b7cfa9d142 (1583a79b-079b-4b03-9c64-53b7cfa9d142) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 218ae298-e80a-4197-96e1-3d890ae16ded (218ae298-e80a-4197-96e1-3d890ae16ded) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 3abe55c2-def0-45fe-be97-723aca75a478 (3abe55c2-def0-45fe-be97-723aca75a478) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 2cadbb74-6e87-4833-96ae-719561a6c435 (2cadbb74-6e87-4833-96ae-719561a6c435) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 31f98043-793e-4b96-aa2c-ef4aa70751cb (31f98043-793e-4b96-aa2c-ef4aa70751cb) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 6c08a1b0-5674-46c1-9fb5-a4c4eca1adf1 (6c08a1b0-5674-46c1-9fb5-a4c4eca1adf1) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 9c53f4ef-5506-4a45-9718-af8a7b233056 (9c53f4ef-5506-4a45-9718-af8a7b233056) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 896208fd-0e1f-49a2-9ef6-46ab0d341bee (896208fd-0e1f-49a2-9ef6-46ab0d341bee) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 73f16b0e-6a82-4027-a1cf-66bfa16dba69 (73f16b0e-6a82-4027-a1cf-66bfa16dba69) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 846bc6d6-04df-4318-affb-b97cf7238793 (846bc6d6-04df-4318-affb-b97cf7238793) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter c6d493fa-adf3-4784-bb80-3425dd276d49 (c6d493fa-adf3-4784-bb80-3425dd276d49) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 2e7ecdd7-a283-4ac4-a2fa-68bc95c209dc (2e7ecdd7-a283-4ac4-a2fa-68bc95c209dc) will not fluctuate
+2025-09-20 14:34:54,047 - machine_control - DEBUG - Parameter 9fc0f785-db56-4752-820a-4aade9962a99 (9fc0f785-db56-4752-820a-4aade9962a99) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 84e86c3e-7109-4b2c-9064-2aea619e6f64 (84e86c3e-7109-4b2c-9064-2aea619e6f64) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter fe5bd37b-742b-4383-b9c4-27693262930c (fe5bd37b-742b-4383-b9c4-27693262930c) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter ca61248a-9be5-43d2-a204-df6f15ef4fe7 (ca61248a-9be5-43d2-a204-df6f15ef4fe7) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 687cf16a-8d3d-45ce-8a94-d20ec07f6dcd (687cf16a-8d3d-45ce-8a94-d20ec07f6dcd) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter b6ffc326-6445-440f-9642-39e86953b399 (b6ffc326-6445-440f-9642-39e86953b399) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 8195ef00-f478-48ee-9ee0-e43cc265ef42 (8195ef00-f478-48ee-9ee0-e43cc265ef42) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter d69d1937-1e06-4118-a960-02f0b9283890 (d69d1937-1e06-4118-a960-02f0b9283890) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 5adac7f8-816a-45bb-8f6e-ca45b8b4330f (5adac7f8-816a-45bb-8f6e-ca45b8b4330f) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter fe443faf-947c-4d15-a5b8-959891cf0930 (fe443faf-947c-4d15-a5b8-959891cf0930) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 78cdc7b1-25dc-42b9-b8af-a9a615305ac9 (78cdc7b1-25dc-42b9-b8af-a9a615305ac9) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 9917618c-7325-4771-a771-65b42c6d6c73 (9917618c-7325-4771-a771-65b42c6d6c73) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter e5001e41-7b4e-4afd-aa78-3f862be12f0a (e5001e41-7b4e-4afd-aa78-3f862be12f0a) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter ea7ad0f0-96ce-4c88-9b9a-bd2cde56d514 (ea7ad0f0-96ce-4c88-9b9a-bd2cde56d514) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 832228f7-6f83-490a-b59c-5e151cbe1fb1 (832228f7-6f83-490a-b59c-5e151cbe1fb1) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter b52bef6d-7656-4b9c-8ca6-0244825a7d7b (b52bef6d-7656-4b9c-8ca6-0244825a7d7b) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter e583bb2c-c135-4b0f-97e0-8e074a274a44 (e583bb2c-c135-4b0f-97e0-8e074a274a44) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 257341e5-d681-4bf1-a777-43ebf94d74a7 (257341e5-d681-4bf1-a777-43ebf94d74a7) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 02ab8ad1-e054-4487-8bac-7e87e31d9494 (02ab8ad1-e054-4487-8bac-7e87e31d9494) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 9562d003-4c64-4914-8e6f-48134ff30389 (9562d003-4c64-4914-8e6f-48134ff30389) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 79bb8d15-468b-497b-9810-9c1b913f17a8 (79bb8d15-468b-497b-9810-9c1b913f17a8) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter b906ef85-1915-40ba-898c-0595753e645e (b906ef85-1915-40ba-898c-0595753e645e) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 66d984b9-3503-40c4-bdb7-05bcf1833776 (66d984b9-3503-40c4-bdb7-05bcf1833776) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - DEBUG - Parameter 77207a4e-07e2-46ea-a2d6-96f144b950df (77207a4e-07e2-46ea-a2d6-96f144b950df) will not fluctuate
+2025-09-20 14:34:54,048 - machine_control - INFO - Simulation PLC initialized
+2025-09-20 14:34:54,048 - machine_control - INFO - ✅ PLC connection initialized successfully
+2025-09-20 14:34:54,048 - machine_control - INFO - Service starting with PLC connected: True
+2025-09-20 14:34:54,048 - machine_control - INFO - Starting connection monitor...
+2025-09-20 14:34:54,048 - machine_control - INFO - Starting connection monitor...
+2025-09-20 14:34:54,048 - machine_control - INFO - Connection monitor started
+2025-09-20 14:34:54,048 - machine_control - INFO - Creating async Supabase client...
+2025-09-20 14:34:54,048 - machine_control - INFO - Initializing async Supabase client with URL: https://yceyfsqusdmcwgkwxcnt.supabase.co
+2025-09-20 14:34:54,048 - machine_control - INFO - API Key (first 10 chars): eyJhbGciOi...
+2025-09-20 14:34:54,051 - machine_control - INFO - Async Supabase client initialized successfully
+2025-09-20 14:34:54,051 - machine_control - INFO - Setting up command listener...
+2025-09-20 14:34:54,051 - machine_control - INFO - Subscribing to INSERT events on recipe_commands table...
+2025-09-20 14:34:54,052 - machine_control - INFO - ✅ PLC connection established
+2025-09-20 14:34:54,298 - machine_control - DEBUG - Machine health status updated in database
+2025-09-20 14:34:54,726 - machine_control - INFO - Successfully subscribed to recipe_commands table
+2025-09-20 14:34:54,727 - machine_control - INFO - Checking for existing pending commands...
+2025-09-20 14:34:54,955 - machine_control - INFO - No pending commands found
+2025-09-20 14:34:54,955 - machine_control - INFO - Checked for existing pending commands
+2025-09-20 14:34:54,955 - machine_control - INFO - Starting command polling as a fallback mechanism
+2025-09-20 14:34:54,955 - machine_control - INFO - Setting up parameter control listener with realtime support...
+2025-09-20 14:34:54,955 - machine_control - INFO - Setting up realtime subscriptions for parameter_control_commands table...
+2025-09-20 14:34:54,955 - machine_control - INFO - Subscribing to realtime channel...
+2025-09-20 14:34:54,956 - machine_control - INFO - Successfully subscribed to realtime channel: parameter-control-commands-e3e6e280-0794-459f-84d5-5e468f60746e
+2025-09-20 14:34:54,956 - machine_control - INFO - Starting realtime connection monitor
+2025-09-20 14:34:54,956 - machine_control - INFO - Checking for existing pending parameter control commands...
+2025-09-20 14:34:54,956 - machine_control - INFO - Checking for existing pending parameter control commands...
+2025-09-20 14:34:55,081 - machine_control - DEBUG - No pending parameter control commands found
+2025-09-20 14:34:55,081 - machine_control - INFO - Started parameter control command polling as fallback mechanism
+2025-09-20 14:34:55,082 - machine_control - INFO - ✅ Parameter control listener ready with REALTIME + polling fallback
+2025-09-20 14:34:55,082 - machine_control - INFO - Machine control application running
+2025-09-20 14:34:55,082 - machine_control - INFO - ============================================================
+2025-09-20 14:34:55,082 - machine_control - INFO - System Status:
+2025-09-20 14:34:55,082 - machine_control - INFO -   - PLC Connection: ✅ Connected
+2025-09-20 14:34:55,082 - machine_control - INFO -   - Realtime Channels: ✅ Active
+2025-09-20 14:34:55,082 - machine_control - INFO -   - Machine ID: e3e6e280-0794-459f-84d5-5e468f60746e
+2025-09-20 14:34:55,082 - machine_control - INFO - ============================================================
+2025-09-20 14:34:55,082 - machine_control - INFO - Service is ready to receive commands
+2025-09-20 14:34:55,083 - machine_control - INFO - Checking for existing pending commands...
+2025-09-20 14:34:55,185 - machine_control - INFO - No pending commands found
+2025-09-20 14:34:55,185 - machine_control - INFO - Starting parameter command polling (interval: 10s, realtime: True)
+2025-09-20 14:35:00,089 - machine_control - INFO - Received interrupt signal, initiating cleanup...
+2025-09-20 14:35:00,089 - machine_control - INFO - Beginning cleanup process...
+2025-09-20 14:35:00,205 - machine_control - INFO - Disconnecting simulation PLC
+2025-09-20 14:35:00,205 - machine_control - INFO - Application shutdown complete
+Task exception was never retrieved
+future: <Task finished name='Task-13' coro=<signal_handler() done, defined at /Users/albaraa/ald-control-system-phase-5/src/main.py:63> exception=SystemExit(0)>
+Traceback (most recent call last):
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/asyncio/base_events.py", line 629, in run_until_complete
+    self.run_forever()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/asyncio/base_events.py", line 596, in run_forever
+    self._run_once()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/asyncio/base_events.py", line 1890, in _run_once
+    handle._run()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/asyncio/events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "/Users/albaraa/ald-control-system-phase-5/src/main.py", line 66, in signal_handler
+    await cleanup_handler()
+  File "/Users/albaraa/ald-control-system-phase-5/src/main.py", line 61, in cleanup_handler
+    sys.exit(0)
+SystemExit: 0

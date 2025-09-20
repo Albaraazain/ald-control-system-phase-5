@@ -4,3 +4,6 @@ newenv/
 node_modules/
 snyk
 CLAUDE.md
+.venv/
+venv/
+.venv/

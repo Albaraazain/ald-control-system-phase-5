@@ -203,7 +203,7 @@ INSERT INTO loop_step_config (step_id, iteration_count) VALUES
 3. **Caching Strategy**: Consider caching frequently accessed configurations
 
 ### Future Enhancements
-1. **Configuration UI**: Develop admin interface for managing step configurations
+1. **Configuration Tooling**: Develop headless/CLI admin tools for managing step configurations
 2. **Bulk Operations**: Implement bulk configuration import/export
 3. **Validation Rules**: Expand parameter validation rules based on hardware constraints
 

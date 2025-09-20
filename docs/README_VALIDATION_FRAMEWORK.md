@@ -27,12 +27,12 @@ This comprehensive validation framework validates the entire ALD control system 
 - **Rollback Capability**: Migration reversibility validation
 - **Data Consistency**: Cross-table consistency checks
 
-### 📊 Master Reporting & Dashboards
+### 📊 Master Reporting
 - **Executive Summary**: High-level status and recommendations
 - **Interactive Visualizations**: Performance charts and trend analysis
 - **Production Readiness Assessment**: Deployment decision framework
 - **Multiple Report Formats**: HTML, JSON, Markdown outputs
-- **Real-time Dashboard**: Live test execution monitoring
+- **Real-time Status Logs**: Live test execution monitoring (headless)
 
 ## Quick Start
 
@@ -129,7 +129,7 @@ After validation completes, reports are generated in the test workspace:
 ```
 test_workspace/
 ├── master_reports/
-│   ├── test_execution_dashboard.html          # Interactive dashboard
+│   ├── master_status_overview.md              # Headless status summary
 │   ├── master_test_report_[ID].md             # Markdown summary
 │   ├── html/
 │   │   └── master_test_report_[ID].html       # Full HTML report
