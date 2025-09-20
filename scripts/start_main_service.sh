@@ -2,7 +2,7 @@
 # Start the main ALD control system service
 
 echo "Starting ALD Control System Main Service..."
-echo "This service includes command flow, recipe flow, and parameter control listeners"
+echo "This service includes command flow, recipe execution, and connection monitoring"
 echo "Make sure the .env file is configured with your Supabase credentials"
 echo ""
 
