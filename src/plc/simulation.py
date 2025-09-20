@@ -25,7 +25,7 @@ class SimulationPLC(PLCInterface):
     
     # Parameter types that should not fluctuate
     NON_FLUCTUATING_TYPES = {
-        'binary', 'state', 'status', 'switch', 'enable', 'enabled', 'on_off', 
+        'binary', 'state', 'status', 'switch', 'enable', 'enabled', 'on_off',
         'on', 'off', 'running', 'active', 'alarm', 'fault', 'error', 'warning',
         'mode', 'position', 'valve_state', 'valve_position'
     }
@@ -88,7 +88,10 @@ class SimulationPLC(PLCInterface):
             should_fluctuate = self._should_parameter_fluctuate(param)
             if not should_fluctuate:
                 self.non_fluctuating_params.add(param_id)
-                logger.debug(f"Parameter {param_id} ({param.get('name', str(param_id))}) will not fluctuate")
+                logger.debug(
+                    f"Parameter {param_id} ({param.get('name', str(param_id))}) "
+                    f"will not fluctuate"
+                )
     
     def _should_parameter_fluctuate(self, param) -> bool:
         """
@@ -234,7 +237,12 @@ class SimulationPLC(PLCInterface):
         
         return result
     
-    async def control_valve(self, valve_number: int, state: bool, duration_ms: Optional[int] = None) -> bool:
+    async def control_valve(
+        self,
+        valve_number: int,
+        state: bool,
+        duration_ms: Optional[int] = None,
+    ) -> bool:
         """Control a valve in the simulation."""
         if not self.connected:
             raise RuntimeError("Not connected to simulation PLC")

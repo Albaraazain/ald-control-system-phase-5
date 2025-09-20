@@ -8,6 +8,7 @@ from src.db import get_supabase, get_current_timestamp
 from src.recipe_flow.data_recorder import record_process_data
 from src.step_flow.executor import execute_step
 from src.recipe_flow.continuous_data_recorder import continuous_recorder
+from src.recipe_flow.cancellation import is_cancelled, clear as clear_cancel
 
 async def execute_recipe(process_id: str):
     """
@@ -63,6 +64,10 @@ async def execute_recipe(process_id: str):
         # 4. Execute top-level steps sequentially
         overall_step_count = 0
         for step_index, step in enumerate(top_level_steps):
+            # Cooperative cancellation
+            if is_cancelled(process_id):
+                logger.info(f"Process {process_id} cancelled before step {step_index}; exiting")
+                break
             logger.info(f"Executing top-level step: {step['name']} (Type: {step['type']})")
             
             # Touch process record updated_at for activity
@@ -103,6 +108,9 @@ async def execute_recipe(process_id: str):
                 logger.warning(f"Failed to update process_execution_state for step {step_index}")
             
             # Execute the step
+            if is_cancelled(process_id):
+                logger.info(f"Process {process_id} cancelled before executing step; exiting")
+                break
             await execute_step(process_id, step, all_steps, parent_to_child_steps, overall_step_count)
             
             # Update step count based on step type
@@ -117,12 +125,19 @@ async def execute_recipe(process_id: str):
             # Record data points after each step
             await record_process_data(process_id)
         
-        # 5. All steps completed successfully
-        await complete_recipe(process_id)
-        
+        # 5. Finalize
+        if is_cancelled(process_id):
+            # Stop recorder; leave DB status updates to stopper (already set to idle/aborted)
+            await continuous_recorder.stop()
+            logger.info(f"Process {process_id} cancelled; finalizing without completion")
+        else:
+            await complete_recipe(process_id)
+
     except Exception as e:
         logger.error(f"Error executing recipe: {str(e)}", exc_info=True)
         await handle_recipe_error(process_id, str(e))
+    finally:
+        clear_cancel(process_id)
 
 async def build_parent_child_step_map(steps):
     """

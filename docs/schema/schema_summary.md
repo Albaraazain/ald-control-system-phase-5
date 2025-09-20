@@ -74,12 +74,12 @@ This summarizes key tables and columns relevant to the ALD control system. Sourc
 - created_at, updated_at
 
 ### component_parameters
-- id, component_id, definition_id, data_type
-- current_value, set_value, min_value, max_value
-- is_writable, show_in_ui, show_in_graph
-- read_modbus_address
-- write_modbus_address
-- created_at, updated_at
+ - id, component_id, definition_id, data_type
+ - current_value, set_value, min_value, max_value
+ - is_writable, show_in_ui, show_in_graph
+ - read_modbus_address, read_modbus_type
+ - write_modbus_address, write_modbus_type
+ - created_at, updated_at
 
 ### operator_sessions
 - id, machine_id, operator_id, status
@@ -90,8 +90,8 @@ This summarizes key tables and columns relevant to the ALD control system. Sourc
 
 - parameter_control_commands: No `status`, `priority`, or `parameter_type`. Tracks `executed_at`, `completed_at`, and `error_message` instead.
 - process_executions: Does not store `current_step`, `current_step_index`, or `total_steps`. Execution state is modeled in `process_execution_state`.
-- component_parameters: Uses dual-address model with `read_modbus_address` for reads and 
-  `write_modbus_address` for writes. No legacy `modbus_address`/`modbus_type` or
-  `read_modbus_type`/`write_modbus_type` columns.
+- component_parameters: Uses dual-address model with explicit read/write addresses and types
+  (`read_modbus_address`, `read_modbus_type`, `write_modbus_address`, `write_modbus_type`).
+  Legacy `modbus_address`/`modbus_type` are deprecated and not exposed in views.
 
 Refer to the OpenAPI document for full details and types.

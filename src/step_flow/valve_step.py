@@ -5,6 +5,7 @@ import asyncio
 from src.log_setup import logger
 from src.db import get_supabase, get_current_timestamp
 from src.plc.manager import plc_manager
+from src.recipe_flow.cancellation import is_cancelled
 
 async def execute_valve_step(process_id: str, step: dict):
     """
@@ -54,6 +55,11 @@ async def execute_valve_step(process_id: str, step: dict):
     
     logger.info(f"Opening valve {valve_number} for {duration_ms}ms")
     
+    # Early cancel check
+    if is_cancelled(process_id):
+        logger.info("Valve step cancelled before execution")
+        return
+
     # Get current progress from process_execution_state
     state_result = supabase.table('process_execution_state').select('progress').eq('execution_id', process_id).single().execute()
     current_progress = state_result.data['progress'] if state_result.data else {}

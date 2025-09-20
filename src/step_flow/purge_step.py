@@ -1,10 +1,15 @@
 """
 Executes purge steps in a recipe.
+
+Purge is implemented as a time-based wait only with periodic cancellation checks.
+No PLC actuation (no valve toggles or writes) occurs during purge in either real
+or simulation modes; recording/logging continues as usual.
 """
 import asyncio
+import time
 from src.log_setup import logger
 from src.db import get_supabase, get_current_timestamp
-from src.plc.manager import plc_manager
+from src.recipe_flow.cancellation import is_cancelled
 
 async def execute_purge_step(process_id: str, step: dict):
     """
@@ -17,9 +22,11 @@ async def execute_purge_step(process_id: str, step: dict):
     supabase = get_supabase()
     step_id = step.get('id')
     
-    # Load purge configuration from purge_step_config table
-    result = supabase.table('purge_step_config').select('*').eq('step_id', step_id).execute()
-    purge_config = result.data[0] if result.data else None
+    # Load purge configuration from purge_step_config table when we have a valid step_id
+    purge_config = None
+    if step_id is not None:
+        result = supabase.table('purge_step_config').select('*').eq('step_id', step_id).execute()
+        purge_config = result.data[0] if result.data else None
     
     if not purge_config:
         # Fallback to old method for backwards compatibility
@@ -45,8 +52,16 @@ async def execute_purge_step(process_id: str, step: dict):
         gas_type = purge_config['gas_type']
         flow_rate = purge_config['flow_rate']
     
-    logger.info(f"Executing purging step for {duration_ms}ms with {gas_type} gas at {flow_rate} flow rate")
+    logger.info(
+        f"Executing purge step (wait-only): duration={duration_ms}ms, gas={gas_type},"
+        f" flow_rate={flow_rate}"
+    )
     
+    # Early cancel check
+    if is_cancelled(process_id):
+        logger.info("Purge step cancelled before execution")
+        return
+
     # Get current progress from process_execution_state
     state_result = supabase.table('process_execution_state').select('progress').eq('execution_id', process_id).single().execute()
     current_progress = state_result.data['progress'] if state_result.data else {}
@@ -66,14 +81,19 @@ async def execute_purge_step(process_id: str, step: dict):
     }
     supabase.table('process_execution_state').update(state_update).eq('execution_id', process_id).execute()
     
-    # Execute the purge via PLC
-    plc = plc_manager.plc
-    if plc:
-        success = await plc.execute_purge(duration_ms)
-        if not success:
-            raise RuntimeError(f"Failed to execute purge operation")
-    else:
-        # Fallback to simulation behavior if no PLC
-        await asyncio.sleep(duration_ms / 1000)
-    
-    logger.info(f"Purging step completed successfully")
+    # Purge is a time-based wait only; periodically check for cancellation.
+    start = time.monotonic()
+    end_time = start + (duration_ms / 1000.0)
+    interval = 0.2  # seconds
+
+    while True:
+        if is_cancelled(process_id):
+            logger.info("Purge step cancelled during wait; exiting early")
+            return
+
+        now = time.monotonic()
+        if now >= end_time:
+            break
+        await asyncio.sleep(min(interval, max(0.0, end_time - now)))
+
+    logger.info("Purge step completed (wait-only; no PLC actuation)")

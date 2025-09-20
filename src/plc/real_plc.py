@@ -9,6 +9,7 @@ from src.log_setup import logger
 from src.plc.interface import PLCInterface
 from src.plc.communicator import PLCCommunicator
 from src.db import get_supabase
+from src.config import is_essentials_filter_enabled
 
 class RealPLC(PLCInterface):
     """Real PLC implementation for production use."""
@@ -25,7 +26,13 @@ class RealPLC(PLCInterface):
     # - binary uses coils
     # - int16/int32/float use holding registers
     
-    def __init__(self, ip_address: str, port: int, hostname: str = None, auto_discover: bool = False):
+    def __init__(
+        self,
+        ip_address: str,
+        port: int,
+        hostname: str = None,
+        auto_discover: bool = False,
+    ):
         """
         Initialize with PLC connection details.
         
@@ -43,7 +50,7 @@ class RealPLC(PLCInterface):
         
         # Create communicator with dynamic discovery capabilities
         self.communicator = PLCCommunicator(
-            plc_ip=ip_address, 
+            plc_ip=ip_address,
             port=port,
             hostname=hostname,
             auto_discover=auto_discover,
@@ -124,6 +131,32 @@ class RealPLC(PLCInterface):
         Load parameter metadata from the database.
         Uses dual-address model (read_modbus_address/write_modbus_address) only.
         """
+        # Local helper: gate which params are considered "essential" for noisy machines
+        def _is_essential_param(name: str, component_name: str) -> bool:
+            n = (name or "").lower()
+            comp = (component_name or "").lower()
+
+            # Core allowlist
+            essential_exact = {
+                "flow", "flow_rate", "flow_read", "flow_set",
+                "pressure", "pressure_read", "pressure_set",
+                "power_on", "power_off", "power_state",
+            }
+
+            if n in essential_exact:
+                return True
+
+            # Prefix matches
+            if n.startswith("temperature"):
+                return True
+
+            # Special handling for valve_state: keep only numbered process valves
+            if n == "valve_state":
+                # Keep "Valve N"; ignore other variants like "Gas Valve", "Exhaust Gate Valve"
+                return comp.startswith("valve ")
+
+            return False
+
         try:
             supabase = get_supabase()
             
@@ -132,6 +165,8 @@ class RealPLC(PLCInterface):
             result = supabase.table('component_parameters_full').select('*').execute()
             
             if result.data:
+                apply_filter = is_essentials_filter_enabled()
+                kept = 0
                 for param in result.data:
                     parameter_id = param['id']
                     
@@ -151,6 +186,11 @@ class RealPLC(PLCInterface):
                     read_addr = param.get('read_modbus_address')
                     write_addr = param.get('write_modbus_address')
 
+                    # Essentials filter (enabled only for specific machine IDs)
+                    if apply_filter and not _is_essential_param(param_name, component_name):
+                        # Skip non-essential parameters entirely: no cache and no logs
+                        continue
+
                     self._parameter_cache[parameter_id] = {
                         'name': param_name or param['name'],
                         'read_modbus_address': read_addr,
@@ -169,6 +209,7 @@ class RealPLC(PLCInterface):
                         'unit': param_unit,
                         'description': param_description
                     }
+                    kept += 1
                     # Log each parameter with its addresses (using short component name)
                     logger.info(
                         f"Parameter '{param_name or param['name']}' ({short_component_name}) "
@@ -177,18 +218,24 @@ class RealPLC(PLCInterface):
                     )
 
                     # Validate required presence of addresses; log explicit errors
+                    # Suppress these errors for ignored params by filtering before this point.
                     if read_addr is None:
                         logger.error(
                             f"Parameter {parameter_id} ({param_name}) missing read_modbus_address; "
                             f"reads will fail until populated."
                         )
-                    if self._parameter_cache[parameter_id].get('is_writable') and write_addr is None:
+                    if (
+                        self._parameter_cache[parameter_id].get('is_writable')
+                        and write_addr is None
+                    ):
                         logger.error(
                             f"Parameter {parameter_id} ({param_name}) is writable but missing "
                             f"write_modbus_address; writes will fail until populated."
                         )
                     
-                logger.info(f"Loaded metadata for {len(self._parameter_cache)} parameters")
+                # Leave behavior unchanged for other machines
+                total = kept if apply_filter else len(self._parameter_cache)
+                logger.info(f"Loaded metadata for {total} parameters")
             else:
                 logger.warning("No component parameters found in database")
                 
@@ -215,7 +262,7 @@ class RealPLC(PLCInterface):
                 param_name = param.get('parameter_name') or param.get('name')
                 
                 component_name = param.get('component_name', '')
-                if ((param_name == 'valve_state' or param.get('name') == 'valve_state') and 
+                if ((param_name == 'valve_state' or param.get('name') == 'valve_state') and
                     component_name.lower().startswith('valve')):
                     valve_params.append(param)
             
@@ -242,14 +289,19 @@ class RealPLC(PLCInterface):
                                     'data_type': 'binary'  # Valves are always binary coils
                                 }
                                 logger.info(
-                                    f"Added Valve {valve_number} with write_modbus_address {write_addr}"
+                                    f"Added Valve {valve_number} with write_modbus_address "
+                                    f"{write_addr}"
                                 )
                             else:
                                 logger.error(
-                                    f"Valve {valve_number} ({component_name}) missing write_modbus_address"
+                                    f"Valve {valve_number} ({component_name}) "
+                                    f"missing write_modbus_address"
                                 )
                     except (ValueError, AttributeError) as e:
-                        logger.warning(f"Could not extract valve number from component name: {component_name}. Error: {e}")
+                        logger.warning(
+                            f"Could not extract valve number from component name: "
+                            f"{component_name}. Error: {e}"
+                        )
                 
                 # Log detailed valve mapping information
                 for valve_num, valve_data in self._valve_cache.items():
@@ -299,7 +351,8 @@ class RealPLC(PLCInterface):
                     self._purge_data_type = 'binary'
                     purge_component_name = purge_param.get('component_name', '')
                     logger.info(
-                        f"Loaded purge operation from database: write_modbus_address {self._purge_address}, "
+                        f"Loaded purge operation from database: "
+                        f"write_modbus_address {self._purge_address}, "
                         f"data_type: {self._purge_data_type}, parameter_id: {purge_param['id']}, "
                         f"name: {purge_param.get('name')}, component: {purge_component_name}"
                     )
@@ -450,7 +503,10 @@ class RealPLC(PLCInterface):
                         logger.debug(f"Applied Pressure Gauge {pg_num} scaling to value: {value}")
             
         except Exception as e:
-            logger.error(f"Error reading parameter {parameter_id} ({param_meta.get('name')}): {str(e)}")
+            logger.error(
+                f"Error reading parameter {parameter_id} ({param_meta.get('name')}): "
+                f"{str(e)}"
+            )
         
         if value is None:
             logger.warning(f"Failed to read value for parameter {parameter_id}. Returning None.")
@@ -473,7 +529,10 @@ class RealPLC(PLCInterface):
             param_name = param_meta.get('name', '')
                 
             # Log parameter update with truncated names
-            logger.debug(f"Updating current value of parameter: {param_name} ({component_name}) with value: {value}")
+            logger.debug(
+                f"Updating current value of parameter: {param_name} ({component_name}) "
+                f"with value: {value}"
+            )
             
             supabase.table('component_parameters').update({
                 'current_value': value,
@@ -528,12 +587,22 @@ class RealPLC(PLCInterface):
             
         # Apply scaling for MFCs and Pressure Gauges if needed for write operations
         original_value = value
-        if (component_name.startswith('mfc') and param_name == 'flow_set') or (component_name.startswith('pressure') and param_name.startswith('scale_')):
+        if (
+            (component_name.startswith('mfc') and param_name == 'flow_set')
+            or (
+                component_name.startswith('pressure')
+                and param_name.startswith('scale_')
+            )
+        ):
             # Get MFC or Pressure Gauge scaling
             mfc_match = re.search(r'mfc\s*(\d+)', component_name)
             pg_match = re.search(r'pressure\s*gauge\s*(\d+)', component_name)
             
-            if mfc_match and mfc_match.group(1) in self._mfc_scaling_cache and param_name == 'flow_set':
+            if (
+                mfc_match
+                and mfc_match.group(1) in self._mfc_scaling_cache
+                and param_name == 'flow_set'
+            ):
                 # Apply inverse MFC voltage scaling for set values
                 mfc_num = mfc_match.group(1)
                 scaling = self._mfc_scaling_cache.get(mfc_num)
@@ -546,7 +615,12 @@ class RealPLC(PLCInterface):
                         scaling.get('min_voltage', 0),
                         scaling.get('max_voltage', 10)
                     )
-                    logger.debug(f"Applied inverse MFC {mfc_num} scaling to value: {original_value} -> {value}")
+                    logger.debug(
+                        (
+                            f"Applied inverse MFC {mfc_num} scaling to value: "
+                            f"{original_value} -> {value}"
+                        )
+                    )
         
         success = False
         try:
@@ -594,7 +668,10 @@ class RealPLC(PLCInterface):
                 else:
                     raise ValueError(f"Unsupported data type: {data_type}")
         except Exception as e:
-            logger.error(f"Error writing parameter {parameter_id} ({param_meta.get('name')}): {str(e)}")
+            logger.error(
+                f"Error writing parameter {parameter_id} ({param_meta.get('name')}): "
+                f"{str(e)}"
+            )
             success = False
         
         if success:
@@ -611,7 +688,7 @@ class RealPLC(PLCInterface):
             # Get parameter details from cache to log more info
             param_meta = self._parameter_cache.get(parameter_id, {})
             # Use the pre-truncated component name from the cache
-            component_name = param_meta.get('short_component_name', '') 
+            component_name = param_meta.get('short_component_name', '')
             param_name = param_meta.get('name', '')
                 
             # Log parameter update with truncated names
@@ -647,7 +724,12 @@ class RealPLC(PLCInterface):
         
         return result
     
-    async def control_valve(self, valve_number: int, state: bool, duration_ms: Optional[int] = None) -> bool:
+    async def control_valve(
+        self,
+        valve_number: int,
+        state: bool,
+        duration_ms: Optional[int] = None,
+    ) -> bool:
         """
         Control a valve state.
         
@@ -665,7 +747,10 @@ class RealPLC(PLCInterface):
         # Get valve metadata from cache
         valve_meta = self._valve_cache.get(valve_number)
         if not valve_meta:
-            logger.error(f"Valve {valve_number} not found in valve cache. Available valves: {list(self._valve_cache.keys())}")
+            logger.error(
+                f"Valve {valve_number} not found in valve cache. Available valves: "
+                f"{list(self._valve_cache.keys())}"
+            )
             raise ValueError(f"Valve {valve_number} not found in valve cache")
         
         address = valve_meta['address']
@@ -704,7 +789,9 @@ class RealPLC(PLCInterface):
             
             # Check if we're still connected
             if not self.connected:
-                logger.warning(f"Not closing valve {valve_number} after timeout: Not connected to PLC")
+                logger.warning(
+                    f"Not closing valve {valve_number} after timeout: Not connected to PLC"
+                )
                 return
             
             # Close the valve
@@ -717,7 +804,14 @@ class RealPLC(PLCInterface):
         except Exception as e:
             logger.error(f"Error in auto-close valve task: {str(e)}")
     
-    def _scale_value(self, value: float, min_in: float, max_in: float, min_out: float, max_out: float) -> float:
+    def _scale_value(
+        self,
+        value: float,
+        min_in: float,
+        max_in: float,
+        min_out: float,
+        max_out: float,
+    ) -> float:
         """
         Scale a value from one range to another using linear interpolation.
         
@@ -738,7 +832,14 @@ class RealPLC(PLCInterface):
         # (value - min_in) / (max_in - min_in) = (result - min_out) / (max_out - min_out)
         return min_out + (max_out - min_out) * (value - min_in) / (max_in - min_in)
     
-    def _inverse_scale_value(self, value: float, min_in: float, max_in: float, min_out: float, max_out: float) -> float:
+    def _inverse_scale_value(
+        self,
+        value: float,
+        min_in: float,
+        max_in: float,
+        min_out: float,
+        max_out: float,
+    ) -> float:
         """
         The inverse of _scale_value. Converts from the output range back to the input range.
         
@@ -776,7 +877,9 @@ class RealPLC(PLCInterface):
                 component_name = param.get('component_name', '').lower()
                 # Check both the parameter name and the definition name
                 definition = param.get('component_parameter_definitions', {})
-                param_name = (definition.get('name') if definition else param.get('name', '')).lower()
+                param_name = (
+                    definition.get('name') if definition else param.get('name', '')
+                ).lower()
                 operand = param.get('operand', '')
                 
                 # Extract component number
@@ -809,7 +912,9 @@ class RealPLC(PLCInterface):
                     if param_name == 'scale_min':
                         pressure_parameters[pg_num]['min_value'] = param.get('current_value', 0)
                     elif param_name == 'scale_max':
-                        pressure_parameters[pg_num]['max_value'] = param.get('current_value', 100000)
+                        pressure_parameters[pg_num]['max_value'] = param.get(
+                            'current_value', 100000
+                        )
                     elif param_name == 'scale_min_voltage':
                         pressure_parameters[pg_num]['min_voltage'] = param.get('current_value', 0)
                     elif param_name == 'scale_max_voltage':
@@ -821,14 +926,25 @@ class RealPLC(PLCInterface):
             
             # Log scaling parameters
             for mfc_num, scaling in self._mfc_scaling_cache.items():
-                logger.info(f"MFC {mfc_num} scaling: min_value={scaling.get('min_value', 0)}, "
-                          f"max_value={scaling.get('max_value', 0)}, min_voltage={scaling.get('min_voltage', 0)}, "
-                          f"max_voltage={scaling.get('max_voltage', 0)}")
-                          
+                logger.info(
+                    (
+                        f"MFC {mfc_num} scaling: min_value={scaling.get('min_value', 0)}, "
+                        f"max_value={scaling.get('max_value', 0)}, "
+                        f"min_voltage={scaling.get('min_voltage', 0)}, "
+                        f"max_voltage={scaling.get('max_voltage', 0)}"
+                    )
+                )
+
             for pg_num, scaling in self._pressure_scaling_cache.items():
-                logger.info(f"Pressure Gauge {pg_num} scaling: min_value={scaling.get('min_value', 0)}, "
-                          f"max_value={scaling.get('max_value', 0)}, min_voltage={scaling.get('min_voltage', 0)}, "
-                          f"max_voltage={scaling.get('max_voltage', 0)}")
+                logger.info(
+                    (
+                        f"Pressure Gauge {pg_num} scaling: "
+                        f"min_value={scaling.get('min_value', 0)}, "
+                        f"max_value={scaling.get('max_value', 0)}, "
+                        f"min_voltage={scaling.get('min_voltage', 0)}, "
+                        f"max_voltage={scaling.get('max_voltage', 0)}"
+                    )
+                )
                 
         except Exception as e:
             logger.error(f"Error loading scaling parameters: {str(e)}", exc_info=True)
@@ -851,12 +967,15 @@ class RealPLC(PLCInterface):
         
         # Check if purge parameters are available
         if self._purge_address is None:
-            logger.error("Purge operation parameters not found in database. Make sure there's a parameter with 'purge' in its name.")
+            logger.error(
+                "Purge operation parameters not found in database. Make sure there's a parameter "
+                "with 'purge' in its name."
+            )
             raise ValueError("Purge operation parameters not found")
         
         logger.info(
-            f"Starting purge operation for {duration_ms}ms at write_modbus_address {self._purge_address} "
-            f"with data type {self._purge_data_type}"
+            f"Starting purge operation for {duration_ms}ms at write_modbus_address "
+            f"{self._purge_address} with data type {self._purge_data_type}"
         )
         
         # Activate purge operation
@@ -867,7 +986,10 @@ class RealPLC(PLCInterface):
         else:
             # Trigger purge by writing 1 to register
             success = self.communicator.write_integer_32bit(self._purge_address, 1)
-            logger.info(f"Sending purge command to register address {self._purge_address} (value: 1)")
+            logger.info(
+                f"Sending purge command to register address {self._purge_address} "
+                f"(value: 1)"
+            )
         
         if not success:
             logger.error("Failed to start purge operation")

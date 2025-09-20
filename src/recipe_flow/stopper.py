@@ -5,6 +5,7 @@ from src.log_setup import logger
 from src.config import MACHINE_ID
 from src.db import get_supabase, get_current_timestamp
 from src.recipe_flow.continuous_data_recorder import continuous_recorder
+from src.recipe_flow.cancellation import cancel as cancel_process
 
 # Valid process status values from database enum
 PROCESS_STATUSES = ('preparing', 'running', 'paused', 'completed', 'failed', 'aborted')
@@ -35,7 +36,8 @@ async def stop_recipe(command_id: int, parameters: dict):
     
     process_id = machine['current_process_id']
     
-    # Stop continuous data recording
+    # Signal cancellation to running executor and stop continuous data recording
+    cancel_process(process_id)
     await continuous_recorder.stop()
     
     # 2. Update the process execution record

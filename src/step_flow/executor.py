@@ -39,6 +39,7 @@ async def execute_step(process_id: str, step: dict, all_steps: list, parent_to_c
             # Some deployments store purge configuration in a separate table;
             # tolerate missing inline parameters.
             step_data = {
+                'id': step.get('id'),
                 'type': 'purging',
                 'name': step_name,
                 'parameters': step.get('parameters', {})
@@ -49,9 +50,10 @@ async def execute_step(process_id: str, step: dict, all_steps: list, parent_to_c
             valve_params = step.get('parameters', {})
             if 'valve_number' not in valve_params:
                 raise ValueError(f"Valve step missing valve_number parameter: {step_name}")
-                
+            
             valve_number = valve_params['valve_number']
             valve_step = {
+                'id': step.get('id'),
                 'type': f'open valve {valve_number}',
                 'name': step_name,
                 'parameters': valve_params

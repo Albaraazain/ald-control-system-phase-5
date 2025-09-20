@@ -6,6 +6,8 @@ from src.config import MACHINE_ID
 from src.db import get_supabase, get_current_timestamp
 from src.recipe_flow.executor import execute_recipe
 from src.recipe_flow.continuous_data_recorder import continuous_recorder
+from src.idle.checker import ensure_idle_ready
+from src.recipe_flow.cancellation import register as register_cancel_token
 
 async def start_recipe(command_id: int, parameters: dict):
     """
@@ -49,6 +51,9 @@ async def start_recipe(command_id: int, parameters: dict):
     # 4. Check if machine is available
     if machine['status'] not in ['idle', 'offline']:
         raise ValueError(f"Machine is currently {machine['status']} and cannot start a new recipe")
+
+    # 4.1 Enforce per-machine idle readiness profile before running
+    ensure_idle_ready()
     
     # 5. Use current operator from machine if not provided
     if not operator_id:
@@ -81,6 +86,8 @@ async def start_recipe(command_id: int, parameters: dict):
         operator_id,
         recipe_steps
     )
+    # Register a cancellation token for this process so stop_recipe can signal it
+    register_cancel_token(process_id)
     
     # 8.5 Calculate total steps including loop iterations for progress tracking
     total_steps = 0

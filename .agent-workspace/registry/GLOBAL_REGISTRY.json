@@ -1,9 +1,9 @@
 {
   "created_at": "2025-09-20T01:09:09.690639",
-  "total_tasks": 15,
-  "active_tasks": 15,
-  "total_agents_spawned": 64,
-  "active_agents": 64,
+  "total_tasks": 18,
+  "active_tasks": 18,
+  "total_agents_spawned": 73,
+  "active_agents": 73,
   "max_concurrent_agents": 16,
   "tasks": {
     "TASK-20250920-010909-ec564077": {
@@ -79,6 +79,21 @@
     "TASK-20250920-175236-902048fa": {
       "description": "Goal: Use Supabase MCP for the Atomicoat project to deprecate/remove legacy Modbus fields (modbus_address and modbus_type), and introduce dual-address tracking per parameter: read_address and write_address. Update the repository code to consistently use read_address for polls/recording and write_address for set operations, adjust PLC manager and interfaces, migrate Supabase schema and backfill data, and keep all tests and lint/type checks passing. Acceptance: (1) SQL migration(s) created and applied via Supabase MCP (atomicoat) with reversible steps and data backfill; (2) code compiles/runs (python main.py), lint and mypy pass per CLAUDE.md; (3) debug scripts run without errors in simulation mode; (4) legacy fields are removed or fully deprecated with no references left; (5) concise report of changes, risks, and verification steps.",
       "created_at": "2025-09-20T17:52:36.323433",
+      "status": "INITIALIZED"
+    },
+    "TASK-20250920-191337-bd6515c9": {
+      "description": "Goal: For machine ID e3e6e280-0794-459f-84d5-5e468f60746e, hide or ignore non-essential parameters (e.g., scale_min, scale_max, scale_min_voltage, scale_max_voltage, zero_cal, span_cal, purity, unrelated placeholders like ultrathink) so they are not loaded, processed, or logged. Keep essential parameters: flow/flow_rate, temperature(s), power_on/off, valve_state, pressure. Add a per-machine filter/toggle: apply only to the specified machine. Suppress error logs for ignored params. Acceptance criteria: (1) Running `python main.py` shows no ERROR lines about missing modbus addresses for ignored params and no info logs for them; (2) Valve mapping still loads 6 valves; (3) Essential parameters remain loaded and usable; (4) Lint/mypy pass. Deliverables: minimal code diffs, config flag docs, and verification steps.",
+      "created_at": "2025-09-20T19:13:37.620730",
+      "status": "INITIALIZED"
+    },
+    "TASK-20250920-191954-53eed6db": {
+      "description": "Run full end-to-end flow/recipe execution with Simulation PLC. Start the Python service in the background, seed a minimal recipe (if needed), trigger recipe execution via Supabase, observe parameter control and process recording, and report results. Acceptance: (1) service runs under tmux with PLC_TYPE=simulation and connects; (2) parameter_control_listener executes at least one write command successfully; (3) recipe flow starts and advances through at least one step, updating process_execution_state; (4) process_data_points captured; (5) concise run log and outcomes summarized.",
+      "created_at": "2025-09-20T19:19:54.344722",
+      "status": "INITIALIZED"
+    },
+    "TASK-20250920-192656-4f2ccee1": {
+      "description": "Document and implement ALD purge step as a no-op/wait: update AGENTS.md to state that the purge step performs no valve or PLC actions and only waits for the configured duration; update step_flow purge implementation accordingly; ensure logging clarifies the behavior; run lint/type-check and relevant debug tests; deliver minimal diffs and verification steps; acceptance: AGENTS.md updated, purge step implementation conforms (no PLC writes except reading telemetry), tests pass, lint/type-check clean.",
+      "created_at": "2025-09-20T19:26:56.539304",
       "status": "INITIALIZED"
     }
   },
@@ -530,6 +545,69 @@
       "parent": "orchestrator",
       "started_at": "2025-09-20T18:18:49.815956",
       "tmux_session": "agent_implementer-181847-275760"
+    },
+    "reviewer-182913-356e9b": {
+      "task_id": "TASK-20250920-175236-902048fa",
+      "type": "reviewer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-20T18:29:15.367475",
+      "tmux_session": "agent_reviewer-182913-356e9b"
+    },
+    "tester-182925-ee41da": {
+      "task_id": "TASK-20250920-175236-902048fa",
+      "type": "tester",
+      "parent": "orchestrator",
+      "started_at": "2025-09-20T18:29:27.541889",
+      "tmux_session": "agent_tester-182925-ee41da"
+    },
+    "fixer-184836-8be992": {
+      "task_id": "TASK-20250920-175236-902048fa",
+      "type": "fixer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-20T18:48:38.955783",
+      "tmux_session": "agent_fixer-184836-8be992"
+    },
+    "fixer-190645-5b1464": {
+      "task_id": "TASK-20250920-175236-902048fa",
+      "type": "fixer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-20T19:06:47.227901",
+      "tmux_session": "agent_fixer-190645-5b1464"
+    },
+    "implementer-191348-bf373b": {
+      "task_id": "TASK-20250920-191337-bd6515c9",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-20T19:13:50.657205",
+      "tmux_session": "agent_implementer-191348-bf373b"
+    },
+    "investigator-192007-d616ca": {
+      "task_id": "TASK-20250920-191954-53eed6db",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-20T19:20:09.466350",
+      "tmux_session": "agent_investigator-192007-d616ca"
+    },
+    "tester-192315-97b34b": {
+      "task_id": "TASK-20250920-191954-53eed6db",
+      "type": "tester",
+      "parent": "orchestrator",
+      "started_at": "2025-09-20T19:23:17.642105",
+      "tmux_session": "agent_tester-192315-97b34b"
+    },
+    "investigator-192702-8d9363": {
+      "task_id": "TASK-20250920-192656-4f2ccee1",
+      "type": "investigator",
+      "parent": "",
+      "started_at": "2025-09-20T19:27:04.490116",
+      "tmux_session": "agent_investigator-192702-8d9363"
+    },
+    "implementer-192838-feee52": {
+      "task_id": "TASK-20250920-192656-4f2ccee1",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-20T19:28:40.962115",
+      "tmux_session": "agent_implementer-192838-feee52"
     }
   }
 }

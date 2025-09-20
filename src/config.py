@@ -9,6 +9,7 @@ Notes on validation:
 """
 import os
 from dotenv import load_dotenv
+from typing import Set
 
 # Load environment variables from .env file
 load_dotenv()
@@ -76,3 +77,28 @@ PLC_CONFIG = {
     'hostname': PLC_HOSTNAME,
     'auto_discover': PLC_AUTO_DISCOVER,
 }
+
+# --- Feature Flags / Machine-Specific Toggles ---
+# A lightweight, opt-in filter that limits which parameter names are loaded/logged
+# from Supabase for specific machines. This is used to reduce noise for machines
+# that currently have non-essential parameters populated in the DB.
+#
+# Enable for specific machines by listing their IDs in the env var
+# `ESSENTIALS_FILTER_MACHINE_IDS` (comma-separated). If not provided, we default
+# to enabling it only for the machine below. Other machines remain unaffected.
+_DEFAULT_FILTER_IDS = {
+    # TODO: Move this default to environment/config once DB cleanup is complete.
+    "e3e6e280-0794-459f-84d5-5e468f60746e",
+}
+
+def _parse_csv_ids(value: str) -> Set[str]:
+    items = [x.strip() for x in value.split(",") if x and x.strip()]
+    return set(items)
+
+ESSENTIALS_FILTER_MACHINE_IDS: Set[str] = (
+    _parse_csv_ids(os.getenv("ESSENTIALS_FILTER_MACHINE_IDS", "")) or _DEFAULT_FILTER_IDS
+)
+
+def is_essentials_filter_enabled() -> bool:
+    """Return True if the essentials filter is enabled for this MACHINE_ID."""
+    return bool(MACHINE_ID and MACHINE_ID in ESSENTIALS_FILTER_MACHINE_IDS)

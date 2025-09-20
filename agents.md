@@ -30,6 +30,8 @@ This is an Atomic Layer Deposition (ALD) control system that manages hardware op
 
    - Implements individual recipe steps (valve, purge, parameter, loop)
    - Handles step execution with timing and parameter control
+   
+   - Purge Step Behavior: Purge step is a no-op; it only waits for the configured duration and does not actuate valves.
 4. **PLC Communication** (`plc/`)
 
    - Abstract interface for PLC operations

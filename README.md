@@ -194,6 +194,32 @@ LOG_LEVEL=INFO
 LOG_FILE=machine_control.log
 ```
 
+## Parameter Filtering (Machine-Specific)
+
+For machines that currently include many non-essential parameters in the database, you can enable a
+machine-specific allowlist to reduce noise in loading/logging. This is applied only in the real PLC
+metadata loader and does not change any database data.
+
+- Enabled by default only for machine `e3e6e280-0794-459f-84d5-5e468f60746e`.
+- Other machines remain unaffected unless listed in `ESSENTIALS_FILTER_MACHINE_IDS`.
+
+Kept parameter names:
+- `temperature*` (prefix match)
+- `flow`, `flow_rate`, `flow_read`, `flow_set`
+- `pressure`, `pressure_read`, `pressure_set`
+- `power_on`, `power_off`, `power_state`
+- `valve_state` only for components named `Valve N` (keeps the 6 process valves)
+
+Ignored examples: `scale_min`, `scale_max`, `scale_min_voltage`, `scale_max_voltage`, `zero_cal`,
+`span_cal`, `purity`, and placeholder names (e.g., `ultrathink`).
+
+Environment control (comma-separated list):
+```bash
+ESSENTIALS_FILTER_MACHINE_IDS=e3e6e280-0794-459f-84d5-5e468f60746e
+```
+If unset, the filter defaults to the machine above only. To disable everywhere, set it to an empty
+value.
+
 ## 🏃‍♂️ Commands
 
 ### System Commands
