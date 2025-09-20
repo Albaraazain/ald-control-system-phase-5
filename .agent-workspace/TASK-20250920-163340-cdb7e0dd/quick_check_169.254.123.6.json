@@ -1,0 +1,14 @@
+[
+  {
+    "protocol": "modbus-tcp",
+    "ip": "169.254.123.6",
+    "port": 502,
+    "mac": null,
+    "name": null,
+    "vendor": null,
+    "model": null,
+    "extra": {
+      "probe": "modbus-target"
+    }
+  }
+]

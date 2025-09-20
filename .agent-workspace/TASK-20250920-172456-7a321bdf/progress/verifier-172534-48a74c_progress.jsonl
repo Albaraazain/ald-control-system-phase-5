@@ -1,0 +1,3 @@
+{"timestamp": "2025-09-20T17:25:56.738340", "agent_id": "verifier-172534-48a74c", "status": "working", "message": "Starting headless-only and multi-agent verification: scanning for disallowed UI/legacy artifacts.", "progress": 0}
+{"timestamp": "2025-09-20T17:27:34.208110", "agent_id": "verifier-172534-48a74c", "status": "working", "message": "Core checks complete. Preparing verification report and remediations.", "progress": 70}
+{"timestamp": "2025-09-20T17:28:07.126620", "agent_id": "verifier-172534-48a74c", "status": "completed", "message": "Verification complete. Headless-only and multi-agent checks passed; minor venv cleanup recommended.", "progress": 100}

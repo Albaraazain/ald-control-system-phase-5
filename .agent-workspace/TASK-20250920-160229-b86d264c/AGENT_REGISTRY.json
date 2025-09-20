@@ -1,0 +1,96 @@
+{
+  "task_id": "TASK-20250920-160229-b86d264c",
+  "task_description": "Fix Streamlit app issues: autorefresh, requirements, service controllers, and integration paths",
+  "created_at": "2025-09-20T16:02:29.432289",
+  "workspace": "/Users/albaraa/ald-control-system-phase-5/.agent-workspace/TASK-20250920-160229-b86d264c",
+  "status": "INITIALIZED",
+  "priority": "P0",
+  "agents": [
+    {
+      "id": "autorefresh_fixer-160254-e452b7",
+      "type": "autorefresh_fixer",
+      "tmux_session": "agent_autorefresh_fixer-160254-e452b7",
+      "parent": "orchestrator",
+      "depth": 1,
+      "status": "completed",
+      "started_at": "2025-09-20T16:02:56.260603",
+      "progress": 100,
+      "last_update": "2025-09-20T16:05:58.106753",
+      "prompt": "Fix the critical st_autorefresh implementation error in the Streamlit app:\n\n1. First verify the current broken implementation in streamlit_app/pages/03_Logs.py where st.autorefresh() is called but doe..."
+    },
+    {
+      "id": "requirements_fixer-160256-db0ba4",
+      "type": "requirements_fixer",
+      "tmux_session": "agent_requirements_fixer-160256-db0ba4",
+      "parent": "orchestrator",
+      "depth": 1,
+      "status": "completed",
+      "started_at": "2025-09-20T16:02:58.342194",
+      "progress": 100,
+      "last_update": "2025-09-20T16:06:47.479620",
+      "prompt": "Fix the corrupted requirements.txt file in the ALD control system:\n\n1. Read the current requirements.txt and identify malformed entries (especially ones mixing comments with package names)\n2. Clean up..."
+    },
+    {
+      "id": "service_controller_consolidator-160258-8dc7f2",
+      "type": "service_controller_consolidator",
+      "tmux_session": "agent_service_controller_consolidator-160258-8dc7f2",
+      "parent": "orchestrator",
+      "depth": 1,
+      "status": "completed",
+      "started_at": "2025-09-20T16:03:00.438992",
+      "progress": 100,
+      "last_update": "2025-09-20T16:07:12.278700",
+      "prompt": "Consolidate the duplicate service control logic in the Streamlit app:\n\n1. Analyze streamlit_app/lib/service_controller.py and streamlit_app/lib/service_control.py \n2. Identify overlapping functionalit..."
+    },
+    {
+      "id": "integration_path_fixer-160300-ba7d3c",
+      "type": "integration_path_fixer",
+      "tmux_session": "agent_integration_path_fixer-160300-ba7d3c",
+      "parent": "orchestrator",
+      "depth": 1,
+      "status": "completed",
+      "started_at": "2025-09-20T16:03:02.586568",
+      "progress": 100,
+      "last_update": "2025-09-20T16:08:05.473768",
+      "prompt": "Fix broken integration adapter paths in the Streamlit app:\n\n1. Examine streamlit_app/lib/integration_adapters.py and identify incorrect file paths in the TOOLS dictionary\n2. Verify which debug tool fi..."
+    },
+    {
+      "id": "dashboard_enhancer-160302-a60e89",
+      "type": "dashboard_enhancer",
+      "tmux_session": "agent_dashboard_enhancer-160302-a60e89",
+      "parent": "orchestrator",
+      "depth": 1,
+      "status": "completed",
+      "started_at": "2025-09-20T16:03:04.661611",
+      "progress": 100,
+      "last_update": "2025-09-20T16:08:46.092155",
+      "prompt": "Enhance the Dashboard page with real-time monitoring capabilities:\n\n1. Update streamlit_app/pages/01_Dashboard.py to add proper real-time ALD process monitoring\n2. Add auto-refresh functionality using..."
+    }
+  ],
+  "agent_hierarchy": {
+    "orchestrator": [
+      "autorefresh_fixer-160254-e452b7",
+      "requirements_fixer-160256-db0ba4",
+      "service_controller_consolidator-160258-8dc7f2",
+      "integration_path_fixer-160300-ba7d3c",
+      "dashboard_enhancer-160302-a60e89"
+    ]
+  },
+  "max_agents": 30,
+  "max_depth": 5,
+  "max_concurrent": 16,
+  "total_spawned": 5,
+  "active_count": 5,
+  "completed_count": 0,
+  "orchestration_guidance": {
+    "min_specialization_depth": 2,
+    "recommended_child_agents_per_parent": 3,
+    "specialization_domains": [],
+    "complexity_score": 3
+  },
+  "spiral_checks": {
+    "enabled": true,
+    "last_check": "2025-09-20T16:02:29.432308",
+    "violations": 0
+  }
+}

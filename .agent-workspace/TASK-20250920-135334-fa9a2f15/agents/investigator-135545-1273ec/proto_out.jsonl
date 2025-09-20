@@ -1,0 +1,12 @@
+[2m2025-09-20T10:55:45.832297Z[0m [32m INFO[0m [2mcodex_core::config[0m[2m:[0m cwd not set, using current dir
+[2m2025-09-20T10:55:47.316500Z[0m [32m INFO[0m [2mcodex_core::mcp_connection_manager[0m[2m:[0m aggregated 75 tools from 4 servers
+{"id":"","msg":{"type":"session_configured","session_id":"019966c4-02ab-7641-8591-255b8c3a0f74","model":"gpt-5","reasoning_effort":"high","history_log_id":4274433,"history_entry_count":509,"rollout_path":"/Users/albaraa/.codex/sessions/2025/09/20/rollout-2025-09-20T13-55-45-019966c4-02ab-7641-8591-255b8c3a0f74.jsonl"}}
+[2m2025-09-20T10:55:54.144101Z[0m [31mERROR[0m [2mcodex_cli::proto[0m[2m:[0m invalid submission: invalid number at line 1 column 2
+[2m2025-09-20T10:55:54.144111Z[0m [31mERROR[0m [2mcodex_cli::proto[0m[2m:[0m invalid submission: invalid number at line 1 column 2
+[2m2025-09-20T10:55:54.144120Z[0m [31mERROR[0m [2mcodex_cli::proto[0m[2m:[0m invalid submission: invalid number at line 1 column 2
+[2m2025-09-20T10:55:54.144122Z[0m [31mERROR[0m [2mcodex_cli::proto[0m[2m:[0m invalid submission: invalid number at line 1 column 2
+[2m2025-09-20T10:55:54.144125Z[0m [31mERROR[0m [2mcodex_cli::proto[0m[2m:[0m invalid submission: expected value at line 1 column 1
+[2m2025-09-20T10:55:54.144127Z[0m [31mERROR[0m [2mcodex_cli::proto[0m[2m:[0m invalid submission: expected value at line 1 column 1
+[2m2025-09-20T10:55:54.144130Z[0m [31mERROR[0m [2mcodex_cli::proto[0m[2m:[0m invalid submission: expected value at line 1 column 1
+[2m2025-09-20T10:56:19.495024Z[0m [31mERROR[0m [2mcodex_cli::proto[0m[2m:[0m invalid submission: missing field `id` at line 1 column 697
+[2m2025-09-20T10:56:30.930190Z[0m [31mERROR[0m [2mcodex_cli::proto[0m[2m:[0m invalid submission: unknown variant `send`, expected one of `interrupt`, `user_input`, `user_turn`, `override_turn_context`, `exec_approval`, `patch_approval`, `add_to_history`, `get_history_entry_request`, `get_path`, `list_mcp_tools`, `list_custom_prompts`, `compact`, `review`, `shutdown` at line 1 column 33
