@@ -13,6 +13,9 @@ from src.log_setup import logger
 from src.plc.manager import plc_manager
 from src.db import get_supabase, get_current_timestamp
 from src.config import MACHINE_ID
+from src.data_collection.transactional.dual_mode_repository import dual_mode_repository
+from src.data_collection.transactional.interfaces import ParameterData, MachineState
+from datetime import datetime
 
 
 class ContinuousParameterLogger:
@@ -104,17 +107,19 @@ class ContinuousParameterLogger:
         """
         Read all parameters from PLC and log to appropriate database tables.
 
-        Implements dual-mode logic:
-        - Always logs to parameter_value_history
-        - Additionally logs to process_data_points if process is running
+        Uses transactional dual-mode repository for atomic operations with:
+        - ACID compliance across all 3 tables
+        - Automatic component_parameters.current_value synchronization
+        - Rollback capability on failures
+        - Enterprise-grade transaction tracking
         """
         # Check if PLC is connected
         if not plc_manager.is_connected():
             logger.debug("PLC not connected, skipping parameter reading")
             return
 
-        # Check if a process is currently running
-        current_process_id = await self._get_current_process_id()
+        # Get machine state atomically
+        machine_state = await self._get_machine_state()
 
         # Read all parameters from PLC
         try:
@@ -127,15 +132,12 @@ class ContinuousParameterLogger:
             logger.debug("No parameters read from PLC")
             return
 
-        # Get current timestamp
-        timestamp = get_current_timestamp()
-
         # Get parameter metadata for set_point values
         parameter_metadata = await self._get_parameter_metadata(list(parameter_values.keys()))
 
-        # Prepare data for logging
-        history_records = []
-        process_records = []
+        # Prepare parameter data for transactional logging
+        parameter_data_list = []
+        timestamp = datetime.fromisoformat(get_current_timestamp().replace('Z', '+00:00'))
 
         for parameter_id, current_value in parameter_values.items():
             if current_value is None:
@@ -143,33 +145,36 @@ class ContinuousParameterLogger:
 
             set_point = parameter_metadata.get(parameter_id, {}).get('set_value')
 
-            # Always add to parameter_value_history
-            history_record = {
-                'parameter_id': parameter_id,
-                'value': current_value,
-                'set_point': set_point,
-                'timestamp': timestamp
-            }
-            history_records.append(history_record)
+            # Create ParameterData object for transactional repository
+            param_data = ParameterData(
+                parameter_id=parameter_id,
+                value=current_value,
+                set_point=set_point,
+                timestamp=timestamp
+            )
+            parameter_data_list.append(param_data)
 
-            # Additionally add to process_data_points if process is running
-            if current_process_id:
-                process_record = {
-                    'process_id': current_process_id,
-                    'parameter_id': parameter_id,
-                    'value': current_value,
-                    'set_point': set_point,
-                    'timestamp': timestamp
-                }
-                process_records.append(process_record)
+        # Use transactional dual-mode repository for atomic 3-table operation
+        try:
+            result = await dual_mode_repository.insert_dual_mode_atomic(
+                parameters=parameter_data_list,
+                machine_state=machine_state
+            )
 
-        # Log to database tables
-        await self._insert_records(history_records, process_records, current_process_id)
+            if result.success:
+                logger.debug(
+                    f"Atomic logging complete - Transaction {result.transaction_id}: "
+                    f"history={result.history_count}, process={result.process_count}, "
+                    f"component_updates={result.component_updates_count}"
+                )
+            else:
+                logger.error(
+                    f"Atomic logging failed - Transaction {result.transaction_id}: "
+                    f"{result.error_message}"
+                )
 
-        logger.debug(
-            f"Logged {len(history_records)} parameters to history"
-            f"{f' and {len(process_records)} to process data' if process_records else ''}"
-        )
+        except Exception as e:
+            logger.error(f"Failed to execute atomic parameter logging: {str(e)}", exc_info=True)
 
     async def _get_current_process_id(self) -> Optional[str]:
         """

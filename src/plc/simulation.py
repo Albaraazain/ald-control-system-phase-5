@@ -96,7 +96,46 @@ class SimulationPLC(PLCInterface):
                     f"Parameter {param_id} ({param.get('name', str(param_id))}) "
                     f"will not fluctuate"
                 )
-    
+
+    async def _load_valve_mappings(self):
+        """Load valve mappings from the database for set_value synchronization."""
+        try:
+            supabase = get_supabase()
+
+            # Get valve parameters by looking for component names starting with 'valve'
+            # and parameter names containing 'valve_state'
+            params_result = supabase.table('component_parameters').select('*').execute()
+
+            valve_params = []
+            for param in params_result.data:
+                component_name = param.get('component_name', '').lower()
+                param_name = param.get('name', '').lower()
+
+                if (component_name.startswith('valve') and
+                    'valve_state' in param_name):
+                    valve_params.append(param)
+
+            for valve_param in valve_params:
+                # Extract valve number from component name
+                component_name = valve_param.get('component_name', '')
+                try:
+                    import re
+                    match = re.search(r'valve\s*(\d+)', component_name.lower())
+                    if match:
+                        valve_number = int(match.group(1))
+                        self._valve_cache[valve_number] = {
+                            'parameter_id': valve_param['id'],
+                            'component_name': component_name
+                        }
+                        logger.info(f"Simulation: Mapped Valve {valve_number} to parameter {valve_param['id']}")
+                except (ValueError, AttributeError) as e:
+                    logger.warning(f"Could not extract valve number from: {component_name}")
+
+            logger.info(f"Simulation: Loaded mappings for {len(self._valve_cache)} valves")
+
+        except Exception as e:
+            logger.error(f"Error loading valve mappings in simulation: {str(e)}")
+
     def _should_parameter_fluctuate(self, param) -> bool:
         """
         Determine if a parameter should fluctuate in the simulation.
@@ -266,13 +305,24 @@ class SimulationPLC(PLCInterface):
             
         logger.info(f"Simulation: {'Opening' if state else 'Closing'} valve {valve_number}")
         self.valves[valve_number] = state
-        
+
+        # Update database with new set value for valve parameter
+        valve_meta = self._valve_cache.get(valve_number)
+        if valve_meta:
+            parameter_id = valve_meta['parameter_id']
+            valve_set_value = 1.0 if state else 0.0
+            asyncio.create_task(self._update_parameter_set_value(parameter_id, valve_set_value))
+
         # If duration specified, close after duration
         if state and duration_ms is not None:
             await asyncio.sleep(duration_ms / 1000)
             self.valves[valve_number] = False
             logger.info(f"Simulation: Auto-closing valve {valve_number} after {duration_ms}ms")
-        
+
+            # Update set value for auto-close operation
+            if valve_meta:
+                asyncio.create_task(self._update_parameter_set_value(parameter_id, 0.0))
+
         return True
     
     async def execute_purge(self, duration_ms: int) -> bool:

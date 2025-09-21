@@ -170,7 +170,7 @@ class TransactionalParameterLoggerAdapter:
             if result.success:
                 logger.debug(
                     f"Transactional logging completed: history={result.history_count}, "
-                    f"process={result.process_count}, transaction_id={result.transaction_id}"
+                    f"process={result.process_count}, component_updates={result.component_updates_count}, transaction_id={result.transaction_id}"
                 )
             else:
                 logger.error(f"Transactional logging failed: {result.error_message}")
