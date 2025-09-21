@@ -1,9 +1,9 @@
 {
   "created_at": "2025-09-20T01:09:09.690639",
-  "total_tasks": 32,
-  "active_tasks": 32,
-  "total_agents_spawned": 165,
-  "active_agents": 165,
+  "total_tasks": 37,
+  "active_tasks": 37,
+  "total_agents_spawned": 203,
+  "active_agents": 203,
   "max_concurrent_agents": 16,
   "tasks": {
     "TASK-20250920-010909-ec564077": {
@@ -164,6 +164,31 @@
     "TASK-20250921-111927-10754a40": {
       "description": "Implement component_parameters table synchronization with current_value and set_value updates across all PLC operations",
       "created_at": "2025-09-21T11:19:27.032620",
+      "status": "INITIALIZED"
+    },
+    "TASK-20250921-113234-22fbf06c": {
+      "description": "Investigate current_process_id field usage in machine table",
+      "created_at": "2025-09-21T11:32:34.185470",
+      "status": "INITIALIZED"
+    },
+    "TASK-20250921-115355-9a275694": {
+      "description": "Analyze and document the ALD recipe execution process with detailed flow diagrams",
+      "created_at": "2025-09-21T11:53:55.969090",
+      "status": "INITIALIZED"
+    },
+    "TASK-20250921-133507-779a44e7": {
+      "description": "Investigate operator sessions in ALD control system codebase",
+      "created_at": "2025-09-21T13:35:07.868937",
+      "status": "INITIALIZED"
+    },
+    "TASK-20250921-135821-ce4985cc": {
+      "description": "Insert test command into parameter_control_commands table to verify main.py listener",
+      "created_at": "2025-09-21T13:58:21.089700",
+      "status": "INITIALIZED"
+    },
+    "TASK-20250921-142600-0a0a12c0": {
+      "description": "Investigate Flutter application performance and architectural issues from log analysis",
+      "created_at": "2025-09-21T14:26:00.825091",
       "status": "INITIALIZED"
     }
   },
@@ -1322,6 +1347,272 @@
       "parent": "investigator-111958-825af7",
       "started_at": "2025-09-21T11:23:10.629309",
       "tmux_session": "agent_implementer-112308-b5d86b"
+    },
+    "investigator-113242-d51d7a": {
+      "task_id": "TASK-20250921-113234-22fbf06c",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:32:44.891334",
+      "tmux_session": "agent_investigator-113242-d51d7a"
+    },
+    "investigator-113252-5d4523": {
+      "task_id": "TASK-20250921-113234-22fbf06c",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:32:54.649525",
+      "tmux_session": "agent_investigator-113252-5d4523"
+    },
+    "investigator-113509-a773a7": {
+      "task_id": "TASK-20250921-113234-22fbf06c",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:35:11.569848",
+      "tmux_session": "agent_investigator-113509-a773a7"
+    },
+    "investigator-113519-56eb9a": {
+      "task_id": "TASK-20250921-113234-22fbf06c",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:35:21.600771",
+      "tmux_session": "agent_investigator-113519-56eb9a"
+    },
+    "implementer-115241-2bb9ba": {
+      "task_id": "TASK-20250921-113234-22fbf06c",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:52:43.120219",
+      "tmux_session": "agent_implementer-115241-2bb9ba"
+    },
+    "implementer-115256-8c6281": {
+      "task_id": "TASK-20250921-113234-22fbf06c",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:52:58.037056",
+      "tmux_session": "agent_implementer-115256-8c6281"
+    },
+    "investigator-115313-76ce6b": {
+      "task_id": "TASK-20250921-113234-22fbf06c",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:53:15.688664",
+      "tmux_session": "agent_investigator-115313-76ce6b"
+    },
+    "recipe_investigator-115415-96d316": {
+      "task_id": "TASK-20250921-115355-9a275694",
+      "type": "recipe_investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:54:17.726647",
+      "tmux_session": "agent_recipe_investigator-115415-96d316"
+    },
+    "step_investigator-115417-e9dc36": {
+      "task_id": "TASK-20250921-115355-9a275694",
+      "type": "step_investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:54:19.876183",
+      "tmux_session": "agent_step_investigator-115417-e9dc36"
+    },
+    "command_investigator-115419-40ed65": {
+      "task_id": "TASK-20250921-115355-9a275694",
+      "type": "command_investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:54:21.982020",
+      "tmux_session": "agent_command_investigator-115419-40ed65"
+    },
+    "data_investigator-115422-b8e69d": {
+      "task_id": "TASK-20250921-115355-9a275694",
+      "type": "data_investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:54:24.133239",
+      "tmux_session": "agent_data_investigator-115422-b8e69d"
+    },
+    "plc_investigator-115424-dc1ca2": {
+      "task_id": "TASK-20250921-115355-9a275694",
+      "type": "plc_investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T11:54:26.353408",
+      "tmux_session": "agent_plc_investigator-115424-dc1ca2"
+    },
+    "implementer-121117-188123": {
+      "task_id": "TASK-20250921-113234-22fbf06c",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T12:11:19.524513",
+      "tmux_session": "agent_implementer-121117-188123"
+    },
+    "investigator-133518-278eff": {
+      "task_id": "TASK-20250921-133507-779a44e7",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T13:35:20.565134",
+      "tmux_session": "agent_investigator-133518-278eff"
+    },
+    "code_analyzer-133520-9d4c6f": {
+      "task_id": "TASK-20250921-133507-779a44e7",
+      "type": "code_analyzer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T13:35:22.659251",
+      "tmux_session": "agent_code_analyzer-133520-9d4c6f"
+    },
+    "database_investigator-133522-aa1323": {
+      "task_id": "TASK-20250921-133507-779a44e7",
+      "type": "database_investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T13:35:24.821222",
+      "tmux_session": "agent_database_investigator-133522-aa1323"
+    },
+    "implementer-135839-cdb1bc": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T13:58:41.211459",
+      "tmux_session": "agent_implementer-135839-cdb1bc"
+    },
+    "investigator-140103-2aa357": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:01:05.568185",
+      "tmux_session": "agent_investigator-140103-2aa357"
+    },
+    "implementer-140529-ea8f46": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:05:31.884277",
+      "tmux_session": "agent_implementer-140529-ea8f46"
+    },
+    "implementer-140920-d169e7": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:09:22.419617",
+      "tmux_session": "agent_implementer-140920-d169e7"
+    },
+    "investigator-142615-7f0472": {
+      "task_id": "TASK-20250921-142600-0a0a12c0",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:26:17.860848",
+      "tmux_session": "agent_investigator-142615-7f0472"
+    },
+    "investigator-143013-6eb092": {
+      "task_id": "TASK-20250921-142600-0a0a12c0",
+      "type": "investigator",
+      "parent": "investigator-142615-7f0472",
+      "started_at": "2025-09-21T14:30:15.405114",
+      "tmux_session": "agent_investigator-143013-6eb092"
+    },
+    "investigator-143034-0774f9": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:30:36.591645",
+      "tmux_session": "agent_investigator-143034-0774f9"
+    },
+    "performance_optimizer-143306-ac73e1": {
+      "task_id": "TASK-20250921-142600-0a0a12c0",
+      "type": "performance_optimizer",
+      "parent": "investigator-143013-6eb092",
+      "started_at": "2025-09-21T14:33:08.288114",
+      "tmux_session": "agent_performance_optimizer-143306-ac73e1"
+    },
+    "database_optimizer-143408-15ca91": {
+      "task_id": "TASK-20250921-142600-0a0a12c0",
+      "type": "database_optimizer",
+      "parent": "performance_optimizer-143306-ac73e1",
+      "started_at": "2025-09-21T14:34:10.351418",
+      "tmux_session": "agent_database_optimizer-143408-15ca91"
+    },
+    "architecture_consolidator-143422-b23b60": {
+      "task_id": "TASK-20250921-142600-0a0a12c0",
+      "type": "architecture_consolidator",
+      "parent": "performance_optimizer-143306-ac73e1",
+      "started_at": "2025-09-21T14:34:24.151198",
+      "tmux_session": "agent_architecture_consolidator-143422-b23b60"
+    },
+    "atomic_transaction_implementer-143600-12ccc6": {
+      "task_id": "TASK-20250921-142600-0a0a12c0",
+      "type": "atomic_transaction_implementer",
+      "parent": "architecture_consolidator-143422-b23b60",
+      "started_at": "2025-09-21T14:36:02.829852",
+      "tmux_session": "agent_atomic_transaction_implementer-143600-12ccc6"
+    },
+    "implementer-143612-0c530a": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:36:14.022059",
+      "tmux_session": "agent_implementer-143612-0c530a"
+    },
+    "investigator-143832-676512": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:38:34.199386",
+      "tmux_session": "agent_investigator-143832-676512"
+    },
+    "implementer-144236-609d29": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:42:38.765170",
+      "tmux_session": "agent_implementer-144236-609d29"
+    },
+    "implementer-144742-dda8ee": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:47:44.415100",
+      "tmux_session": "agent_implementer-144742-dda8ee"
+    },
+    "implementer-144916-8bdd0a": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:49:18.725174",
+      "tmux_session": "agent_implementer-144916-8bdd0a"
+    },
+    "investigator-145127-d5b7d7": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:51:29.429017",
+      "tmux_session": "agent_investigator-145127-d5b7d7"
+    },
+    "investigator-145249-385fb4": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:52:51.275570",
+      "tmux_session": "agent_investigator-145249-385fb4"
+    },
+    "investigator-145301-981c8a": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:53:03.206164",
+      "tmux_session": "agent_investigator-145301-981c8a"
+    },
+    "implementer-145313-411a96": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "implementer",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:53:15.699326",
+      "tmux_session": "agent_implementer-145313-411a96"
+    },
+    "fixer-145343-a10e7f": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "fixer",
+      "parent": "investigator-145127-d5b7d7",
+      "started_at": "2025-09-21T14:53:45.310942",
+      "tmux_session": "agent_fixer-145343-a10e7f"
+    },
+    "investigator-145732-2d949e": {
+      "task_id": "TASK-20250921-135821-ce4985cc",
+      "type": "investigator",
+      "parent": "orchestrator",
+      "started_at": "2025-09-21T14:57:34.595092",
+      "tmux_session": "agent_investigator-145732-2d949e"
     }
   }
 }

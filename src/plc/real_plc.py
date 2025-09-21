@@ -67,6 +67,7 @@ class RealPLC(PLCInterface):
         # Purge operation parameters
         self._purge_address = None
         self._purge_data_type = None
+        self._purge_parameter_id = None
         
         # MFC voltage scaling parameters
         self._mfc_scaling_cache = {}
@@ -347,13 +348,14 @@ class RealPLC(PLCInterface):
                 write_addr = purge_param.get('write_modbus_address')
                 if write_addr is not None:
                     self._purge_address = write_addr
+                    self._purge_parameter_id = purge_param['id']
                     # Purge is a binary coil trigger
                     self._purge_data_type = 'binary'
                     purge_component_name = purge_param.get('component_name', '')
                     logger.info(
                         f"Loaded purge operation from database: "
                         f"write_modbus_address {self._purge_address}, "
-                        f"data_type: {self._purge_data_type}, parameter_id: {purge_param['id']}, "
+                        f"data_type: {self._purge_data_type}, parameter_id: {self._purge_parameter_id}, "
                         f"name: {purge_param.get('name')}, component: {purge_component_name}"
                     )
                 else:
@@ -1049,10 +1051,15 @@ class RealPLC(PLCInterface):
         if not success:
             logger.error("Failed to start purge operation")
             return False
-        
+
+        # Update database with new set value for purge parameter (activated state)
+        if self._purge_parameter_id:
+            purge_set_value = 1.0
+            asyncio.create_task(self._update_parameter_set_value(self._purge_parameter_id, purge_set_value))
+
         # Create a background task to complete the purge
         asyncio.create_task(self._complete_purge(duration_ms))
-        
+
         return True
     
     async def _complete_purge(self, duration_ms: int):
@@ -1081,7 +1088,12 @@ class RealPLC(PLCInterface):
                 # End purge by writing 0 to register
                 success = self.communicator.write_integer_32bit(self._purge_address, 0)
             
-            if not success:
+            if success:
+                # Update database with new set value for purge parameter (deactivated state)
+                if self._purge_parameter_id:
+                    purge_set_value = 0.0
+                    asyncio.create_task(self._update_parameter_set_value(self._purge_parameter_id, purge_set_value))
+            else:
                 logger.error("Failed to complete purge operation")
             
         except Exception as e:

@@ -176,25 +176,55 @@ class ContinuousParameterLogger:
         except Exception as e:
             logger.error(f"Failed to execute atomic parameter logging: {str(e)}", exc_info=True)
 
-    async def _get_current_process_id(self) -> Optional[str]:
+    async def _get_machine_state(self) -> MachineState:
         """
-        Get the current process ID if a process is running.
+        Get the current machine state for transactional logging.
 
         Returns:
-            str: Process ID if running, None if idle
+            MachineState: Atomic machine state snapshot
         """
         try:
             supabase = get_supabase()
             result = supabase.table('machines').select('current_process_id, status').eq('id', MACHINE_ID).single().execute()
 
-            if result.data and result.data.get('status') == 'processing':
-                return result.data.get('current_process_id')
+            if result.data:
+                status = result.data.get('status', 'idle')
+                current_process_id = result.data.get('current_process_id')
 
-            return None
+                return MachineState(
+                    status=status,
+                    current_process_id=current_process_id,
+                    timestamp=datetime.fromisoformat(get_current_timestamp().replace('Z', '+00:00'))
+                )
+            else:
+                # Default state if no machine record found
+                return MachineState(
+                    status='idle',
+                    current_process_id=None,
+                    timestamp=datetime.fromisoformat(get_current_timestamp().replace('Z', '+00:00'))
+                )
 
         except Exception as e:
-            logger.error(f"Error checking current process status: {str(e)}")
-            return None
+            logger.error(f"Error getting machine state: {str(e)}")
+            # Return safe default state on error
+            return MachineState(
+                status='idle',
+                current_process_id=None,
+                timestamp=datetime.fromisoformat(get_current_timestamp().replace('Z', '+00:00'))
+            )
+
+    async def _get_current_process_id(self) -> Optional[str]:
+        """
+        Get the current process ID if a process is running.
+
+        DEPRECATED: Use _get_machine_state() for transactional operations.
+        Kept for backward compatibility.
+
+        Returns:
+            str: Process ID if running, None if idle
+        """
+        machine_state = await self._get_machine_state()
+        return machine_state.current_process_id if machine_state.is_processing else None
 
     async def _get_parameter_metadata(self, parameter_ids: list) -> Dict[str, Dict[str, Any]]:
         """
@@ -223,13 +253,20 @@ class ContinuousParameterLogger:
 
     async def _insert_records(self, history_records: list, process_records: list, current_process_id: Optional[str]):
         """
-        Insert records into the database tables.
+        DEPRECATED: Legacy method replaced by transactional dual-mode repository.
+
+        This method is kept for backward compatibility but should not be used.
+        All new code should use dual_mode_repository.insert_dual_mode_atomic().
 
         Args:
             history_records: Records for parameter_value_history table
             process_records: Records for process_data_points table (if process running)
             current_process_id: Current process ID (for logging)
         """
+        logger.warning(
+            "DEPRECATED: _insert_records() called. Use dual_mode_repository.insert_dual_mode_atomic() instead."
+        )
+
         try:
             supabase = get_supabase()
 
@@ -265,7 +302,10 @@ class ContinuousParameterLogger:
             'interval_seconds': self.interval,
             'error_count': self._error_count,
             'last_successful_read': self._last_successful_read,
-            'plc_connected': plc_manager.is_connected()
+            'plc_connected': plc_manager.is_connected(),
+            'uses_transactional_repository': True,
+            'component_parameters_sync_enabled': True,
+            'acid_compliance': True
         }
 
 

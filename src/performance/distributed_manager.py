@@ -60,8 +60,8 @@ class DistributedParameterManager:
         self.parameter_assignments: Dict[str, str] = {}  # parameter_id -> worker_id
 
         # Coordination settings
-        self.heartbeat_interval = 30.0  # seconds
-        self.heartbeat_timeout = 90.0  # seconds
+        self.heartbeat_interval = 10.0  # seconds - FIXED: Must be <25s for Supabase realtime
+        self.heartbeat_timeout = 20.0  # seconds - FIXED: Must be <25s for Supabase realtime
         self.task_timeout = 30.0  # seconds
         self.max_retry_attempts = 3
 

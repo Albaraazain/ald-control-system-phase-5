@@ -9,6 +9,7 @@ from src.recipe_flow.data_recorder import record_process_data
 from src.step_flow.executor import execute_step
 from src.recipe_flow.continuous_data_recorder import continuous_recorder
 from src.recipe_flow.cancellation import is_cancelled, clear as clear_cancel
+from src.utils.atomic_machine_state import atomic_complete_machine_state, atomic_error_machine_state
 
 async def execute_recipe(process_id: str):
     """
@@ -199,21 +200,28 @@ async def complete_recipe(process_id: str):
     }
     supabase.table('process_execution_state').update(state_completion_update).eq('execution_id', process_id).execute()
     
-    # Update machine status
-    supabase.table('machines').update({
-        'status': 'idle',
-        'current_process_id': None,
-        'updated_at': now
-    }).eq('id', MACHINE_ID).execute()
-    
-    # Update machine state
-    supabase.table('machine_state').update({
-        'current_state': 'idle',
-        'state_since': now,
-        'process_id': None,
-        'is_failure_mode': False,
-        'updated_at': now
-    }).eq('machine_id', MACHINE_ID).execute()
+    # Atomically update both machines and machine_state tables to idle state
+    # This replaces the previous dual table updates to eliminate race condition
+    try:
+        atomic_result = atomic_complete_machine_state(MACHINE_ID)
+        logger.info(f"Successfully completed machine state atomically: {atomic_result}")
+    except Exception as e:
+        logger.error(f"Failed to complete machine state atomically: {e}")
+        # Fallback to original dual table pattern if atomic operation fails
+        logger.warning("Falling back to dual table updates due to atomic operation failure")
+        supabase.table('machines').update({
+            'status': 'idle',
+            'current_process_id': None,
+            'updated_at': now
+        }).eq('id', MACHINE_ID).execute()
+
+        supabase.table('machine_state').update({
+            'current_state': 'idle',
+            'state_since': now,
+            'process_id': None,
+            'is_failure_mode': False,
+            'updated_at': now
+        }).eq('machine_id', MACHINE_ID).execute()
 
 async def handle_recipe_error(process_id: str, error_message: str):
     """
@@ -246,23 +254,24 @@ async def handle_recipe_error(process_id: str, error_message: str):
     }
     supabase.table('process_execution_state').update(state_error_update).eq('execution_id', process_id).execute()
     
-    # Update machine state to error
-    supabase.table('machine_state').update({
-        'current_state': 'error',
-        'is_failure_mode': True,
-        'failure_description': f"Recipe execution error: {error_message}",
-        'updated_at': now
-    }).eq('machine_id', MACHINE_ID).execute()
+    # Atomically update both machines and machine_state tables to error state
+    # This replaces the previous dual table updates to eliminate race condition
+    try:
+        atomic_result = atomic_error_machine_state(MACHINE_ID, error_message)
+        logger.info(f"Successfully set machine state to error atomically: {atomic_result}")
+    except Exception as e:
+        logger.error(f"Failed to set machine error state atomically: {e}")
+        # Fallback to original dual table pattern if atomic operation fails
+        logger.warning("Falling back to dual table updates due to atomic operation failure")
+        supabase.table('machine_state').update({
+            'current_state': 'error',
+            'is_failure_mode': True,
+            'failure_description': f"Recipe execution error: {error_message}",
+            'updated_at': now
+        }).eq('machine_id', MACHINE_ID).execute()
 
-    # Also mark machine status as error and clear current process association
-    supabase.table('machines').update({
-        'status': 'error',
-        'current_process_id': None,
-        'updated_at': now
-    }).eq('id', MACHINE_ID).execute()
-    
-    # Update machine status
-    supabase.table('machines').update({
-        'status': 'error',
-        'updated_at': now
-    }).eq('id', MACHINE_ID).execute()
+        supabase.table('machines').update({
+            'status': 'error',
+            'current_process_id': None,
+            'updated_at': now
+        }).eq('id', MACHINE_ID).execute()

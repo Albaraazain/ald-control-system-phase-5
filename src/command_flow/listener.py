@@ -1,5 +1,6 @@
 """
 Command listener for receiving and dispatching commands from Supabase.
+Includes realtime subscription with timeout and polling fallback.
 """
 
 import asyncio
@@ -7,6 +8,12 @@ from src.log_setup import logger
 from src.config import MACHINE_ID, CommandStatus
 from src.db import get_supabase
 from src.command_flow.processor import process_command
+from src.connection_monitor import connection_monitor
+from typing import Optional
+from src.realtime.service import RealtimeService
+
+
+realtime_connected = False
 
 
 async def check_pending_commands():
@@ -24,13 +31,16 @@ async def check_pending_commands():
             supabase.table("recipe_commands")
             .select("*")
             .eq("status", CommandStatus.PENDING)
-            .eq("machine_id", MACHINE_ID)
             .execute()
         )
         
         if result.data and len(result.data) > 0:
-            logger.info(f"Found {len(result.data)} pending commands")
-            for command in result.data:
+            # Include commands for this machine OR global commands (machine_id is NULL)
+            pending_for_this_machine = [
+                c for c in result.data if c.get('machine_id') in (None, MACHINE_ID)
+            ]
+            logger.info(f"Found {len(pending_for_this_machine)} pending commands for this machine")
+            for command in pending_for_this_machine:
                 logger.info(f"Processing existing pending command: {command['id']}")
                 # Create a payload similar to what would be received from a realtime event
                 payload = {
@@ -62,39 +72,68 @@ async def poll_for_commands():
             await asyncio.sleep(10)
 
 
-async def setup_command_listener(async_supabase):
+async def setup_command_listener(async_supabase, realtime_service: Optional[RealtimeService] = None):
     """
     Set up a listener for command inserts in the Supabase database.
 
     Args:
         async_supabase: An async Supabase client
     """
-    logger.info("Setting up command listener...")
+    global realtime_connected
+    logger.info("Setting up command listener with realtime support...")
 
-    # Create channel for recipe commands
-    channel = async_supabase.channel("recipe-commands")
+    # Define channel name
+    channel_name = "recipe-commands"
 
     # Define the callback for insert events
     def on_insert(payload):
-        logger.info(f"Received insert event: {payload}")
+        logger.info("🔔 RECIPE COMMAND RECEIVED [REALTIME] - Processing new recipe command")
+        logger.debug(f"Payload: {payload}")
         asyncio.create_task(handle_command_insert(payload))
 
-    # Subscribe to database changes
-    logger.info("Subscribing to INSERT events on recipe_commands table...")
-    channel = channel.on_postgres_changes(
-        event="INSERT", schema="public", table="recipe_commands", callback=on_insert
-    )
+    if realtime_service is not None:
+        # Use centralized realtime service (non-blocking)
+        logger.info("Registering recipe_commands subscription via RealtimeService...")
+        await realtime_service.subscribe_postgres(
+            name=channel_name,
+            table="recipe_commands",
+            on_insert=on_insert,
+        )
+        realtime_connected = realtime_service.is_connected()
+    else:
+        # Fallback to direct subscription
+        channel = async_supabase.channel(channel_name)
+        logger.info("Subscribing to INSERT events on recipe_commands table...")
+        channel = channel.on_postgres_changes(
+            event="INSERT", schema="public", table="recipe_commands", callback=on_insert
+        )
 
-    # Subscribe to the channel
-    await channel.subscribe()
-    logger.info("Successfully subscribed to recipe_commands table")
+        logger.info("Subscribing to recipe_commands realtime channel...")
+        async def _subscribe_with_timeout():
+            global realtime_connected
+            try:
+                await asyncio.wait_for(channel.subscribe(), timeout=10.0)
+                realtime_connected = True
+                connection_monitor.update_realtime_status(True)
+                logger.info("Successfully subscribed to recipe_commands realtime channel")
+            except asyncio.TimeoutError:
+                logger.warning("Recipe command realtime subscription timed out after 10 seconds; using polling fallback")
+                realtime_connected = False
+                connection_monitor.update_realtime_status(False, "recipe subscribe timeout")
+            except Exception as e:
+                logger.error(f"Failed to subscribe to recipe_commands realtime channel: {str(e)}", exc_info=True)
+                realtime_connected = False
+                connection_monitor.update_realtime_status(False, str(e))
+
+        asyncio.create_task(_subscribe_with_timeout())
     
     # Check for existing pending commands
     await check_pending_commands()
     logger.info("Checked for existing pending commands")
-    
+
     # Start polling for commands as a fallback
-    logger.info("Starting command polling as a fallback mechanism")
+    base_msg = "REALTIME + polling fallback" if realtime_connected else "POLLING ONLY (realtime failed)"
+    logger.info(f"Starting recipe command polling; listener ready with {base_msg}")
     asyncio.create_task(poll_for_commands())
 
 
@@ -106,7 +145,7 @@ async def handle_command_insert(payload):
         payload: The event payload from Supabase
     """
     try:
-        logger.info(f"Received command payload")
+        logger.info("🔔 RECIPE COMMAND RECEIVED - Processing recipe command")
         # Extract the command record from the payload
         record = payload["data"]["record"]
 
@@ -121,7 +160,8 @@ async def handle_command_insert(payload):
         # Only process pending commands
         if record["status"] == CommandStatus.PENDING:
             command_id = record["id"]
-            logger.info(f"New pending command: {command_id}, type: {record['type']}")
+            command_type = record["type"]
+            logger.info(f"🟡 RECIPE COMMAND PROCESSING - ID: {command_id} | Type: {command_type} | Status: CLAIMING")
 
             # Try to claim the command by updating its status
             supabase = get_supabase()
@@ -135,11 +175,11 @@ async def handle_command_insert(payload):
 
             # Check if we successfully claimed the command
             if result.data and len(result.data) > 0:
-                logger.info(f"Successfully claimed command {command_id}")
+                logger.info(f"🟢 RECIPE COMMAND EXECUTING - ID: {command_id} | Type: {command_type} | Status: PROCESSING")
                 # Process the command
                 await process_command(record)
             else:
-                logger.info(f"Command {command_id} already claimed or status changed")
+                logger.info(f"⚠️ RECIPE COMMAND SKIPPED - ID: {command_id} | Type: {command_type} | Status: ALREADY_CLAIMED")
 
     except Exception as e:
         logger.error(f"Error handling command insert: {str(e)}", exc_info=True)

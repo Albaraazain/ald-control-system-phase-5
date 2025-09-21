@@ -73,17 +73,20 @@ async def check_pending_parameter_commands():
             supabase.table("parameter_control_commands")
             .select("*")
             .is_("executed_at", None)
-            .eq("machine_id", MACHINE_ID)
             .order("created_at", desc=False)
             .execute()
         )
         
         if result.data and len(result.data) > 0:
             # Filter out already processed commands and those that exceeded retry limit
+            # Include commands for this machine OR global commands (machine_id is NULL)
             commands_to_process = [
                 cmd for cmd in result.data 
-                if cmd['id'] not in processed_commands 
-                and failed_commands.get(cmd['id'], 0) < MAX_RETRIES
+                if (
+                    (cmd.get('machine_id') in (None, MACHINE_ID))
+                    and (cmd['id'] not in processed_commands)
+                    and (failed_commands.get(cmd['id'], 0) < MAX_RETRIES)
+                )
             ]
             
             if commands_to_process:
@@ -186,10 +189,14 @@ async def monitor_realtime_connection():
             if not realtime_connected and realtime_channel:
                 logger.warning("Realtime channel disconnected, attempting to reconnect...")
                 try:
-                    await realtime_channel.subscribe()
+                    await asyncio.wait_for(realtime_channel.subscribe(), timeout=10.0)
                     realtime_connected = True
                     logger.info("Successfully reconnected to realtime channel")
                     connection_monitor.update_realtime_status(True)
+                except asyncio.TimeoutError:
+                    logger.warning("Realtime reconnection attempt timed out after 10 seconds")
+                    realtime_connected = False
+                    connection_monitor.update_realtime_status(False, "realtime subscribe timeout")
                 except Exception as e:
                     logger.error(f"Failed to reconnect realtime channel: {str(e)}")
                     realtime_connected = False
@@ -198,7 +205,7 @@ async def monitor_realtime_connection():
                 # Update monitor that realtime is working
                 connection_monitor.update_realtime_status(True)
             
-            await asyncio.sleep(30)  # Check every 30 seconds
+            await asyncio.sleep(20)  # Check every 20 seconds - FIXED: Keep under 25s for Supabase realtime heartbeat
             
         except Exception as e:
             logger.error(f"Error in realtime connection monitor: {str(e)}", exc_info=True)
@@ -206,7 +213,7 @@ async def monitor_realtime_connection():
             await asyncio.sleep(60)
 
 
-async def setup_parameter_control_listener(async_supabase):
+async def setup_parameter_control_listener(async_supabase, realtime_service=None):
     """
     Set up a listener for parameter control command inserts in the Supabase database.
     Uses realtime channels for instant updates with polling as a fallback.
@@ -219,13 +226,12 @@ async def setup_parameter_control_listener(async_supabase):
     logger.info("Setting up parameter control listener with realtime support...")
 
     try:
-        # Create channel for parameter control commands
+        # Create channel name for parameter control commands
         channel_name = f"parameter-control-commands-{MACHINE_ID}"
-        realtime_channel = async_supabase.channel(channel_name)
         
         # Define callbacks for different events
         def on_insert(payload):
-            logger.info(f"Received realtime INSERT event for parameter control")
+            logger.info("🔔 PARAMETER COMMAND RECEIVED [REALTIME] - Processing new parameter control command")
             logger.debug(f"Payload: {payload}")
             asyncio.create_task(handle_parameter_command_insert(payload))
         
@@ -238,31 +244,52 @@ async def setup_parameter_control_listener(async_supabase):
             logger.error(f"Realtime channel error: {payload}")
             realtime_connected = False
         
-        # Subscribe to database changes for INSERT and UPDATE events
-        logger.info("Setting up realtime subscriptions for parameter_control_commands table...")
-        
-        # Subscribe to INSERT events
-        realtime_channel = realtime_channel.on_postgres_changes(
-            event="INSERT", 
-            schema="public", 
-            table="parameter_control_commands",
-            callback=on_insert
-        )
-        
-        # Also subscribe to UPDATE events to observe completion/error changes
-        realtime_channel = realtime_channel.on_postgres_changes(
-            event="UPDATE",
-            schema="public",
-            table="parameter_control_commands",
-            callback=on_update
-        )
-        
-        # Subscribe to the channel
-        logger.info("Subscribing to realtime channel...")
-        await realtime_channel.subscribe()
-        realtime_connected = True
-        connection_monitor.update_realtime_status(True)
-        logger.info(f"Successfully subscribed to realtime channel: {channel_name}")
+        if realtime_service is not None:
+            # Use centralized realtime service
+            logger.info("Registering parameter_control_commands subscription via RealtimeService...")
+            await realtime_service.subscribe_postgres(
+                name=channel_name,
+                table="parameter_control_commands",
+                on_insert=on_insert,
+                on_update=on_update,
+            )
+            realtime_connected = realtime_service.is_connected()
+        else:
+            # Fallback to direct subscription using async_supabase
+            realtime_channel = async_supabase.channel(channel_name)
+            logger.info("Setting up realtime subscriptions for parameter_control_commands table...")
+            realtime_channel = realtime_channel.on_postgres_changes(
+                event="INSERT", 
+                schema="public", 
+                table="parameter_control_commands",
+                callback=on_insert
+            )
+            realtime_channel = realtime_channel.on_postgres_changes(
+                event="UPDATE",
+                schema="public",
+                table="parameter_control_commands",
+                callback=on_update
+            )
+            
+            # Subscribe to the channel in background with watchdog timeout to prevent setup hang
+            logger.info("Subscribing to realtime channel...")
+            async def _subscribe_with_timeout():
+                global realtime_connected
+                try:
+                    await asyncio.wait_for(realtime_channel.subscribe(), timeout=10.0)
+                    realtime_connected = True
+                    connection_monitor.update_realtime_status(True)
+                    logger.info(f"Successfully subscribed to realtime channel: {channel_name}")
+                except asyncio.TimeoutError:
+                    logger.warning("Realtime subscription timed out after 10 seconds; continuing with polling")
+                    realtime_connected = False
+                    connection_monitor.update_realtime_status(False, "realtime subscribe timeout")
+                except Exception as sub_err:
+                    logger.error(f"Realtime subscribe error: {sub_err}", exc_info=True)
+                    realtime_connected = False
+                    connection_monitor.update_realtime_status(False, str(sub_err))
+
+            asyncio.create_task(_subscribe_with_timeout())
         
     except Exception as e:
         logger.error(f"Failed to set up realtime channel: {str(e)}", exc_info=True)
@@ -300,7 +327,7 @@ async def handle_parameter_command_insert(payload):
     try:
         # Determine if this is from realtime or polling
         source = "realtime" if realtime_connected else "polling"
-        logger.info(f"Processing parameter control command from {source}")
+        logger.info(f"🔔 PARAMETER COMMAND RECEIVED [{source.upper()}] - Processing parameter control command")
         
         # Update realtime status if this came from realtime
         if realtime_connected:
@@ -342,7 +369,7 @@ async def handle_parameter_command_insert(payload):
             processed_commands.add(command_id)
             return
 
-        logger.info(f"New pending parameter control command: {command_id}, parameter: {parameter_name}")
+        logger.info(f"🟡 PARAMETER COMMAND PROCESSING - ID: {command_id} | Parameter: {parameter_name} | Status: CLAIMED")
 
         # Ensure PLC connection before claiming
         if not await ensure_plc_connection():
@@ -363,11 +390,11 @@ async def handle_parameter_command_insert(payload):
         )
 
         if result.data and len(result.data) > 0:
-            logger.info(f"Successfully claimed parameter command {command_id}")
+            logger.info(f"🟢 PARAMETER COMMAND EXECUTING - ID: {command_id} | Status: PROCESSING")
             processed_commands.add(command_id)
             await process_parameter_command(record)
         else:
-            logger.info(f"Parameter command {command_id} already claimed by another worker")
+            logger.info(f"⚠️ PARAMETER COMMAND SKIPPED - ID: {command_id} | Status: ALREADY_CLAIMED")
             processed_commands.add(command_id)
 
     except Exception as e:
@@ -377,17 +404,20 @@ async def handle_parameter_command_insert(payload):
 async def process_parameter_command(command: Dict[str, Any]):
     """
     Process a parameter control command by executing it via pymodbus.
-    
+
     Args:
         command: The command data from the database
     """
+    import time
+    start_time = time.time()
+
     command_id = command['id']
     parameter_name = command['parameter_name']
     target_value = float(command['target_value'])
     timeout_ms = command.get('timeout_ms', 30000)
-    
-    logger.info(f"Processing parameter command {command_id}: {parameter_name} = {target_value}")
-    
+
+    logger.info(f"🔧 PARAMETER COMMAND EXECUTION - ID: {command_id} | Parameter: {parameter_name} | Target: {target_value}")
+
     supabase = get_supabase()
     
     try:
@@ -531,7 +561,8 @@ async def process_parameter_command(command: Dict[str, Any]):
         
         # Update command status based on result
         if success:
-            logger.info(f"Parameter command {command_id} executed successfully")
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            logger.info(f"✅ PARAMETER COMMAND COMPLETED - ID: {command_id} | Parameter: {parameter_name} | Status: SUCCESS | Duration: {processing_time_ms}ms")
             failed_commands.pop(command_id, None)
             await finalize_parameter_command(command_id, success=True)
         else:
@@ -552,7 +583,8 @@ async def process_parameter_command(command: Dict[str, Any]):
                 # Remove from processed to allow retry
                 processed_commands.discard(command_id)
             else:
-                logger.error(f"Parameter command {command_id} failed after {MAX_RETRIES} attempts")
+                processing_time_ms = int((time.time() - start_time) * 1000)
+                logger.error(f"❌ PARAMETER COMMAND FAILED - ID: {command_id} | Parameter: {parameter_name} | Status: MAX_RETRIES_EXCEEDED | Duration: {processing_time_ms}ms")
                 await finalize_parameter_command(command_id, success=False, error_message=f"Failed to write parameter to PLC after {MAX_RETRIES} attempts")
             
     except Exception as e:
@@ -581,6 +613,8 @@ async def process_parameter_command(command: Dict[str, Any]):
             await asyncio.sleep(backoff_delay)
         else:
             # Non-PLC errors or exceeded retries
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            logger.error(f"❌ PARAMETER COMMAND FAILED - ID: {command_id} | Parameter: {parameter_name} | Status: ERROR | Duration: {processing_time_ms}ms")
             await finalize_parameter_command(command_id, success=False, error_message=f"{error_msg} (after {retry_count} attempts)")
 
 

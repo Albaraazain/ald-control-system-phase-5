@@ -12,6 +12,9 @@ from src.log_setup import logger
 # Singleton instance for the synchronized client
 _supabase_client = None
 
+# Singleton instance for the async client
+_async_supabase_client = None
+
 def get_supabase():
     """Get the Supabase client instance (singleton)."""
     global _supabase_client
@@ -32,7 +35,10 @@ def get_supabase():
     return _supabase_client
 
 async def create_async_supabase():
-    """Create an asynchronous Supabase client for realtime features."""
+    """Create or return the shared asynchronous Supabase client (singleton)."""
+    global _async_supabase_client
+    if _async_supabase_client is not None:
+        return _async_supabase_client
     try:
         if not is_supabase_config_present():
             raise ValueError(
@@ -40,9 +46,9 @@ async def create_async_supabase():
             )
         logger.info(f"Initializing async Supabase client with URL: {SUPABASE_URL}")
         logger.info(f"API Key (first 10 chars): {SUPABASE_KEY[:10]}...")
-        client = await create_async_client(SUPABASE_URL, SUPABASE_KEY)
+        _async_supabase_client = await create_async_client(SUPABASE_URL, SUPABASE_KEY)
         logger.info("Async Supabase client initialized successfully")
-        return client
+        return _async_supabase_client
     except Exception:
         logger.exception("Error initializing async Supabase client")
         raise

@@ -75,3 +75,24 @@ This is an Atomic Layer Deposition (ALD) control system that manages hardware op
 - **Line Length**: Keep lines under 100 characters
 - **Formatting**: 4 spaces for indentation, no tabs
 - **Function Parameters**: Use keyword arguments for clarity when calling functions with multiple parameters
+
+## Recent Fixes (Operational Notes)
+
+These changes ensure commands are processed and logged even when Supabase Realtime is slow or unavailable.
+
+- Realtime subscribe made non-blocking with 10s watchdog timeout
+  - Files: `src/parameter_control_listener.py`, `src/command_flow/listener.py`
+  - What changed: `channel.subscribe()`/`realtime_channel.subscribe()` is wrapped in `asyncio.wait_for(..., timeout=10.0)` and executed in a background task. This prevents service startup from hanging if the realtime handshake stalls. On timeout or error, we immediately fall back to polling and update `connection_monitor` realtime status.
+  - Expected logs: Listener readiness includes whether it’s using REALTIME + polling fallback or POLLING ONLY.
+
+- Polling includes global commands
+  - Files: `src/parameter_control_listener.py`, `src/command_flow/listener.py`
+  - What changed: Pending queries no longer filter by `machine_id` at the SQL layer. Instead, we fetch pending items and filter in-process for commands where `machine_id ∈ {MACHINE_ID, NULL}`. This ensures “global” commands (NULL machine_id) are not ignored.
+
+- Realtime reconnection guarded by timeout
+  - File: `src/parameter_control_listener.py`
+  - What changed: Reconnection attempts use `asyncio.wait_for(..., timeout=10.0)` with graceful fallback to polling and status reporting via `connection_monitor`.
+
+How to verify after restart
+- Startup logs should show listeners ready even if realtime is unavailable.
+- Inserting parameter control or recipe commands should produce emoji logs (🔔, 🟡, 🟢, ✅) regardless of realtime status.

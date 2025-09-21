@@ -13,6 +13,7 @@ from src.log_setup import logger
 from src.command_flow.listener import setup_command_listener
 from src.connection_monitor import connection_monitor
 from src.parameter_control_listener import setup_parameter_control_listener
+from src.realtime.service import RealtimeService
 
 
 # Type alias for an async callable factory returning a long-lived task
@@ -66,10 +67,10 @@ class AgentSupervisor:
         logger.info("All agents stopped")
 
 
-def make_command_listener_agent(async_supabase) -> Agent:
+def make_command_listener_agent(async_supabase, realtime_service: RealtimeService) -> Agent:
     async def run() -> None:
         # Set up listener and keep the agent alive
-        await setup_command_listener(async_supabase)
+        await setup_command_listener(async_supabase, realtime_service)
         # setup_command_listener spawns background polling; we park here
         await asyncio.Event().wait()
 
@@ -84,9 +85,9 @@ def make_connection_monitor_agent() -> Agent:
     return Agent(name="connection-monitor", factory=run)
 
 
-def make_parameter_control_listener_agent(async_supabase) -> Agent:
+def make_parameter_control_listener_agent(async_supabase, realtime_service: RealtimeService) -> Agent:
     async def run() -> None:
-        await setup_parameter_control_listener(async_supabase)
+        await setup_parameter_control_listener(async_supabase, realtime_service)
         await asyncio.Event().wait()
 
     return Agent(name="parameter-control-listener", factory=run)

@@ -24,6 +24,7 @@ from src.agents.supervisor import (
     make_connection_monitor_agent,
     make_parameter_control_listener_agent,
 )
+from src.realtime.service import RealtimeService
 
 async def cleanup_handler():
     """Perform cleanup when application is interrupted"""
@@ -114,11 +115,14 @@ async def main():
         logger.info("Creating async Supabase client...")
         async_supabase = await create_async_supabase()
 
+        # Initialize shared RealtimeService
+        realtime_service = RealtimeService()
+
         # Start agents (headless)
         agent_list = [
             make_connection_monitor_agent(),
-            make_command_listener_agent(async_supabase),
-            make_parameter_control_listener_agent(async_supabase),
+            make_command_listener_agent(async_supabase, realtime_service),
+            make_parameter_control_listener_agent(async_supabase, realtime_service),
         ]
         supervisor = AgentSupervisor(agent_list)
         await supervisor.start()
