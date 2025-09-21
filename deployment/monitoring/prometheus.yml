@@ -1,0 +1,120 @@
+# Prometheus configuration for ALD Control System monitoring
+# Collects metrics from application and infrastructure components
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ald-control'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Rules files specifying alerting rules
+rule_files:
+  - "alert_rules.yml"
+  - "recording_rules.yml"
+
+# Scrape configuration
+scrape_configs:
+  # ALD Control System Application
+  - job_name: 'ald-control'
+    static_configs:
+      - targets: ['ald-control:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 4s
+    honor_labels: true
+    params:
+      format: ['prometheus']
+
+  # Health check endpoint
+  - job_name: 'ald-health'
+    static_configs:
+      - targets: ['ald-control:8000']
+    metrics_path: '/health'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    metric_relabeling_configs:
+      - source_labels: [__name__]
+        regex: 'health_.*'
+        target_label: __name__
+        replacement: 'ald_${1}'
+
+  # System metrics (Node Exporter)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # Docker container metrics (cAdvisor)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+
+  # PostgreSQL/Supabase metrics (if available)
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 15s
+
+  # PLC monitoring (custom exporter)
+  - job_name: 'plc-metrics'
+    static_configs:
+      - targets: ['ald-control:8000']
+    metrics_path: '/metrics/plc'
+    scrape_interval: 5s
+    scrape_timeout: 4s
+
+  # Process monitoring
+  - job_name: 'process-exporter'
+    static_configs:
+      - targets: ['process-exporter:9256']
+    scrape_interval: 15s
+
+  # Blackbox monitoring for external services
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - http://ald-control:8000/health
+        - http://ald-control:8000/health/basic
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Custom ALD metrics
+  - job_name: 'ald-custom-metrics'
+    static_configs:
+      - targets: ['ald-control:8000']
+    metrics_path: '/metrics/custom'
+    scrape_interval: 1s  # High frequency for critical ALD parameters
+    scrape_timeout: 500ms
+    honor_labels: true
+
+# Storage configuration
+storage:
+  tsdb:
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true
+
+# Remote write configuration (optional - for long-term storage)
+# remote_write:
+#   - url: "https://your-remote-storage/api/v1/write"
+#     queue_config:
+#       max_samples_per_send: 1000
+#       max_shards: 200
+#       capacity: 2500

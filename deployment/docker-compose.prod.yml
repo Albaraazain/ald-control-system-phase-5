@@ -1,0 +1,272 @@
+# Production Docker Compose for ALD Control System
+# Includes monitoring, logging, and production-ready configurations
+
+version: '3.8'
+
+services:
+  # Main ALD Control Application
+  ald-control:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    image: ald-control-system:latest
+    container_name: ald-control-main
+    restart: unless-stopped
+
+    environment:
+      - NODE_ENV=production
+      - PYTHONUNBUFFERED=1
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - MACHINE_ID=${MACHINE_ID}
+      - PLC_TYPE=${PLC_TYPE:-real}
+      - PLC_HOST=${PLC_HOST}
+      - PLC_PORT=${PLC_PORT:-502}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - STATUS_LOG_INTERVAL=${STATUS_LOG_INTERVAL:-300}
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ald-logs:/app/logs
+      - ald-data:/app/data
+      - ./config/production.json:/app/config/production.json:ro
+
+    networks:
+      - ald-network
+      - monitoring-network
+
+    depends_on:
+      - prometheus
+      - grafana
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Blue-Green Deployment - Green Instance
+  ald-control-green:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    image: ald-control-system:latest
+    container_name: ald-control-green
+    restart: "no"
+
+    environment:
+      - NODE_ENV=production
+      - PYTHONUNBUFFERED=1
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - MACHINE_ID=${MACHINE_ID}
+      - PLC_TYPE=${PLC_TYPE:-real}
+      - PLC_HOST=${PLC_HOST}
+      - PLC_PORT=${PLC_PORT:-502}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+    ports:
+      - "8001:8000"
+
+    volumes:
+      - ald-logs:/app/logs
+      - ald-data:/app/data
+      - ./config/production.json:/app/config/production.json:ro
+
+    networks:
+      - ald-network
+
+    profiles:
+      - blue-green
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Load Balancer (HAProxy)
+  load-balancer:
+    image: haproxy:2.8-alpine
+    container_name: ald-load-balancer
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8404:8404"  # HAProxy stats
+
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./ssl:/etc/ssl/certs:ro
+
+    networks:
+      - ald-network
+
+    depends_on:
+      - ald-control
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8404/stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus for Metrics
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: ald-prometheus
+    restart: unless-stopped
+
+    ports:
+      - "9090:9090"
+
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+    networks:
+      - monitoring-network
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+
+  # Grafana for Visualization
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: ald-grafana
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+
+    networks:
+      - monitoring-network
+
+    depends_on:
+      - prometheus
+
+  # Log Aggregation (Optional)
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: ald-loki
+    restart: unless-stopped
+
+    ports:
+      - "3100:3100"
+
+    volumes:
+      - ./monitoring/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+
+    networks:
+      - monitoring-network
+
+    command: -config.file=/etc/loki/local-config.yaml
+
+    profiles:
+      - logging
+
+  # Log Shipper
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: ald-promtail
+    restart: unless-stopped
+
+    volumes:
+      - ./monitoring/promtail.yml:/etc/promtail/config.yml:ro
+      - ald-logs:/var/log/ald:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+
+    networks:
+      - monitoring-network
+
+    depends_on:
+      - loki
+
+    profiles:
+      - logging
+
+  # Health Check Service
+  health-checker:
+    image: alpine:3.18
+    container_name: ald-health-checker
+    restart: unless-stopped
+
+    volumes:
+      - ./scripts/health-check.sh:/health-check.sh:ro
+
+    networks:
+      - ald-network
+      - monitoring-network
+
+    depends_on:
+      - ald-control
+
+    command: |
+      sh -c "
+        apk add --no-cache curl
+        chmod +x /health-check.sh
+        while true; do
+          /health-check.sh
+          sleep 30
+        done
+      "
+
+# Networks
+networks:
+  ald-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  monitoring-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# Volumes
+volumes:
+  ald-logs:
+    driver: local
+  ald-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  loki-data:
+    driver: local
