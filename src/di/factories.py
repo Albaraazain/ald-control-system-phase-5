@@ -3,7 +3,7 @@
 Factory pattern integration with dependency injection container.
 Provides configuration-driven service creation and factory registration.
 """
-from typing import Type, Dict, Any, Callable, TypeVar, Optional, Awaitable, Union
+from typing import Type, Dict, Any, Callable, TypeVar, Optional, Awaitable, Union, List
 from abc import ABC, abstractmethod
 from .container import ServiceContainer
 from ..abstractions.interfaces import IPLCInterface, IDatabaseService, IParameterLogger

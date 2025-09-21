@@ -17,6 +17,8 @@ from collections import defaultdict
 import statistics
 from src.log_setup import logger
 from src.plc.manager import plc_manager
+from src.performance.sla_monitor import performance_sla_monitor
+from src.performance.distributed_manager import distributed_parameter_manager
 from src.db import get_current_timestamp
 from src.config import MACHINE_ID
 
@@ -69,6 +71,11 @@ class HighPerformanceParameterLogger:
         self._performance_metrics: List[PerformanceMetrics] = []
         self._max_metrics_history = 300  # 5 minutes of history
 
+        # Distributed processing capabilities
+        self._enable_distributed = True
+        self._distributed_threshold = 50  # Use distributed processing for 50+ parameters
+        self._worker_semaphore = asyncio.Semaphore(max_workers)
+
         # Parameter grouping cache
         self._parameter_groups: List[ParameterGroup] = []
         self._parameter_metadata_cache: Dict[str, Dict[str, Any]] = {}
@@ -91,8 +98,15 @@ class HighPerformanceParameterLogger:
         # Initialize parameter cache
         await self._refresh_parameter_cache()
 
+        # Start SLA monitoring
+        await performance_sla_monitor.start_monitoring()
+
+        # Enable distributed processing if configured
+        if self._enable_distributed:
+            await self.enable_distributed_processing()
+
         self._task = asyncio.create_task(self._high_performance_logging_loop())
-        logger.info(f"Started high-performance parameter logging service with {self.max_workers} workers")
+        logger.info(f"Started high-performance parameter logging service with {self.max_workers} workers and SLA monitoring")
 
     async def stop(self):
         """Stop the high-performance parameter logging."""
@@ -107,6 +121,13 @@ class HighPerformanceParameterLogger:
             except asyncio.CancelledError:
                 pass
             self._task = None
+
+        # Stop SLA monitoring
+        await performance_sla_monitor.stop_monitoring()
+
+        # Stop distributed processing if running
+        if distributed_parameter_manager._is_running:
+            await distributed_parameter_manager.stop()
 
         logger.info("Stopped high-performance parameter logging service")
 
@@ -125,6 +146,9 @@ class HighPerformanceParameterLogger:
                     self._update_performance_metrics(metrics)
                     self._error_count = 0
                     self._last_successful_read = cycle_start
+
+                    # Record SLA metrics for performance monitoring
+                    await self._record_sla_metrics(metrics)
 
                 except Exception as e:
                     self._error_count += 1
@@ -183,9 +207,9 @@ class HighPerformanceParameterLogger:
         process_start = time.time()
         current_process_id = await self._get_current_process_id()
 
-        # Execute bulk parameter reading with concurrent workers
+        # Execute bulk parameter reading with optional distributed processing
         plc_start = time.time()
-        parameter_values = await self._bulk_read_parameters()
+        parameter_values = await self._smart_bulk_read_parameters()
         plc_time = time.time() - plc_start
 
         if not parameter_values:
@@ -232,65 +256,183 @@ class HighPerformanceParameterLogger:
 
     async def _bulk_read_parameters(self) -> Dict[str, float]:
         """
-        Execute bulk parameter reading using grouped operations.
+        Execute bulk parameter reading using optimized Modbus bulk operations.
 
         Returns:
             Dict mapping parameter_id to value
         """
-        if not self._parameter_groups:
-            logger.warning("No parameter groups available for bulk reading")
+        if not self._parameter_metadata_cache:
+            logger.warning("No parameter metadata available for bulk reading")
             return {}
 
-        # Create tasks for concurrent bulk reading
-        read_tasks = []
-        for group in self._parameter_groups:
-            task = asyncio.create_task(self._read_parameter_group(group))
-            read_tasks.append(task)
+        # Prepare parameter addresses for optimization
+        parameter_addresses = []
+        for param_id, metadata in self._parameter_metadata_cache.items():
+            read_addr = metadata.get('read_modbus_address')
+            data_type = metadata.get('data_type')
+            read_type = metadata.get('read_modbus_type', '').lower()
 
-        # Execute all bulk reads concurrently
-        group_results = await asyncio.gather(*read_tasks, return_exceptions=True)
+            if read_addr is not None:
+                parameter_addresses.append((param_id, read_addr, data_type, read_type))
 
-        # Combine results from all groups
+        if not parameter_addresses:
+            logger.warning("No parameters with valid read addresses found")
+            return {}
+
+        # Optimize address ranges for bulk reading
+        optimized_ranges = plc_manager.plc.communicator.optimize_address_ranges(
+            parameter_addresses, max_gap=2, max_range_size=50
+        )
+
         all_parameter_values = {}
-        for i, result in enumerate(group_results):
-            if isinstance(result, Exception):
-                logger.error(f"Error reading parameter group {i}: {result}")
-                continue
 
-            if isinstance(result, dict):
-                all_parameter_values.update(result)
+        # Execute bulk reads for holding registers
+        if optimized_ranges['holding_registers']:
+            holding_results = await self._bulk_read_holding_registers(
+                optimized_ranges['holding_registers']
+            )
+            all_parameter_values.update(holding_results)
+
+        # Execute bulk reads for coils
+        if optimized_ranges['coils']:
+            coil_results = await self._bulk_read_coils(
+                optimized_ranges['coils']
+            )
+            all_parameter_values.update(coil_results)
+
+        # Fallback to individual reads for any failed bulk operations
+        if len(all_parameter_values) < len(parameter_addresses):
+            missing_params = [
+                param_id for param_id, _, _, _ in parameter_addresses
+                if param_id not in all_parameter_values
+            ]
+
+            if missing_params:
+                logger.info(f"Falling back to individual reads for {len(missing_params)} parameters")
+                individual_results = await self._fallback_individual_reads(missing_params)
+                all_parameter_values.update(individual_results)
 
         return all_parameter_values
 
-    async def _read_parameter_group(self, group: ParameterGroup) -> Dict[str, float]:
+    async def _bulk_read_holding_registers(self, register_ranges) -> Dict[str, float]:
         """
-        Read a group of parameters with bulk operations.
+        Execute bulk reads for holding register ranges.
 
         Args:
-            group: Parameter group to read
+            register_ranges: List of optimized register ranges
 
         Returns:
             Dict mapping parameter_id to value
         """
-        async with self._worker_semaphore:
+        results = {}
+
+        for range_info in register_ranges:
             try:
-                # For now, read individual parameters
-                # TODO: Implement true bulk Modbus reads by address range
-                group_values = {}
+                start_addr = range_info['start_address']
+                count = range_info['count']
+                data_type = range_info['data_type']
+                parameters = range_info['parameters']
 
-                for parameter_id in group.parameter_ids:
-                    try:
-                        value = await plc_manager.read_parameter(parameter_id)
-                        if value is not None:
-                            group_values[parameter_id] = value
-                    except Exception as e:
-                        logger.error(f"Error reading parameter {parameter_id}: {e}")
+                # Execute bulk read using PLCCommunicator
+                bulk_results = plc_manager.plc.communicator.bulk_read_holding_registers([
+                    (start_addr, count, data_type)
+                ])
 
-                return group_values
+                if start_addr in bulk_results:
+                    values = bulk_results[start_addr]
+
+                    # Map values back to parameter IDs
+                    for i, (param_id, param_addr, param_data_type) in enumerate(parameters):
+                        if i < len(values):
+                            results[param_id] = float(values[i])
+
+                    logger.debug(f"Bulk read {len(values)} values from registers {start_addr}-{start_addr + count - 1}")
 
             except Exception as e:
-                logger.error(f"Error reading parameter group {group.data_type}: {e}")
-                return {}
+                logger.error(f"Error in bulk register read for range {start_addr}: {e}")
+                # Fallback will handle individual reads
+
+        return results
+
+    async def _bulk_read_coils(self, coil_ranges) -> Dict[str, float]:
+        """
+        Execute bulk reads for coil ranges.
+
+        Args:
+            coil_ranges: List of optimized coil ranges
+
+        Returns:
+            Dict mapping parameter_id to value
+        """
+        results = {}
+
+        for range_info in coil_ranges:
+            try:
+                start_addr = range_info['start_address']
+                count = range_info['count']
+                parameters = range_info['parameters']
+
+                # Execute bulk read using PLCCommunicator
+                bulk_results = plc_manager.plc.communicator.bulk_read_coils([
+                    (start_addr, count)
+                ])
+
+                if start_addr in bulk_results:
+                    bits = bulk_results[start_addr]
+
+                    # Map coil states back to parameter IDs
+                    for param_id, param_addr, _ in parameters:
+                        coil_index = param_addr - start_addr
+                        if 0 <= coil_index < len(bits):
+                            results[param_id] = 1.0 if bits[coil_index] else 0.0
+
+                    logger.debug(f"Bulk read {len(bits)} coils from addresses {start_addr}-{start_addr + count - 1}")
+
+            except Exception as e:
+                logger.error(f"Error in bulk coil read for range {start_addr}: {e}")
+                # Fallback will handle individual reads
+
+        return results
+
+    async def _fallback_individual_reads(self, parameter_ids) -> Dict[str, float]:
+        """
+        Fallback to individual parameter reads when bulk operations fail.
+
+        Args:
+            parameter_ids: List of parameter IDs to read individually
+
+        Returns:
+            Dict mapping parameter_id to value
+        """
+        results = {}
+
+        # Create tasks for concurrent individual reads (limited by semaphore)
+        async def read_single_param(param_id):
+            async with self._worker_semaphore:
+                try:
+                    value = await plc_manager.read_parameter(param_id)
+                    if value is not None:
+                        return param_id, float(value)
+                except Exception as e:
+                    logger.error(f"Error in fallback read for parameter {param_id}: {e}")
+                return param_id, None
+
+        # Execute individual reads with concurrency control
+        tasks = [read_single_param(param_id) for param_id in parameter_ids]
+        individual_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results
+        for result in individual_results:
+            if isinstance(result, Exception):
+                logger.error(f"Exception in individual parameter read: {result}")
+                continue
+
+            param_id, value = result
+            if value is not None:
+                results[param_id] = value
+
+        logger.debug(f"Fallback individual reads: {len(results)}/{len(parameter_ids)} successful")
+        return results
 
     async def _prepare_bulk_records(
         self,
@@ -529,6 +671,117 @@ class HighPerformanceParameterLogger:
             'cached_parameters': len(self._parameter_metadata_cache),
             'cache_age_seconds': time.time() - self._last_cache_refresh
         }
+
+    async def _record_sla_metrics(self, metrics: 'PerformanceMetrics'):
+        """
+        Record performance metrics for SLA monitoring.
+
+        Args:
+            metrics: Performance metrics from the logging cycle
+        """
+        try:
+            # Record parameter logging interval (should be ~1000ms)
+            interval_ms = metrics.total_cycle_time * 1000
+            await performance_sla_monitor.record_measurement(
+                'parameter_logging_interval',
+                interval_ms,
+                context={'parameters_processed': metrics.parameters_processed}
+            )
+
+            # Record parameter logging jitter
+            await performance_sla_monitor.record_measurement(
+                'parameter_logging_jitter',
+                metrics.jitter_ms,
+                context={'cycle_start_time': metrics.cycle_start_time}
+            )
+
+            # Record bulk read latency
+            bulk_read_latency_ms = metrics.plc_read_time * 1000
+            await performance_sla_monitor.record_measurement(
+                'bulk_read_latency',
+                bulk_read_latency_ms,
+                context={'bulk_operations_used': True}
+            )
+
+            # Record database batch latency
+            db_latency_ms = metrics.database_write_time * 1000
+            await performance_sla_monitor.record_measurement(
+                'database_batch_latency',
+                db_latency_ms,
+                context={'parameters_written': metrics.parameters_processed}
+            )
+
+            # Record end-to-end cycle time
+            cycle_time_ms = metrics.total_cycle_time * 1000
+            await performance_sla_monitor.record_measurement(
+                'end_to_end_cycle_time',
+                cycle_time_ms,
+                context={'full_pipeline': True}
+            )
+
+            # Calculate and record parameter throughput
+            if metrics.total_cycle_time > 0:
+                throughput = metrics.parameters_processed / metrics.total_cycle_time
+                await performance_sla_monitor.record_measurement(
+                    'parameter_throughput',
+                    throughput,
+                    context={'cycle_duration_s': metrics.total_cycle_time}
+                )
+
+        except Exception as e:
+            logger.error(f"Error recording SLA metrics: {e}")
+
+    async def _smart_bulk_read_parameters(self) -> Dict[str, float]:
+        """
+        Smart parameter reading that can use distributed processing for large parameter sets.
+
+        Returns:
+            Dict mapping parameter_id to value
+        """
+        try:
+            # Get all parameter IDs to read
+            all_parameter_ids = list(self._parameter_metadata_cache.keys())
+
+            if not all_parameter_ids:
+                logger.warning("No parameters configured for reading")
+                return {}
+
+            # Use distributed processing for large parameter sets if enabled
+            if (self._enable_distributed and
+                len(all_parameter_ids) >= self._distributed_threshold and
+                distributed_parameter_manager._is_running):
+
+                logger.debug(f"Using distributed processing for {len(all_parameter_ids)} parameters")
+                return await distributed_parameter_manager.distribute_parameter_reading(
+                    all_parameter_ids, priority=1
+                )
+            else:
+                # Use local bulk read optimization
+                return await self._bulk_read_parameters()
+
+        except Exception as e:
+            logger.error(f"Error in smart bulk read: {e}")
+            # Fallback to individual reads
+            return await self._fallback_individual_reads(list(self._parameter_metadata_cache.keys()))
+
+    async def enable_distributed_processing(self):
+        """Enable distributed processing for high-scale operations."""
+        if not distributed_parameter_manager._is_running:
+            await distributed_parameter_manager.start()
+
+            # Register ourselves as a local worker with bulk read capabilities
+            await distributed_parameter_manager.register_worker(
+                instance_type="local_process",
+                capabilities={"bulk_read", "real_plc"},
+                max_concurrent=self.max_workers
+            )
+
+            logger.info("Distributed processing enabled for high-performance logger")
+
+    async def disable_distributed_processing(self):
+        """Disable distributed processing and use only local operations."""
+        self._enable_distributed = False
+        logger.info("Distributed processing disabled - using local operations only")
 
 
 # Global instance for compatibility

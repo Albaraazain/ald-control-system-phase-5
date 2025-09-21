@@ -94,6 +94,7 @@ class TransactionalParameterLogger(ITransactionalParameterLogger):
                 return DualModeResult(
                     history_count=0,
                     process_count=0,
+                    component_updates_count=0,
                     machine_state=None,
                     transaction_id="empty",
                     success=True
@@ -109,7 +110,7 @@ class TransactionalParameterLogger(ITransactionalParameterLogger):
             if result.success:
                 logger.debug(
                     f"Atomic logging completed: history={result.history_count}, "
-                    f"process={result.process_count}, latency={latency_ms:.2f}ms"
+                    f"process={result.process_count}, component_updates={result.component_updates_count}, latency={latency_ms:.2f}ms"
                 )
             else:
                 logger.error(f"Atomic logging failed: {result.error_message}")
@@ -124,6 +125,7 @@ class TransactionalParameterLogger(ITransactionalParameterLogger):
             return DualModeResult(
                 history_count=0,
                 process_count=0,
+                component_updates_count=0,
                 machine_state=None,
                 transaction_id="error",
                 success=False,
@@ -307,6 +309,7 @@ class TransactionalParameterLogger(ITransactionalParameterLogger):
                 'transaction_id': result.transaction_id,
                 'history_count': result.history_count,
                 'process_count': result.process_count,
+                'component_updates_count': result.component_updates_count,
                 'error_message': result.error_message
             }
 

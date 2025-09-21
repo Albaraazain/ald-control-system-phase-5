@@ -582,3 +582,366 @@ class PLCCommunicator:
             
         self.log("INFO", f"Successfully wrote {state} to coil {address}")
         return True
+
+    def bulk_read_holding_registers(self, address_ranges):
+        """
+        Bulk read holding registers for multiple address ranges.
+
+        Args:
+            address_ranges: List of tuples (start_address, count, data_type)
+                          where data_type is 'float', 'int32', 'int16'
+
+        Returns:
+            Dict mapping start_address to list of values, or None if failed
+        """
+        if not address_ranges:
+            return {}
+
+        self.log("DEBUG", f"Bulk reading {len(address_ranges)} register ranges")
+
+        results = {}
+
+        for start_addr, count, data_type in address_ranges:
+            try:
+                # Calculate total registers needed based on data type
+                if data_type in ['float', 'int32']:
+                    total_registers = count * 2  # 2 registers per 32-bit value
+                elif data_type == 'int16':
+                    total_registers = count  # 1 register per 16-bit value
+                else:
+                    self.log("WARNING", f"Unsupported data type '{data_type}' for bulk read")
+                    continue
+
+                # Limit bulk reads to prevent timeout (max 100 registers per read)
+                if total_registers > 100:
+                    self.log("WARNING", f"Bulk read too large ({total_registers} registers), splitting")
+                    # Split into smaller chunks
+                    chunk_size = 50 if data_type in ['float', 'int32'] else 100
+
+                    chunk_results = []
+                    for i in range(0, count, chunk_size):
+                        chunk_count = min(chunk_size, count - i)
+                        chunk_addr = start_addr + (i * (2 if data_type in ['float', 'int32'] else 1))
+                        chunk_total_regs = chunk_count * (2 if data_type in ['float', 'int32'] else 1)
+
+                        chunk_result = self._read_register_chunk(chunk_addr, chunk_total_regs, data_type, chunk_count)
+                        if chunk_result is not None:
+                            chunk_results.extend(chunk_result)
+                        else:
+                            self.log("ERROR", f"Failed to read chunk at address {chunk_addr}")
+                            break
+
+                    if len(chunk_results) == count:
+                        results[start_addr] = chunk_results
+                else:
+                    # Single bulk read
+                    chunk_result = self._read_register_chunk(start_addr, total_registers, data_type, count)
+                    if chunk_result is not None:
+                        results[start_addr] = chunk_result
+
+            except Exception as e:
+                self.log("ERROR", f"Error in bulk read for address {start_addr}: {e}")
+                continue
+
+        self.log("INFO", f"Bulk read completed: {len(results)}/{len(address_ranges)} ranges successful")
+        return results
+
+    def _read_register_chunk(self, start_addr, total_registers, data_type, value_count):
+        """
+        Read a chunk of registers and parse them according to data type.
+
+        Args:
+            start_addr: Starting register address
+            total_registers: Total number of registers to read
+            data_type: Data type ('float', 'int32', 'int16')
+            value_count: Number of values expected
+
+        Returns:
+            List of parsed values or None if failed
+        """
+        def _read_operation():
+            return self.client.read_holding_registers(start_addr, count=total_registers, slave=self.slave_id)
+
+        result = self._execute_with_retry(
+            _read_operation,
+            f"bulk_read_registers(address={start_addr}, count={total_registers})"
+        )
+
+        if result.isError():
+            self.log("ERROR", f"Failed to bulk read registers: {result}")
+            return None
+
+        registers = result.registers
+        values = []
+
+        try:
+            if data_type == 'float':
+                # Parse 32-bit floats (2 registers each)
+                for i in range(0, len(registers), 2):
+                    if i + 1 < len(registers):
+                        raw_data = self._convert_registers_to_bytes(registers[i], registers[i + 1])
+                        float_value = struct.unpack('>f' if self.byte_order in ['abcd', 'badc'] else '<f', raw_data)[0]
+                        values.append(float_value)
+
+            elif data_type == 'int32':
+                # Parse 32-bit integers (2 registers each)
+                for i in range(0, len(registers), 2):
+                    if i + 1 < len(registers):
+                        raw_data = self._convert_registers_to_bytes(registers[i], registers[i + 1])
+                        int_value = struct.unpack('>i' if self.byte_order in ['abcd', 'badc'] else '<i', raw_data)[0]
+                        values.append(int_value)
+
+            elif data_type == 'int16':
+                # Parse 16-bit integers (1 register each)
+                values = list(registers[:value_count])
+
+        except Exception as e:
+            self.log("ERROR", f"Error parsing bulk read results: {e}")
+            return None
+
+        self.log("DEBUG", f"Bulk read parsed {len(values)} {data_type} values from {total_registers} registers")
+        return values
+
+    def _convert_registers_to_bytes(self, reg1, reg2):
+        """Convert two registers to bytes according to configured byte order."""
+        if self.byte_order == 'abcd':  # Big-endian
+            return struct.pack('>HH', reg1, reg2)
+        elif self.byte_order == 'badc':  # Big-byte/little-word
+            return struct.pack('>HH', reg2, reg1)
+        elif self.byte_order == 'cdab':  # Little-byte/big-word
+            return struct.pack('<HH', reg1, reg2)
+        elif self.byte_order == 'dcba':  # Little-endian
+            return struct.pack('<HH', reg2, reg1)
+        else:
+            # Default to 'badc'
+            return struct.pack('>HH', reg2, reg1)
+
+    def bulk_read_coils(self, address_ranges):
+        """
+        Bulk read coils for multiple address ranges.
+
+        Args:
+            address_ranges: List of tuples (start_address, count)
+
+        Returns:
+            Dict mapping start_address to list of boolean values, or None if failed
+        """
+        if not address_ranges:
+            return {}
+
+        self.log("DEBUG", f"Bulk reading {len(address_ranges)} coil ranges")
+
+        results = {}
+
+        for start_addr, count in address_ranges:
+            try:
+                # Limit bulk reads to prevent timeout (max 2000 coils per read)
+                if count > 2000:
+                    self.log("WARNING", f"Bulk coil read too large ({count} coils), splitting")
+                    # Split into smaller chunks
+                    chunk_size = 1000
+
+                    chunk_results = []
+                    for i in range(0, count, chunk_size):
+                        chunk_count = min(chunk_size, count - i)
+                        chunk_addr = start_addr + i
+
+                        chunk_result = self._read_coil_chunk(chunk_addr, chunk_count)
+                        if chunk_result is not None:
+                            chunk_results.extend(chunk_result)
+                        else:
+                            self.log("ERROR", f"Failed to read coil chunk at address {chunk_addr}")
+                            break
+
+                    if len(chunk_results) == count:
+                        results[start_addr] = chunk_results
+                else:
+                    # Single bulk read
+                    chunk_result = self._read_coil_chunk(start_addr, count)
+                    if chunk_result is not None:
+                        results[start_addr] = chunk_result
+
+            except Exception as e:
+                self.log("ERROR", f"Error in bulk coil read for address {start_addr}: {e}")
+                continue
+
+        self.log("INFO", f"Bulk coil read completed: {len(results)}/{len(address_ranges)} ranges successful")
+        return results
+
+    def _read_coil_chunk(self, start_addr, count):
+        """
+        Read a chunk of coils.
+
+        Args:
+            start_addr: Starting coil address
+            count: Number of coils to read
+
+        Returns:
+            List of boolean values or None if failed
+        """
+        def _read_operation():
+            return self.client.read_coils(start_addr, count=count, slave=self.slave_id)
+
+        result = self._execute_with_retry(
+            _read_operation,
+            f"bulk_read_coils(address={start_addr}, count={count})"
+        )
+
+        if result.isError():
+            self.log("ERROR", f"Failed to bulk read coils: {result}")
+            return None
+
+        return result.bits[:count]
+
+    def optimize_address_ranges(self, parameter_addresses, max_gap=2, max_range_size=50):
+        """
+        Optimize parameter addresses into efficient bulk read ranges.
+
+        Args:
+            parameter_addresses: List of tuples (parameter_id, address, data_type, modbus_type)
+            max_gap: Maximum gap between addresses to still group them
+            max_range_size: Maximum number of registers per range
+
+        Returns:
+            Dict with 'holding_registers' and 'coils' keys containing optimized ranges
+        """
+        if not parameter_addresses:
+            return {'holding_registers': [], 'coils': []}
+
+        # Separate by Modbus register type
+        holding_params = []
+        coil_params = []
+
+        for param_id, address, data_type, modbus_type in parameter_addresses:
+            if modbus_type in ('coil', 'discrete_input') or data_type == 'binary':
+                coil_params.append((param_id, address, data_type))
+            else:
+                holding_params.append((param_id, address, data_type))
+
+        # Optimize holding register ranges
+        holding_ranges = self._optimize_register_ranges(holding_params, max_gap, max_range_size)
+
+        # Optimize coil ranges
+        coil_ranges = self._optimize_coil_ranges(coil_params, max_gap, max_range_size * 4)  # Coils are smaller
+
+        self.log("INFO", f"Address optimization: {len(parameter_addresses)} parameters -> {len(holding_ranges)} register ranges + {len(coil_ranges)} coil ranges")
+
+        return {
+            'holding_registers': holding_ranges,
+            'coils': coil_ranges
+        }
+
+    def _optimize_register_ranges(self, params, max_gap, max_range_size):
+        """Optimize holding register parameters into efficient ranges."""
+        if not params:
+            return []
+
+        # Sort by address
+        sorted_params = sorted(params, key=lambda x: x[1])
+        ranges = []
+
+        current_range = {
+            'start_address': sorted_params[0][1],
+            'parameters': [sorted_params[0]],
+            'data_types': {sorted_params[0][2]},
+            'end_address': sorted_params[0][1] + (2 if sorted_params[0][2] in ['float', 'int32'] else 1) - 1
+        }
+
+        for param_id, address, data_type in sorted_params[1:]:
+            reg_size = 2 if data_type in ['float', 'int32'] else 1
+            param_end = address + reg_size - 1
+
+            # Check if we can add this parameter to current range
+            gap = address - current_range['end_address'] - 1
+            range_registers = current_range['end_address'] - current_range['start_address'] + 1
+
+            if (gap <= max_gap and
+                range_registers + gap + reg_size <= max_range_size and
+                len(current_range['data_types']) == 1 or data_type in current_range['data_types']):
+
+                # Add to current range
+                current_range['parameters'].append((param_id, address, data_type))
+                current_range['data_types'].add(data_type)
+                current_range['end_address'] = param_end
+            else:
+                # Start new range
+                ranges.append(current_range)
+                current_range = {
+                    'start_address': address,
+                    'parameters': [(param_id, address, data_type)],
+                    'data_types': {data_type},
+                    'end_address': param_end
+                }
+
+        # Add final range
+        if current_range:
+            ranges.append(current_range)
+
+        # Convert to format expected by bulk_read_holding_registers
+        optimized_ranges = []
+        for range_info in ranges:
+            # For mixed data types, use the most common or default to int16
+            data_type = list(range_info['data_types'])[0] if len(range_info['data_types']) == 1 else 'int16'
+
+            total_registers = range_info['end_address'] - range_info['start_address'] + 1
+            value_count = len(range_info['parameters'])
+
+            optimized_ranges.append({
+                'start_address': range_info['start_address'],
+                'count': total_registers,
+                'data_type': data_type,
+                'value_count': value_count,
+                'parameters': range_info['parameters']
+            })
+
+        return optimized_ranges
+
+    def _optimize_coil_ranges(self, params, max_gap, max_range_size):
+        """Optimize coil parameters into efficient ranges."""
+        if not params:
+            return []
+
+        # Sort by address
+        sorted_params = sorted(params, key=lambda x: x[1])
+        ranges = []
+
+        current_range = {
+            'start_address': sorted_params[0][1],
+            'parameters': [sorted_params[0]],
+            'end_address': sorted_params[0][1]
+        }
+
+        for param_id, address, data_type in sorted_params[1:]:
+            # Check if we can add this coil to current range
+            gap = address - current_range['end_address'] - 1
+            range_size = current_range['end_address'] - current_range['start_address'] + 1
+
+            if gap <= max_gap and range_size + gap + 1 <= max_range_size:
+                # Add to current range
+                current_range['parameters'].append((param_id, address, data_type))
+                current_range['end_address'] = address
+            else:
+                # Start new range
+                ranges.append(current_range)
+                current_range = {
+                    'start_address': address,
+                    'parameters': [(param_id, address, data_type)],
+                    'end_address': address
+                }
+
+        # Add final range
+        if current_range:
+            ranges.append(current_range)
+
+        # Convert to format expected by bulk_read_coils
+        optimized_ranges = []
+        for range_info in ranges:
+            count = range_info['end_address'] - range_info['start_address'] + 1
+
+            optimized_ranges.append({
+                'start_address': range_info['start_address'],
+                'count': count,
+                'parameters': range_info['parameters']
+            })
+
+        return optimized_ranges

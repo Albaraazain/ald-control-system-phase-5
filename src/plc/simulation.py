@@ -41,6 +41,7 @@ class SimulationPLC(PLCInterface):
         self.param_metadata = {}  # Parameter metadata
         self.non_fluctuating_params = set()  # Parameters that shouldn't fluctuate
         self.valves = {}          # Valve states
+        self._valve_cache = {}    # Valve parameter mappings
     
     async def initialize(self) -> bool:
         """Initialize the simulated PLC."""
@@ -48,7 +49,10 @@ class SimulationPLC(PLCInterface):
         
         # Load parameter values and metadata from database
         await self._load_parameters()
-            
+
+        # Load valve mappings for set_value synchronization
+        await self._load_valve_mappings()
+
         # Initialize all valves to closed
         for i in range(1, 11):  # Assuming up to 10 valves
             self.valves[i] = False
@@ -153,16 +157,21 @@ class SimulationPLC(PLCInterface):
         
         # Generate fluctuation that tends toward the set point
         # Current value moves 10% toward set point plus random noise
-        if abs(base_value - set_value) > 0.001:  # If not already at set point
+        # Handle case where set_value is None (no setpoint defined)
+        if set_value is not None and abs(base_value - set_value) > 0.001:  # If not already at set point
             # Move 10% toward set point
             new_value = base_value + 0.1 * (set_value - base_value)
             # Add random noise (0.5% of full scale)
             noise = random.uniform(-0.005, 0.005) * full_range
             new_value += noise
-        else:
+        elif set_value is not None:
             # At set point, just add noise around set point
             noise = random.uniform(-fluctuation_pct, fluctuation_pct) * full_range
             new_value = set_value + noise
+        else:
+            # No set point defined, add random noise around current value
+            noise = random.uniform(-fluctuation_pct, fluctuation_pct) * full_range
+            new_value = base_value + noise
         
         # Ensure value stays within bounds
         new_value = max(min_val, min(max_val, new_value))
@@ -204,24 +213,32 @@ class SimulationPLC(PLCInterface):
         """Write a parameter value to the simulation."""
         if not self.connected:
             raise RuntimeError("Not connected to simulation PLC")
-        
+
         # If parameter isn't in our cache, try to load from database
         if parameter_id not in self.current_values:
             await self._load_parameter(parameter_id)
-            
-        # Update both current and set values
+
+        # Update both current and set values in simulation cache
         self.set_values[parameter_id] = value
         self.current_values[parameter_id] = value
-        
-        # Update database
-        supabase = get_supabase()
-        supabase.table('component_parameters').update({
-            'set_value': value,
-            'current_value': value
-        }).eq('id', parameter_id).execute()
-        
+
+        # Update database with set value (in background task to match real PLC pattern)
+        asyncio.create_task(self._update_parameter_set_value(parameter_id, value))
+
         return True
-    
+
+    async def _update_parameter_set_value(self, parameter_id: str, value: float):
+        """Update the set value of a parameter in the database."""
+        try:
+            supabase = get_supabase()
+            supabase.table('component_parameters').update({
+                'set_value': value,
+                'updated_at': 'now()'
+            }).eq('id', parameter_id).execute()
+
+        except Exception as e:
+            logger.error(f"Error updating parameter set value in simulation: {str(e)}")
+
     async def read_all_parameters(self) -> Dict[str, float]:
         """Read all parameters from the simulation with realistic fluctuations."""
         if not self.connected:

@@ -45,6 +45,20 @@ from .security_config import (
     reload_security_config
 )
 
+from .monitoring import (
+    SecurityMonitor,
+    SecurityAlert,
+    SecurityEvent,
+    ThreatLevel,
+    get_security_monitor,
+    record_security_event,
+    start_security_monitoring,
+    stop_security_monitoring,
+    is_ip_blocked,
+    require_security_check,
+    SecurityContext
+)
+
 __all__ = [
     'SecureCredentialManager',
     'SecureCredentials',
@@ -69,5 +83,15 @@ __all__ = [
     'load_security_config',
     'get_security_config',
     'get_security_recommendations',
-    'reload_security_config'
+    'reload_security_config',
+    'SecurityMonitor',
+    'SecurityAlert',
+    'SecurityEvent',
+    'ThreatLevel',
+    'get_security_monitor',
+    'record_security_event',
+    'start_security_monitoring',
+    'stop_security_monitoring',
+    'is_ip_blocked',
+    'SecurityContext'
 ]

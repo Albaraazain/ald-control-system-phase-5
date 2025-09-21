@@ -46,6 +46,7 @@ class DualModeResult:
     """Result of dual-mode parameter logging operation."""
     history_count: int
     process_count: int
+    component_updates_count: int
     machine_state: MachineState
     transaction_id: str
     success: bool

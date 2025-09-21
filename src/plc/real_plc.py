@@ -762,11 +762,16 @@ class RealPLC(PLCInterface):
         
         # Write to the valve coil
         success = self.communicator.write_coil(address, state)
-        
+
         if not success:
             logger.error(f"Failed to {'open' if state else 'close'} valve {valve_number}")
             return False
-        
+
+        # Update database with new set value for valve parameter (in background task)
+        parameter_id = valve_meta['parameter_id']
+        valve_set_value = 1.0 if state else 0.0
+        asyncio.create_task(self._update_parameter_set_value(parameter_id, valve_set_value))
+
         # If duration specified, schedule valve to close after duration
         if state and duration_ms is not None and duration_ms > 0:
             # Create a background task to close the valve after the specified duration
@@ -841,8 +846,14 @@ class RealPLC(PLCInterface):
             # Close the valve
             logger.info(f"Auto-closing valve {valve_number} after {duration_ms}ms")
             success = self.communicator.write_coil(address, False)
-            
-            if not success:
+
+            if success:
+                # Update database with new set value for valve parameter (closed state)
+                valve_meta = self._valve_cache.get(valve_number)
+                if valve_meta:
+                    parameter_id = valve_meta['parameter_id']
+                    asyncio.create_task(self._update_parameter_set_value(parameter_id, 0.0))
+            else:
                 logger.error(f"Failed to auto-close valve {valve_number}")
             
         except Exception as e:
