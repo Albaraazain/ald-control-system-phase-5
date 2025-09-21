@@ -1,0 +1,57 @@
+# File: data_collection/service.py
+"""
+Data collection service integration for the main application.
+"""
+import asyncio
+from src.log_setup import logger
+from src.data_collection.continuous_parameter_logger import continuous_parameter_logger
+
+
+class DataCollectionService:
+    """Service to manage all data collection components."""
+
+    def __init__(self):
+        """Initialize the data collection service."""
+        self.is_running = False
+
+    async def start(self):
+        """Start all data collection services."""
+        if self.is_running:
+            logger.warning("Data collection service is already running")
+            return
+
+        try:
+            # Start continuous parameter logger
+            await continuous_parameter_logger.start()
+            self.is_running = True
+            logger.info("Data collection service started successfully")
+
+        except Exception as e:
+            logger.error(f"Error starting data collection service: {str(e)}", exc_info=True)
+            await self.stop()  # Cleanup on failure
+            raise
+
+    async def stop(self):
+        """Stop all data collection services."""
+        if not self.is_running:
+            return
+
+        try:
+            # Stop continuous parameter logger
+            await continuous_parameter_logger.stop()
+            self.is_running = False
+            logger.info("Data collection service stopped successfully")
+
+        except Exception as e:
+            logger.error(f"Error stopping data collection service: {str(e)}", exc_info=True)
+
+    def get_status(self):
+        """Get status of all data collection services."""
+        return {
+            'service_running': self.is_running,
+            'continuous_parameter_logger': continuous_parameter_logger.get_status()
+        }
+
+
+# Global instance
+data_collection_service = DataCollectionService()

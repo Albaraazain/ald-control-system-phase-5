@@ -1,0 +1,70 @@
+{
+  "task_id": "TASK-20250920-195314-72f2e914",
+  "task_description": "Delete non-essential parameters from Supabase for machine e3e6e280-0794-459f-84d5-5e468f60746e. Scope: names matching scale_min, scale_max, scale_min_voltage, scale_max_voltage, zero_cal, span_cal, purity, ultrathink; and optional cleanup of valve_state for non-process valves like Gas Valve 1\u20136 and Exhaust Gate Valve. Safety: export a CSV backup of targeted rows before deletion; run a dry-run showing counts; then perform hard delete using service role. Verify that app startup no longer lists/complains about these parameters. Document commands and store backups under .agent-workspace/backups with timestamp. Acceptance: (1) backup CSV present; (2) dry-run counts reported; (3) deletion completed with affected row counts; (4) python main.py (or metadata load snippet) shows no entries for deleted names; (5) essential params remain; (6) summarize risks/rollback steps.",
+  "created_at": "2025-09-20T19:53:14.068036",
+  "workspace": "/Users/albaraa/ald-control-system-phase-5/.agent-workspace/TASK-20250920-195314-72f2e914",
+  "status": "INITIALIZED",
+  "priority": "high",
+  "agents": [
+    {
+      "id": "investigator-195323-d9a5b1",
+      "type": "investigator",
+      "tmux_session": "agent_investigator-195323-d9a5b1",
+      "parent": "orchestrator",
+      "depth": 1,
+      "status": "completed",
+      "started_at": "2025-09-20T19:53:25.719988",
+      "progress": 100,
+      "last_update": "2025-09-20T19:59:01.896487",
+      "prompt": "You are an investigator working in /Users/albaraa/ald-control-system-phase-5.\nGoal: map how parameters are stored in Supabase to safely delete non-essential ones for MACHINE_ID e3e6e280-0794-459f-84d5..."
+    },
+    {
+      "id": "implementer-195853-f4c9d7",
+      "type": "implementer",
+      "tmux_session": "agent_implementer-195853-f4c9d7",
+      "parent": "orchestrator",
+      "depth": 1,
+      "status": "completed",
+      "started_at": "2025-09-20T19:58:55.820240",
+      "progress": 100,
+      "last_update": "2025-09-20T20:04:34.421376",
+      "prompt": "You are an implementer working in /Users/albaraa/ald-control-system-phase-5.\n\nObjective:\n- Permanently delete non-essential parameters from Supabase for MACHINE_ID=e3e6e280-0794-459f-84d5-5e468f60746e..."
+    },
+    {
+      "id": "quality_assurance-200411-c546a5",
+      "type": "quality_assurance",
+      "tmux_session": "agent_quality_assurance-200411-c546a5",
+      "parent": "orchestrator",
+      "depth": 1,
+      "status": "completed",
+      "started_at": "2025-09-20T20:04:13.398863",
+      "progress": 100,
+      "last_update": "2025-09-20T20:06:23.152748",
+      "prompt": "You are QA for database cleanup verification.\n\nVerify for MACHINE_ID=e3e6e280-0794-459f-84d5-5e468f60746e:\n1) Candidate parameters remaining per criteria: (prefix) scale_min, scale_max, scale_min_volt..."
+    }
+  ],
+  "agent_hierarchy": {
+    "orchestrator": [
+      "investigator-195323-d9a5b1",
+      "implementer-195853-f4c9d7",
+      "quality_assurance-200411-c546a5"
+    ]
+  },
+  "max_agents": 50,
+  "max_depth": 5,
+  "max_concurrent": 16,
+  "total_spawned": 3,
+  "active_count": 3,
+  "completed_count": 0,
+  "orchestration_guidance": {
+    "min_specialization_depth": 2,
+    "recommended_child_agents_per_parent": 3,
+    "specialization_domains": [],
+    "complexity_score": 7
+  },
+  "spiral_checks": {
+    "enabled": true,
+    "last_check": "2025-09-20T19:53:14.068384",
+    "violations": 0
+  }
+}

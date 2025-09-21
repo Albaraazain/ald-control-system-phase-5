@@ -1,0 +1,124 @@
+{
+  "credential_scanning": {
+    "enabled": true,
+    "scan_patterns": [
+      "**/*.py",
+      "**/*.json",
+      "**/*.yaml",
+      "**/*.yml",
+      "**/*.env*",
+      "**/*.ini",
+      "**/*.cfg",
+      "**/*.toml"
+    ],
+    "exclude_patterns": [
+      "*/myenv/*",
+      "*/__pycache__/*",
+      "*.git/*",
+      "*/tests/security/*",
+      "*/venv/*",
+      "*.pyc",
+      "*/node_modules/*"
+    ],
+    "credential_patterns": {
+      "supabase_url": "https://[a-z0-9]+\\.supabase\\.co",
+      "supabase_key": "eyJ[A-Za-z0-9_-]*\\.[A-Za-z0-9_-]*\\.[A-Za-z0-9_-]*",
+      "api_key": "[Aa][Pp][Ii]_?[Kk][Ee][Yy].*[=:]\\s*[\"']?[A-Za-z0-9_-]{20,}",
+      "password": "[Pp]assword.*[=:]\\s*[\"']?[A-Za-z0-9_@$!%*?&]{8,}",
+      "secret": "[Ss]ecret.*[=:]\\s*[\"']?[A-Za-z0-9_-]{20,}",
+      "token": "[Tt]oken.*[=:]\\s*[\"']?[A-Za-z0-9_-]{20,}",
+      "private_key": "-----BEGIN.*PRIVATE KEY-----",
+      "uuid": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "entropy_threshold": 4.5,
+    "max_file_size_mb": 10
+  },
+  "database_security": {
+    "enabled": true,
+    "test_injection_attacks": true,
+    "test_boundary_conditions": true,
+    "test_race_conditions": true,
+    "injection_payloads": [
+      "'; DROP TABLE parameter_value_history; --",
+      "' OR '1'='1' --",
+      "'; UPDATE machines SET status='hacked'; --",
+      "' UNION SELECT * FROM machines --",
+      "'; INSERT INTO parameter_value_history VALUES('malicious'); --",
+      "<script>alert('xss')</script>",
+      "../../etc/passwd",
+      "NULL; --"
+    ],
+    "boundary_test_values": [
+      null,
+      "",
+      "   ",
+      "A__LONG_STRING__",
+      -999999999999,
+      999999999999,
+      0,
+      0.0,
+      "🚀💻🔒",
+      "\\x00\\x01\\x02"
+    ]
+  },
+  "plc_security": {
+    "enabled": true,
+    "target_host": "127.0.0.1",
+    "target_port": 502,
+    "test_network_scanning": true,
+    "test_authentication": true,
+    "test_mitm_vulnerability": true,
+    "test_ports": [502, 503, 102, 2404, 44818],
+    "connection_timeout": 5.0,
+    "modbus_function_codes": {
+      "READ_COILS": "0x01",
+      "READ_DISCRETE_INPUTS": "0x02",
+      "READ_HOLDING_REGISTERS": "0x03",
+      "READ_INPUT_REGISTERS": "0x04",
+      "WRITE_SINGLE_COIL": "0x05",
+      "WRITE_SINGLE_REGISTER": "0x06",
+      "WRITE_MULTIPLE_COILS": "0x0F",
+      "WRITE_MULTIPLE_REGISTERS": "0x10"
+    }
+  },
+  "ci_cd_integration": {
+    "fail_on_critical": true,
+    "fail_on_high": false,
+    "max_execution_time_minutes": 10,
+    "generate_reports": true,
+    "enable_pre_commit_hooks": true,
+    "enable_daily_scans": true,
+    "notification_webhooks": {
+      "security_alerts": "",
+      "scan_reports": ""
+    }
+  },
+  "security_baseline": {
+    "min_security_score": 85.0,
+    "max_critical_issues": 0,
+    "max_high_issues": 2,
+    "max_medium_issues": 10,
+    "acceptable_security_score": 75.0
+  },
+  "monitoring": {
+    "enable_real_time_monitoring": true,
+    "security_metrics_interval_seconds": 300,
+    "performance_metrics_interval_seconds": 60,
+    "alerting_thresholds": {
+      "credential_exposure": "critical",
+      "injection_attempts": "high",
+      "authentication_failures": "medium",
+      "rate_limit_violations": "medium"
+    }
+  },
+  "compliance": {
+    "frameworks": ["ISO27001", "NIST"],
+    "audit_logging": true,
+    "data_retention_days": 90,
+    "encryption_requirements": {
+      "data_at_rest": true,
+      "data_in_transit": true,
+      "minimum_key_length": 256
+    }
+  }
+}

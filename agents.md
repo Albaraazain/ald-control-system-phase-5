@@ -30,6 +30,10 @@ This is an Atomic Layer Deposition (ALD) control system that manages hardware op
 
    - Implements individual recipe steps (valve, purge, parameter, loop)
    - Handles step execution with timing and parameter control
+   - Purge step is a wait-only no-op: it performs no PLC actuation (no valve toggles or coil writes)
+     and simply waits for the configured duration while logging/recording progress.
+   - During purge, the executor performs periodic cancellation checks. Both real and simulation PLC
+     paths are not used for purge; the step never calls into PLC APIs.
    
    - Purge Step Behavior: Purge step is a no-op; it only waits for the configured duration and does not actuate valves.
 4. **PLC Communication** (`plc/`)

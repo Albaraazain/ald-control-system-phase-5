@@ -419,63 +419,115 @@ async def process_parameter_command(command: Dict[str, Any]):
             else:
                 raise RuntimeError(f"PLC connection failed after {MAX_RETRIES} attempts")
         
-        # Resolve the parameter by name from component_parameters_full
-        # Prefer exact match on 'parameter_name'; fallback to 'name' if needed
+        # Check for command-level modbus address override first
+        command_write_addr = command.get('write_modbus_address') or command.get('modbus_address')
+
         success = False
         current_value = None
+        parameter_id = None
+        data_type = None
 
-        param_row = None
-        try:
-            # Primary lookup
-            q1 = (
-                supabase.table('component_parameters_full')
-                .select('*')
-                .eq('parameter_name', parameter_name)
-                .execute()
-            )
-            rows = q1.data or []
-            if not rows:
-                q2 = (
-                    supabase.table('component_parameters_full')
-                    .select('*')
-                    .eq('name', parameter_name)
-                    .execute()
-                )
-                rows = q2.data or []
+        if command_write_addr is not None:
+            # Use command override address - skip parameter table lookup for address
+            logger.info(f"Using override modbus address {command_write_addr} from command {command_id}")
+            data_type = command.get('data_type', 'float')  # Default to float if not specified
 
-            if rows:
-                # Prefer writable parameter when multiple rows
-                writable_rows = [r for r in rows if r.get('is_writable')]
-                param_row = (writable_rows[0] if writable_rows else rows[0])
-        except Exception as lookup_err:
-            logger.error(f"Parameter lookup error for '{parameter_name}': {lookup_err}")
-
-        if not param_row:
-            raise ValueError(
-                f"Parameter '{parameter_name}' not found in component_parameters_full"
-            )
-
-        parameter_id = param_row['id']
-        data_type = param_row.get('data_type')
-
-        # Prefer high-level write via PLC manager
-        logger.info(
-            f"Writing parameter id={parameter_id} name={parameter_name} value={target_value}"
-        )
-        success = await plc_manager.write_parameter(parameter_id, target_value)
-        if success:
-            # Confirmation read when available
-            try:
-                current_value = await plc_manager.read_parameter(parameter_id)
-            except Exception as read_err:
-                logger.debug(f"Confirmation read failed for '{parameter_name}': {read_err}")
+            # Write directly using override address
+            if hasattr(plc_manager.plc, 'write_coil') and data_type == 'binary':
+                success = await plc_manager.plc.write_coil(command_write_addr, bool(target_value))
+                logger.info(f"Wrote binary value {bool(target_value)} to coil {command_write_addr}")
+            elif hasattr(plc_manager.plc, 'write_holding_register'):
+                success = await plc_manager.plc.write_holding_register(command_write_addr, float(target_value))
+                logger.info(f"Wrote value {float(target_value)} to holding register {command_write_addr}")
+            else:
+                logger.warning(f"PLC interface doesn't support direct address writing")
+                success = False
         else:
-            # Fallback (simulation only) by address when write fails and helpers exist
-            addr = param_row.get('write_modbus_address')
-            if addr is not None and hasattr(plc_manager.plc, 'write_coil') and data_type == 'binary':
-                success = await plc_manager.plc.write_coil(addr, bool(target_value))
-            elif addr is not None and hasattr(plc_manager.plc, 'write_holding_register'):
-                success = await plc_manager.plc.write_holding_register(addr, float(target_value))
+            # No override address - use parameter lookup with component_parameter_id preference
+            param_row = None
+            component_parameter_id = command.get('component_parameter_id')
+
+            try:
+                if component_parameter_id:
+                    # Primary: Direct lookup by component_parameter_id (preferred method)
+                    logger.info(f"Using component_parameter_id {component_parameter_id} for direct parameter lookup")
+                    q_id = (
+                        supabase.table('component_parameters_full')
+                        .select('*')
+                        .eq('id', component_parameter_id)
+                        .execute()
+                    )
+                    rows = q_id.data or []
+                    if rows:
+                        param_row = rows[0]
+                        logger.info(f"Found parameter by ID: {param_row.get('name', parameter_name)}")
+                    else:
+                        logger.warning(f"component_parameter_id {component_parameter_id} not found, falling back to parameter_name lookup")
+
+                # Fallback: parameter_name lookup (for backward compatibility)
+                if not param_row:
+                    logger.info(f"Using parameter_name '{parameter_name}' for fallback lookup")
+                    q1 = (
+                        supabase.table('component_parameters_full')
+                        .select('*')
+                        .eq('parameter_name', parameter_name)
+                        .execute()
+                    )
+                    rows = q1.data or []
+                    if not rows:
+                        q2 = (
+                            supabase.table('component_parameters_full')
+                            .select('*')
+                            .eq('name', parameter_name)
+                            .execute()
+                        )
+                        rows = q2.data or []
+
+                    if rows:
+                        # Prefer writable parameter when multiple rows
+                        writable_rows = [r for r in rows if r.get('is_writable')]
+                        param_row = (writable_rows[0] if writable_rows else rows[0])
+                        if len(rows) > 1:
+                            logger.warning(f"Multiple parameters found for name '{parameter_name}', using {param_row['id']}. Consider using component_parameter_id for precise targeting.")
+
+            except Exception as lookup_err:
+                logger.error(f"Parameter lookup error for '{parameter_name}' (ID: {component_parameter_id}): {lookup_err}")
+
+            if not param_row:
+                if component_parameter_id:
+                    raise ValueError(
+                        f"Parameter with component_parameter_id '{component_parameter_id}' and name '{parameter_name}' not found"
+                    )
+                else:
+                    raise ValueError(
+                        f"Parameter '{parameter_name}' not found in component_parameters_full"
+                    )
+
+            parameter_id = param_row['id']
+            data_type = param_row.get('data_type')
+
+            # Prefer high-level write via PLC manager
+            logger.info(
+                f"Writing parameter id={parameter_id} name={parameter_name} value={target_value}"
+            )
+            success = await plc_manager.write_parameter(parameter_id, target_value)
+            if success:
+                # Confirmation read when available
+                try:
+                    current_value = await plc_manager.read_parameter(parameter_id)
+                except Exception as read_err:
+                    logger.debug(f"Confirmation read failed for '{parameter_name}': {read_err}")
+            else:
+                # Fallback by address when write fails and helpers exist
+                addr = param_row.get('write_modbus_address')
+                if addr is not None:
+                    logger.info(f"Using parameter table modbus address {addr} for {parameter_name}")
+                    if hasattr(plc_manager.plc, 'write_coil') and data_type == 'binary':
+                        success = await plc_manager.plc.write_coil(addr, bool(target_value))
+                    elif hasattr(plc_manager.plc, 'write_holding_register'):
+                        success = await plc_manager.plc.write_holding_register(addr, float(target_value))
+                else:
+                    logger.error(f"No modbus address available for parameter {parameter_name} (ID: {parameter_id})")
         
         # Update command status based on result
         if success:
@@ -565,38 +617,64 @@ async def create_test_parameter_commands():
     """
     Create some test parameter control commands for testing.
     This is a helper function for development/testing purposes.
+    Now supports both component_parameter_id (preferred) and parameter_name (fallback).
     """
     try:
         supabase = get_supabase()
-        
-        test_commands = [
-            {
-                "parameter_name": "pump_1",
-                "target_value": 1,
-                "machine_id": MACHINE_ID
-            },
-            {
-                "parameter_name": "nitrogen_generator",
-                "target_value": 1,
-                "machine_id": MACHINE_ID
-            },
-            {
-                "parameter_name": "mfc_1_flow_rate",
-                "target_value": 200.0,
-                "machine_id": MACHINE_ID
-            }
-        ]
-        
+
+        # Try to create commands with component_parameter_id when possible
+        logger.info("Creating test parameter commands with component_parameter_id when available...")
+
+        # Get some actual parameters from the database
+        params_result = supabase.table('component_parameters').select('id, name, parameter_name').limit(3).execute()
+
+        test_commands = []
+
+        if params_result.data:
+            # Create commands using component_parameter_id (preferred method)
+            for param in params_result.data:
+                test_commands.append({
+                    "parameter_name": param.get('parameter_name') or param['name'],
+                    "component_parameter_id": param['id'],  # Direct parameter ID
+                    "target_value": 1.0,
+                    "machine_id": MACHINE_ID
+                })
+            logger.info(f"Created {len(test_commands)} commands with component_parameter_id")
+        else:
+            # Fallback to parameter_name only (legacy method)
+            logger.warning("No parameters found in database, using legacy parameter_name method")
+            test_commands = [
+                {
+                    "parameter_name": "pump_1",
+                    "target_value": 1,
+                    "machine_id": MACHINE_ID
+                },
+                {
+                    "parameter_name": "nitrogen_generator",
+                    "target_value": 1,
+                    "machine_id": MACHINE_ID
+                },
+                {
+                    "parameter_name": "mfc_1_flow_rate",
+                    "target_value": 200.0,
+                    "machine_id": MACHINE_ID
+                }
+            ]
+
         result = (
             supabase.table("parameter_control_commands")
             .insert(test_commands)
             .execute()
         )
-        
+
         if result.data:
-            logger.info(f"Created {len(result.data)} test parameter commands")
+            logger.info(f"Successfully created {len(result.data)} test parameter commands")
+            for cmd in result.data:
+                param_id = cmd.get('component_parameter_id', 'N/A')
+                param_name = cmd['parameter_name']
+                logger.info(f"  Command {cmd['id']}: {param_name} (ID: {param_id})")
         else:
             logger.warning("Failed to create test parameter commands")
-            
+
     except Exception as e:
         logger.error(f"Error creating test parameter commands: {str(e)}", exc_info=True)

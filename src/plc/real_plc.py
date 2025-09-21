@@ -771,8 +771,52 @@ class RealPLC(PLCInterface):
         if state and duration_ms is not None and duration_ms > 0:
             # Create a background task to close the valve after the specified duration
             asyncio.create_task(self._auto_close_valve(valve_number, address, duration_ms))
-        
-        return True
+
+        return success
+
+    def _is_connection_error(self, error) -> bool:
+        """Check if an error is connection-related and should trigger reconnection."""
+        error_str = str(error).lower()
+
+        # Check for broken pipe error (errno 32)
+        is_broken_pipe = (
+            hasattr(error, 'errno') and error.errno == errno.EPIPE
+        ) or (
+            'broken pipe' in error_str or
+            'errno 32' in error_str or
+            'connection reset' in error_str or
+            'connection aborted' in error_str or
+            'connection refused' in error_str or
+            'connection timed out' in error_str or
+            'socket' in error_str
+        )
+
+        return is_broken_pipe
+
+    async def _ensure_plc_connection(self) -> bool:
+        """Ensure PLC connection is established, reconnect if necessary."""
+        if self.connected and self.communicator and self.communicator._is_connection_healthy():
+            return True
+
+        logger.info("Attempting to establish PLC connection...")
+
+        try:
+            # Try to connect
+            success = self.communicator.connect()
+
+            if success:
+                self.connected = True
+                logger.info("Successfully reconnected to PLC")
+                return True
+            else:
+                logger.error("Failed to reconnect to PLC")
+                self.connected = False
+                return False
+
+        except Exception as e:
+            logger.error(f"Exception during PLC reconnection: {e}")
+            self.connected = False
+            return False
     
     async def _auto_close_valve(self, valve_number: int, address: int, duration_ms: int):
         """

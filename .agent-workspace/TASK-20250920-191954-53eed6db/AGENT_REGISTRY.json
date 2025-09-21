@@ -24,10 +24,10 @@
       "tmux_session": "agent_tester-192315-97b34b",
       "parent": "orchestrator",
       "depth": 1,
-      "status": "working",
+      "status": "completed",
       "started_at": "2025-09-20T19:23:17.641119",
-      "progress": 0,
-      "last_update": "2025-09-20T19:23:38.389665",
+      "progress": 100,
+      "last_update": "2025-09-20T19:32:13.145204",
       "prompt": "You are the Runner/Tester. Execute a full flow with Simulation PLC and summarize outcomes.\n\nSteps:\n1) Ensure venv is ready: `source myenv/bin/activate`.\n2) Start service in background under tmux sessi..."
     }
   ],

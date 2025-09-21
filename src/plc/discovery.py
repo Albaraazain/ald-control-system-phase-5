@@ -16,6 +16,8 @@ from src.log_setup import logger
 import json
 import os
 import time
+import jsonschema
+from jsonschema import validate
 
 class PLCDiscovery:
     """PLC Discovery service for finding PLCs on the network."""
@@ -34,30 +36,88 @@ class PLCDiscovery:
         self._load_cache()
     
     def _load_cache(self):
-        """Load cached PLC discoveries."""
+        """Load cached PLC discoveries with security validation."""
         try:
             if os.path.exists(self.cache_file):
+                # Set secure file permissions
+                os.chmod(self.cache_file, 0o600)
+
                 with open(self.cache_file, 'r') as f:
-                    self._cache = json.load(f)
-                logger.debug(f"Loaded PLC discovery cache from {self.cache_file}")
-        except Exception as e:
+                    cache_data = json.load(f)
+
+                # Validate cache data structure for security
+                if self._validate_cache_structure(cache_data):
+                    self._cache = cache_data
+                    logger.debug(f"Loaded PLC discovery cache from {self.cache_file}")
+                else:
+                    logger.warning(f"Invalid cache structure in {self.cache_file}, resetting cache")
+                    self._cache = {}
+        except (json.JSONDecodeError, OSError, PermissionError) as e:
             logger.warning(f"Could not load PLC cache: {e}")
+            self._cache = {}
+        except Exception as e:
+            logger.error(f"Unexpected error loading PLC cache: {e}")
             self._cache = {}
     
     def _save_cache(self):
-        """Save PLC discoveries to cache."""
+        """Save PLC discoveries to cache with secure permissions."""
         try:
+            # Validate cache data before saving
+            if not self._validate_cache_structure(self._cache):
+                logger.error("Invalid cache structure, not saving")
+                return
+
             with open(self.cache_file, 'w') as f:
                 json.dump(self._cache, f, indent=2)
+
+            # Set secure file permissions
+            os.chmod(self.cache_file, 0o600)
             logger.debug(f"Saved PLC discovery cache to {self.cache_file}")
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             logger.warning(f"Could not save PLC cache: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error saving PLC cache: {e}")
     
+    def _validate_cache_structure(self, cache_data: Dict) -> bool:
+        """Validate cache data structure for security."""
+        try:
+            # Define schema for cache validation
+            schema = {
+                "type": "object",
+                "patternProperties": {
+                    "^(hostname|network):[^:]+:[0-9]+$": {
+                        "type": "object",
+                        "properties": {
+                            "ip": {"type": "string", "pattern": "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"},
+                            "timestamp": {"type": "number", "minimum": 0},
+                            "method": {"type": "string", "enum": ["hostname", "network_scan"]},
+                            "devices": {"type": "array", "items": {"type": "string"}}
+                        },
+                        "required": ["timestamp", "method"],
+                        "additionalProperties": False
+                    }
+                },
+                "additionalProperties": False
+            }
+
+            validate(instance=cache_data, schema=schema)
+            return True
+        except jsonschema.ValidationError as e:
+            logger.warning(f"Cache validation failed: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Cache validation error: {e}")
+            return False
+
     def _is_cache_valid(self, cache_entry: Dict) -> bool:
         """Check if cache entry is still valid."""
-        if 'timestamp' not in cache_entry:
+        if not isinstance(cache_entry, dict) or 'timestamp' not in cache_entry:
             return False
-        return (time.time() - cache_entry['timestamp']) < self.cache_ttl
+        try:
+            timestamp = float(cache_entry['timestamp'])
+            return (time.time() - timestamp) < self.cache_ttl
+        except (ValueError, TypeError):
+            return False
     
     async def resolve_hostname(self, hostname: str, port: int = 502) -> Optional[str]:
         """

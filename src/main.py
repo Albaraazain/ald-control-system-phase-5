@@ -16,6 +16,7 @@ from src.recipe_flow.stopper import update_process_status, update_machine_status
 from src.command_flow.state import state
 from src.plc.manager import plc_manager
 from src.recipe_flow.continuous_data_recorder import continuous_recorder
+from src.data_collection.service import data_collection_service
 from src.connection_monitor import connection_monitor
 from src.agents.supervisor import (
     AgentSupervisor,
@@ -57,9 +58,12 @@ async def cleanup_handler():
                 
                 logger.info(f"Cleanup completed for process {process_id}")
         
+        # Stop data collection service
+        await data_collection_service.stop()
+
         # Disconnect PLC
         await plc_manager.disconnect()
-        
+
     except Exception as e:
         logger.exception("Error during cleanup")
     finally:
@@ -118,7 +122,11 @@ async def main():
         ]
         supervisor = AgentSupervisor(agent_list)
         await supervisor.start()
-        
+
+        # Start data collection service
+        logger.info("Starting data collection service...")
+        await data_collection_service.start()
+
         logger.info("Machine control application running")
         logger.info("="*60)
         logger.info("System Status:")
@@ -131,6 +139,11 @@ async def main():
             f"{OK_MARK} Active" if connection_monitor.realtime_status['connected'] else f"{WARN_MARK} Using Polling"
         )
         logger.info(f"  - Machine ID: {MACHINE_ID}")
+        dc_status = data_collection_service.get_status()
+        logger.info(
+            f"  - Parameter Logger: "
+            f"{OK_MARK} Running" if dc_status['service_running'] else f"{FAIL_MARK} Stopped"
+        )
         logger.info("="*60)
         logger.info("Service is ready to receive commands")
         

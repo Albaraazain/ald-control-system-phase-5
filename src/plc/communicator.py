@@ -7,6 +7,7 @@ from pymodbus.client import ModbusTcpClient
 import struct
 import time
 import asyncio
+import errno
 from src.log_setup import logger
 from src.config import PLC_BYTE_ORDER
 
@@ -42,6 +43,9 @@ class PLCCommunicator:
         self.connection_timeout = connection_timeout
         self.retries = retries
         self._current_ip = None  # Track the currently connected IP
+        self._operation_retries = 3  # Retries for individual operations
+        self._operation_retry_delay = 0.5  # Delay between operation retries (seconds)
+        self._last_connection_check = 0  # Track last connection health check
         
         self.log("INFO", f"Using byte order: {self.byte_order}")
         if hostname:
@@ -193,23 +197,149 @@ class PLCCommunicator:
             self.log("INFO", "Disconnected from PLC")
             return True
         return True
+
+    def _is_connection_healthy(self):
+        """Check if the current connection is healthy."""
+        if not self.client:
+            return False
+
+        # Check if socket is open
+        if not self.client.is_socket_open():
+            return False
+
+        # Throttle connection health checks to avoid overhead
+        current_time = time.time()
+        if current_time - self._last_connection_check < 1.0:  # Check at most once per second
+            return True
+
+        self._last_connection_check = current_time
+
+        # Try a quick read operation to verify connection
+        try:
+            # Read a single coil as a lightweight health check
+            result = self.client.read_coils(0, count=1, slave=self.slave_id)
+            # Even if the read fails due to invalid address, if we get a proper Modbus response,
+            # the connection is healthy
+            return not result.isError() or 'connection' not in str(result).lower()
+        except Exception as e:
+            self.log("DEBUG", f"Connection health check failed: {e}")
+            return False
+
+    def _ensure_connection(self):
+        """Ensure we have a healthy connection, reconnect if necessary."""
+        if self._is_connection_healthy():
+            return True
+
+        self.log("WARNING", "Connection unhealthy, attempting to reconnect...")
+
+        # Disconnect current client if exists
+        if self.client:
+            try:
+                self.client.close()
+            except:
+                pass
+            self.client = None
+
+        # Attempt to reconnect
+        return self.connect()
+
+    def _handle_modbus_error(self, operation_name, error, attempt, max_attempts):
+        """Handle Modbus operation errors with specific handling for broken pipe."""
+        error_str = str(error).lower()
+
+        # Check for broken pipe error (errno 32)
+        is_broken_pipe = (
+            hasattr(error, 'errno') and error.errno == errno.EPIPE
+        ) or (
+            'broken pipe' in error_str or
+            'errno 32' in error_str or
+            'connection reset' in error_str or
+            'connection aborted' in error_str
+        )
+
+        if is_broken_pipe:
+            self.log("WARNING", f"{operation_name} failed with broken pipe error (attempt {attempt}/{max_attempts}): {error}")
+            # Force reconnection on broken pipe
+            if self.client:
+                try:
+                    self.client.close()
+                except:
+                    pass
+                self.client = None
+            return True  # Should retry
+        else:
+            self.log("ERROR", f"{operation_name} failed with error (attempt {attempt}/{max_attempts}): {error}")
+            return attempt < max_attempts  # Retry for other errors too
+
+    def _execute_with_retry(self, operation_func, operation_name, *args, **kwargs):
+        """Execute a Modbus operation with retry logic and connection recovery."""
+        last_error = None
+
+        for attempt in range(1, self._operation_retries + 1):
+            try:
+                # Ensure we have a healthy connection before each attempt
+                if not self._ensure_connection():
+                    self.log("ERROR", f"Cannot establish connection for {operation_name} (attempt {attempt})")
+                    if attempt < self._operation_retries:
+                        time.sleep(self._operation_retry_delay * attempt)  # Exponential backoff
+                        continue
+                    else:
+                        raise RuntimeError("Failed to establish PLC connection after retries")
+
+                # Execute the operation
+                result = operation_func(*args, **kwargs)
+
+                # For successful operations, return immediately
+                if result is not None and (not hasattr(result, 'isError') or not result.isError()):
+                    if attempt > 1:
+                        self.log("INFO", f"{operation_name} succeeded on attempt {attempt}")
+                    return result
+                else:
+                    # Handle failed Modbus result
+                    error_msg = str(result) if hasattr(result, 'isError') else "Operation returned None"
+                    self.log("WARNING", f"{operation_name} returned error: {error_msg} (attempt {attempt}/{self._operation_retries})")
+
+                    if attempt < self._operation_retries:
+                        time.sleep(self._operation_retry_delay * attempt)
+                        continue
+                    else:
+                        return result  # Return the failed result on final attempt
+
+            except Exception as e:
+                last_error = e
+                should_retry = self._handle_modbus_error(operation_name, e, attempt, self._operation_retries)
+
+                if not should_retry or attempt >= self._operation_retries:
+                    # Final attempt failed
+                    self.log("ERROR", f"{operation_name} failed permanently after {attempt} attempts: {e}")
+                    raise e
+
+                # Wait before retry with exponential backoff
+                delay = self._operation_retry_delay * (2 ** (attempt - 1))  # Exponential backoff
+                time.sleep(delay)
+
+        # This should not be reached, but just in case
+        if last_error:
+            raise last_error
+        else:
+            raise RuntimeError(f"{operation_name} failed after all retries")
     
     def read_float(self, address):
         """
         Read a 32-bit float from the PLC using 'badc' format.
-        
+
         Args:
             address: Starting register address
-            
+
         Returns:
             Float value or None if read failed
         """
-        if not self.client or not self.client.is_socket_open():
-            self.log("ERROR", "Not connected to PLC")
-            return None
-            
         self.log("DEBUG", f"Reading float from address {address}")
-        result = self.client.read_holding_registers(address, count=2, slave=self.slave_id)
+
+        def _read_operation():
+            return self.client.read_holding_registers(address, count=2, slave=self.slave_id)
+
+        result = self._execute_with_retry(_read_operation, f"read_float(address={address})")
         
         if result.isError():
             self.log("ERROR", f"Failed to read float: {result}")
@@ -235,24 +365,24 @@ class PLCCommunicator:
             self.log("WARNING", f"Unknown byte order '{self.byte_order}', using 'badc'")
             raw_data = struct.pack('>HH', result.registers[1], result.registers[0])
             float_value = struct.unpack('>f', raw_data)[0]
+        if result is None or result.isError():
+            self.log("ERROR", f"Failed to read float: {result}")
+            return None
+
         self.log("INFO", f"Float value: {float_value}")
         return float_value
     
     def write_float(self, address, value):
         """
         Write a 32-bit float to the PLC using 'badc' format.
-        
+
         Args:
             address: Starting register address
             value: Float value to write
-            
+
         Returns:
             True if successful, False otherwise
         """
-        if not self.client or not self.client.is_socket_open():
-            self.log("ERROR", "Not connected to PLC")
-            return False
-            
         self.log("DEBUG", f"Writing float {value} to address {address}")
         
         # Convert float to configured format
@@ -280,7 +410,11 @@ class PLCCommunicator:
             registers = [low_word, high_word]
         
         self.log("DEBUG", f"Registers in '{self.byte_order}' order: {registers}")
-        result = self.client.write_registers(address, registers, slave=self.slave_id)
+
+        def _write_operation():
+            return self.client.write_registers(address, registers, slave=self.slave_id)
+
+        result = self._execute_with_retry(_write_operation, f"write_float(address={address}, value={value})")
         
         if result.isError():
             self.log("ERROR", f"Failed to write float: {result}")
@@ -292,19 +426,19 @@ class PLCCommunicator:
     def read_integer_32bit(self, address):
         """
         Read a 32-bit integer from the PLC using 'badc' format.
-        
+
         Args:
             address: Starting register address
-            
+
         Returns:
             Integer value or None if read failed
         """
-        if not self.client or not self.client.is_socket_open():
-            self.log("ERROR", "Not connected to PLC")
-            return None
-            
         self.log("DEBUG", f"Reading 32-bit integer from address {address}")
-        result = self.client.read_holding_registers(address, count=2, slave=self.slave_id)
+
+        def _read_operation():
+            return self.client.read_holding_registers(address, count=2, slave=self.slave_id)
+
+        result = self._execute_with_retry(_read_operation, f"read_integer_32bit(address={address})")
         
         if result.isError():
             self.log("ERROR", f"Failed to read integer: {result}")
@@ -331,24 +465,24 @@ class PLCCommunicator:
             self.log("WARNING", f"Unknown byte order '{self.byte_order}', using 'badc'")
             raw_data = struct.pack('>HH', raw[1], raw[0])
             value = struct.unpack('>i', raw_data)[0]
+        if result is None or result.isError():
+            self.log("ERROR", f"Failed to read integer: {result}")
+            return None
+
         self.log("INFO", f"32-bit Integer value: {value}")
         return value
     
     def write_integer_32bit(self, address, value):
         """
         Write a 32-bit integer to the PLC using 'badc' format.
-        
+
         Args:
             address: Starting register address
             value: Integer value to write
-            
+
         Returns:
             True if successful, False otherwise
         """
-        if not self.client or not self.client.is_socket_open():
-            self.log("ERROR", "Not connected to PLC")
-            return False
-            
         self.log("DEBUG", f"Writing 32-bit integer {value} to address {address}")
         
         # Convert to 32-bit integer using configured byte order
@@ -376,7 +510,11 @@ class PLCCommunicator:
             registers = [low_word, high_word]
         
         self.log("DEBUG", f"Registers ({self.byte_order}): {registers} (hex: [0x{registers[0]:04x}, 0x{registers[1]:04x}])")
-        result = self.client.write_registers(address, registers, slave=self.slave_id)
+
+        def _write_operation():
+            return self.client.write_registers(address, registers, slave=self.slave_id)
+
+        result = self._execute_with_retry(_write_operation, f"write_integer_32bit(address={address}, value={value})")
         
         if result.isError():
             self.log("ERROR", f"Failed to write integer: {result}")
@@ -388,51 +526,55 @@ class PLCCommunicator:
     def read_coils(self, address, count=1):
         """
         Read binary values (coils) from the PLC.
-        
+
         Args:
             address: Starting coil address
             count: Number of coils to read
-            
+
         Returns:
             List of boolean values or None if read failed
         """
-        if not self.client or not self.client.is_socket_open():
-            self.log("ERROR", "Not connected to PLC")
-            return None
-            
         self.log("DEBUG", f"Reading {count} coils from address {address}")
-        result = self.client.read_coils(address, count=count, slave=self.slave_id)
+
+        def _read_operation():
+            return self.client.read_coils(address, count=count, slave=self.slave_id)
+
+        result = self._execute_with_retry(_read_operation, f"read_coils(address={address}, count={count})")
         
         if result.isError():
             self.log("ERROR", f"Failed to read coils: {result}")
             return None
             
         self.log("DEBUG", f"Raw coil values: {result.bits}")
+        if result is None or result.isError():
+            self.log("ERROR", f"Failed to read coils: {result}")
+            return None
+
+        self.log("DEBUG", f"Raw coil values: {result.bits}")
         for i, bit in enumerate(result.bits[:count]):
             state = "ON" if bit else "OFF"
             self.log("INFO", f"Coil {address + i}: {state}")
-            
+
         return result.bits[:count]
     
     def write_coil(self, address, value):
         """
         Write a binary value (coil) to the PLC.
-        
+
         Args:
             address: Coil address
             value: Boolean value (True for ON, False for OFF)
-            
+
         Returns:
             True if successful, False otherwise
         """
-        if not self.client or not self.client.is_socket_open():
-            self.log("ERROR", "Not connected to PLC")
-            return False
-            
         state = "ON" if value else "OFF"
         self.log("DEBUG", f"Writing {state} to coil {address}")
-        
-        result = self.client.write_coil(address, value, slave=self.slave_id)
+
+        def _write_operation():
+            return self.client.write_coil(address, value, slave=self.slave_id)
+
+        result = self._execute_with_retry(_write_operation, f"write_coil(address={address}, value={value})")
         
         if result.isError():
             self.log("ERROR", f"Failed to write coil: {result}")

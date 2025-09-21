@@ -7,3 +7,28 @@ CLAUDE.md
 .venv/
 venv/
 .venv/
+
+# Security - Environment files and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.p7b
+*.p7c
+*.der
+
+# Security - Cache and temporary files
+.plc_cache.json
+*.cache
+*.tmp
+*.log
+
+# Security - Database files
+*.db
+*.sqlite
+*.sqlite3

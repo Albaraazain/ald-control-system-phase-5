@@ -32,15 +32,24 @@ This is an Atomic Layer Deposition (ALD) control system that manages hardware op
 
 4. **PLC Communication** (`plc/`)
    - Abstract interface for PLC operations
-   - Real PLC implementation using Modbus TCP/IP
+   - Real PLC implementation using Modbus TCP/IP with robust error handling
    - Simulation mode for testing without hardware
    - Manager pattern for centralized PLC access
+   - Automatic reconnection and retry logic for broken pipe errors
+
+5. **Data Collection** (`data_collection/`)
+   - Continuous parameter logging service with dual-mode operation
+   - Reads all parameters with read_modbus_address every second
+   - Idle mode: logs to parameter_value_history table
+   - Process mode: logs to both parameter_value_history AND process_data_points tables
 
 ### Data Flow
 
 1. **Command Processing**: Supabase → Command Listener → Command Processor → Recipe/Step Execution
 2. **Hardware Control**: Recipe Steps → PLC Manager → PLC Interface → Modbus Communication → Physical Hardware
-3. **Data Recording**: PLC Values → Continuous Recorder → Supabase Process Data Points
+3. **Data Recording**:
+   - Process Mode: PLC Values → Continuous Recorder → Process Data Points + Parameter Value History
+   - Idle Mode: PLC Values → Continuous Parameter Logger → Parameter Value History
 
 ### Key Design Patterns
 
@@ -48,6 +57,8 @@ This is an Atomic Layer Deposition (ALD) control system that manages hardware op
 - **Manager Pattern**: Centralized PLC access through plc_manager singleton
 - **Async/Await**: All I/O operations use asyncio for non-blocking execution
 - **State Management**: Global state tracking for current command and process
+- **Service Pattern**: Long-running asyncio services for continuous operations
+- **Dual-Mode Logging**: Automatic switching between idle and process data logging modes
 
 ## Code Style Guidelines
 

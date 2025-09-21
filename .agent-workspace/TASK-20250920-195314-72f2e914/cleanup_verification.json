@@ -1,0 +1,16 @@
+{
+  "machine_id": "e3e6e280-0794-459f-84d5-5e468f60746e",
+  "counts": {
+    "prefix": 0,
+    "exact": 0,
+    "valve_state_non_valve": 0,
+    "total_candidate_parameters": 0,
+    "datapoints_referencing_candidates": 0
+  },
+  "samples": {
+    "parameters_prefix": [],
+    "parameters_exact": [],
+    "parameters_valve_state_non_valve": [],
+    "datapoints": []
+  }
+}
