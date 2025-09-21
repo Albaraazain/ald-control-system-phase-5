@@ -1,0 +1,89 @@
+{
+  "credential_security": {
+    "env_files_found": 2,
+    "env_files_gitignored": 2,
+    "credential_violations": [
+      {
+        "type": "supabase_url",
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/performance/async_database_pool.py",
+        "match": "https://project.supabase.co"
+      },
+      {
+        "type": "password",
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/performance/async_database_pool.py",
+        "match": "password = SUPABASE_KEY"
+      }
+    ],
+    "status": "FAIL"
+  },
+  "database_security": {
+    "security_test_files": 1,
+    "security_patterns": [
+      "parameterized_queries",
+      "input_validation"
+    ],
+    "data_collection_files": 14,
+    "status": "PASS"
+  },
+  "plc_security": {
+    "security_test_files": 1,
+    "security_measures": [
+      "retry_logic",
+      "error_handling",
+      "connection_timeout",
+      "input_validation"
+    ],
+    "plc_files": 8,
+    "status": "PASS"
+  },
+  "file_permissions": {
+    "file_permissions": {
+      ".security_config.json": {
+        "permissions": "644",
+        "secure": true
+      },
+      "src/security/credential_manager.py": {
+        "permissions": "644",
+        "secure": true
+      },
+      "src/config.py": {
+        "permissions": "644",
+        "secure": true
+      }
+    },
+    "secure_files": 3,
+    "total_files": 3,
+    "status": "PASS"
+  },
+  "configuration_security": {
+    "config_files": {
+      ".security_config.json": {
+        "exists": true,
+        "size": 3494,
+        "permissions": "644"
+      },
+      "src/security/security_config.py": {
+        "exists": true,
+        "size": 6630,
+        "permissions": "644"
+      },
+      "src/security/credential_manager.py": {
+        "exists": true,
+        "size": 11622,
+        "permissions": "644"
+      }
+    },
+    "security_features": [
+      "credential_scanning",
+      "database_security",
+      "plc_security"
+    ],
+    "status": "PASS"
+  },
+  "overall": {
+    "security_score": 80.0,
+    "status": "GOOD",
+    "total_checks": 4,
+    "passed_checks": 4
+  }
+}

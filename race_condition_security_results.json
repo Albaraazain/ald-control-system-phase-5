@@ -1,0 +1,121 @@
+{
+  "transactional_integration": {
+    "transactional_files_exist": false,
+    "legacy_system_status": "UNKNOWN",
+    "integration_status": "UNKNOWN",
+    "existing_transactional_files": [
+      "src/data_collection/transactional/transaction_manager.py"
+    ]
+  },
+  "state_management": {
+    "singleton_patterns_found": [
+      "src/plc/manager.py"
+    ],
+    "state_files_analyzed": 1,
+    "potential_race_conditions": [],
+    "security_patterns": [
+      "async_safety"
+    ]
+  },
+  "dual_mode_logging": {
+    "dual_mode_files_found": [
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/continuous_parameter_logger.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/dual_mode_repository.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional_adapter.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/transactional_logger.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/transaction_manager.py",
+      "/Users/albaraa/ald-control-system-phase-5/venv_performance/lib/python3.13/site-packages/pymodbus/transaction.py",
+      "/Users/albaraa/ald-control-system-phase-5/myenv/lib/python3.13/site-packages/pymodbus/transaction.py",
+      "/Users/albaraa/ald-control-system-phase-5/myenv/lib/python3.9/site-packages/pymodbus/transaction.py",
+      "/Users/albaraa/ald-control-system-phase-5/.venv/lib/python3.9/site-packages/pymodbus/transaction.py"
+    ],
+    "atomic_patterns_found": [
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/dual_mode_repository.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional_adapter.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/transactional_logger.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/transaction_manager.py"
+    ],
+    "transaction_patterns_found": [
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/dual_mode_repository.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional_adapter.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/transactional_logger.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/transaction_manager.py",
+      "/Users/albaraa/ald-control-system-phase-5/venv_performance/lib/python3.13/site-packages/pymodbus/transaction.py",
+      "/Users/albaraa/ald-control-system-phase-5/myenv/lib/python3.13/site-packages/pymodbus/transaction.py",
+      "/Users/albaraa/ald-control-system-phase-5/myenv/lib/python3.9/site-packages/pymodbus/transaction.py",
+      "/Users/albaraa/ald-control-system-phase-5/.venv/lib/python3.9/site-packages/pymodbus/transaction.py"
+    ],
+    "security_status": "SECURE"
+  },
+  "concurrent_access": {
+    "async_files_analyzed": 86,
+    "thread_safety_patterns": [
+      "/Users/albaraa/ald-control-system-phase-5/src/di/container.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/database_optimization.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/abstractions/resilience.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/performance/load_balancer.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/state_repository.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/transaction_manager.py",
+      "/Users/albaraa/ald-control-system-phase-5/src/data_collection/transactional/failure_recovery.py",
+      "/Users/albaraa/ald-control-system-phase-5/.agent-workspace/TASK-20250921-103837-64a9aeea/infrastructure_layer.py"
+    ],
+    "unsafe_patterns_found": [
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/db.py",
+        "pattern": "unprotected_global_state_in_async"
+      },
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/parameter_control_listener.py",
+        "pattern": "unprotected_global_state_in_async"
+      },
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/di/deployment.py",
+        "pattern": "unprotected_global_state_in_async"
+      },
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/di/database_migration.py",
+        "pattern": "unprotected_global_state_in_async"
+      },
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/di/integration_adapter.py",
+        "pattern": "unprotected_global_state_in_async"
+      },
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/di/service_locator.py",
+        "pattern": "unprotected_global_state_in_async"
+      },
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/di/migration.py",
+        "pattern": "unprotected_global_state_in_async"
+      },
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/command_flow/processor.py",
+        "pattern": "unprotected_global_state_in_async"
+      },
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/command_flow/listener.py",
+        "pattern": "unprotected_global_state_in_async"
+      },
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/performance/integration_adapter.py",
+        "pattern": "unprotected_global_state_in_async"
+      },
+      {
+        "file": "/Users/albaraa/ald-control-system-phase-5/src/performance/async_database_pool.py",
+        "pattern": "unprotected_global_state_in_async"
+      }
+    ],
+    "security_measures": [
+      "transactions",
+      "atomic_operations",
+      "semaphore_control"
+    ]
+  },
+  "overall": {
+    "security_score": 62.5,
+    "status": "ACCEPTABLE",
+    "tests_completed": 3,
+    "critical_issues": 11,
+    "secure_tests": 1
+  }
+}
