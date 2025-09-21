@@ -1,2 +1,0 @@
-{"timestamp": "2025-09-20T19:20:17.830021", "agent_id": "investigator-192007-d616ca", "status": "working", "message": "Starting repo scan to locate config, PLC selection, and DB table usage.", "progress": 0}
-{"timestamp": "2025-09-20T19:23:52.716390", "agent_id": "investigator-192007-d616ca", "status": "working", "message": "Mapped config + PLC selection; collecting DB tables/fields and crafting test plan.", "progress": 50}

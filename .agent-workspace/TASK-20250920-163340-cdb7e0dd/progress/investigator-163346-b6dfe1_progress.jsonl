@@ -1,3 +1,0 @@
-{"timestamp": "2025-09-20T16:34:37.783598", "agent_id": "investigator-163346-b6dfe1", "status": "working", "message": "Starting macOS link-local interface/route checks before connectivity probes.", "progress": 0}
-{"timestamp": "2025-09-20T16:36:13.198489", "agent_id": "investigator-163346-b6dfe1", "status": "working", "message": "Link-local reachability validated; port probes complete; drafting concise root-cause summary.", "progress": 70}
-{"timestamp": "2025-09-20T16:36:22.456362", "agent_id": "investigator-163346-b6dfe1", "status": "completed", "message": "Diagnostics finished. PLC reachable on en0; Modbus/TCP only. CIP discovery failure is expected; provide targeted Modbus handling and optional interface-scoped broadcast guidance.", "progress": 100}

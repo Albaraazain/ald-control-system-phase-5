@@ -121,34 +121,32 @@ async def poll_for_parameter_commands():
     Periodically poll for new pending parameter control commands.
     This serves as a fallback when realtime isn't working and as a safety net.
     """
-    global realtime_connected
-    
-    # Adjust polling based on realtime status
-    base_interval = 10 if realtime_connected else 3  # More aggressive if realtime is down
-    poll_interval = base_interval
-    max_poll_interval = 60 if realtime_connected else 30
-    
-    logger.info(f"Starting parameter command polling (interval: {base_interval}s, realtime: {realtime_connected})")
-    
+    # Use connection_monitor for realtime status instead of global variable
+    realtime_connected = connection_monitor.realtime_status["connected"]
+    poll_interval = 1 if not realtime_connected else 10  # Simplified logic
+
+    logger.info(f"Starting parameter command polling (interval: {poll_interval}s, realtime: {realtime_connected})")
+
     while True:
         try:
-            # Only poll if realtime is disconnected or as periodic safety check
+            # Check current realtime status from connection_monitor
+            realtime_connected = connection_monitor.realtime_status["connected"]
+
+            # Poll if realtime is disconnected or as periodic safety check (every minute)
             should_poll = not realtime_connected or (asyncio.get_event_loop().time() % 60 < 1)
-            
+
             if should_poll:
                 await check_pending_parameter_commands()
-            
+
             # Clean up old processed commands periodically (keep last 100)
             if len(processed_commands) > 100:
-                # Convert to list, sort by time (assuming UUIDs have time component), keep last 50
                 processed_list = list(processed_commands)
                 processed_commands.clear()
                 processed_commands.update(processed_list[-50:])
                 logger.debug(f"Cleaned up processed commands cache, kept {len(processed_commands)} entries")
-            
+
             # Clean up old failed commands
             if len(failed_commands) > 50:
-                # Remove entries for commands that have exceeded retry limit
                 cleaned_count = 0
                 failed_commands_copy = failed_commands.copy()
                 for cmd_id, retry_count in failed_commands_copy.items():
@@ -157,60 +155,18 @@ async def poll_for_parameter_commands():
                         cleaned_count += 1
                 if cleaned_count > 0:
                     logger.debug(f"Cleaned up {cleaned_count} failed commands from cache")
-            
-            # Adjust poll interval based on realtime status
-            if realtime_connected:
-                poll_interval = base_interval * 2  # Less frequent when realtime is working
-            else:
-                poll_interval = base_interval  # Normal frequency when realtime is down
-            
+
+            # Simplified interval: fast when realtime down, slower when working
+            poll_interval = 1 if not realtime_connected else 10
             await asyncio.sleep(poll_interval)
-            
+
         except Exception as e:
             logger.error(f"Error in parameter command polling: {str(e)}", exc_info=True)
-            # Exponential backoff on errors
-            poll_interval = min(poll_interval * 2, max_poll_interval)
             await asyncio.sleep(poll_interval)
 
 
-# Track channel subscription status
-realtime_connected = False
+# Track channel reference for cleanup (no longer tracking connection status here)
 realtime_channel = None
-
-
-async def monitor_realtime_connection():
-    """
-    Monitor the realtime channel connection and reconnect if needed.
-    """
-    global realtime_connected, realtime_channel
-    
-    while True:
-        try:
-            if not realtime_connected and realtime_channel:
-                logger.warning("Realtime channel disconnected, attempting to reconnect...")
-                try:
-                    await asyncio.wait_for(realtime_channel.subscribe(), timeout=10.0)
-                    realtime_connected = True
-                    logger.info("Successfully reconnected to realtime channel")
-                    connection_monitor.update_realtime_status(True)
-                except asyncio.TimeoutError:
-                    logger.warning("Realtime reconnection attempt timed out after 10 seconds")
-                    realtime_connected = False
-                    connection_monitor.update_realtime_status(False, "realtime subscribe timeout")
-                except Exception as e:
-                    logger.error(f"Failed to reconnect realtime channel: {str(e)}")
-                    realtime_connected = False
-                    connection_monitor.update_realtime_status(False, str(e))
-            elif realtime_connected:
-                # Update monitor that realtime is working
-                connection_monitor.update_realtime_status(True)
-            
-            await asyncio.sleep(20)  # Check every 20 seconds - FIXED: Keep under 25s for Supabase realtime heartbeat
-            
-        except Exception as e:
-            logger.error(f"Error in realtime connection monitor: {str(e)}", exc_info=True)
-            connection_monitor.update_realtime_status(False, str(e))
-            await asyncio.sleep(60)
 
 
 async def setup_parameter_control_listener(async_supabase, realtime_service=None):
@@ -221,97 +177,76 @@ async def setup_parameter_control_listener(async_supabase, realtime_service=None
     Args:
         async_supabase: An async Supabase client
     """
-    global realtime_connected, realtime_channel
-    
+    global realtime_channel
+
     logger.info("Setting up parameter control listener with realtime support...")
 
     try:
         # Create channel name for parameter control commands
         channel_name = f"parameter-control-commands-{MACHINE_ID}"
-        
-        # Define callbacks for different events
+
+        # Define callback for INSERT events only (removed unused UPDATE subscription)
         def on_insert(payload):
             logger.info("🔔 PARAMETER COMMAND RECEIVED [REALTIME] - Processing new parameter control command")
             logger.debug(f"Payload: {payload}")
             asyncio.create_task(handle_parameter_command_insert(payload))
-        
-        def on_update(payload):
-            # Log updates but don't process them (they're handled by polling)
-            logger.debug(f"Received realtime UPDATE event for parameter control: {payload}")
-        
+
         def on_error(payload):
-            global realtime_connected
             logger.error(f"Realtime channel error: {payload}")
-            realtime_connected = False
-        
+            connection_monitor.update_realtime_status(False, f"Channel error: {payload}")
+
         if realtime_service is not None:
-            # Use centralized realtime service
+            # Use centralized realtime service (only INSERT, no UPDATE)
             logger.info("Registering parameter_control_commands subscription via RealtimeService...")
             await realtime_service.subscribe_postgres(
                 name=channel_name,
                 table="parameter_control_commands",
                 on_insert=on_insert,
-                on_update=on_update,
             )
-            realtime_connected = realtime_service.is_connected()
+            # Update connection_monitor based on realtime service status
+            connection_monitor.update_realtime_status(realtime_service.is_connected())
         else:
-            # Fallback to direct subscription using async_supabase
+            # Fallback to direct subscription using async_supabase (only INSERT)
             realtime_channel = async_supabase.channel(channel_name)
-            logger.info("Setting up realtime subscriptions for parameter_control_commands table...")
+            logger.info("Setting up realtime subscription for parameter_control_commands INSERT events only...")
             realtime_channel = realtime_channel.on_postgres_changes(
-                event="INSERT", 
-                schema="public", 
+                event="INSERT",
+                schema="public",
                 table="parameter_control_commands",
                 callback=on_insert
             )
-            realtime_channel = realtime_channel.on_postgres_changes(
-                event="UPDATE",
-                schema="public",
-                table="parameter_control_commands",
-                callback=on_update
-            )
-            
+
             # Subscribe to the channel in background with watchdog timeout to prevent setup hang
             logger.info("Subscribing to realtime channel...")
             async def _subscribe_with_timeout():
-                global realtime_connected
                 try:
                     await asyncio.wait_for(realtime_channel.subscribe(), timeout=10.0)
-                    realtime_connected = True
                     connection_monitor.update_realtime_status(True)
                     logger.info(f"Successfully subscribed to realtime channel: {channel_name}")
                 except asyncio.TimeoutError:
                     logger.warning("Realtime subscription timed out after 10 seconds; continuing with polling")
-                    realtime_connected = False
                     connection_monitor.update_realtime_status(False, "realtime subscribe timeout")
                 except Exception as sub_err:
                     logger.error(f"Realtime subscribe error: {sub_err}", exc_info=True)
-                    realtime_connected = False
                     connection_monitor.update_realtime_status(False, str(sub_err))
 
             asyncio.create_task(_subscribe_with_timeout())
-        
+
     except Exception as e:
         logger.error(f"Failed to set up realtime channel: {str(e)}", exc_info=True)
         logger.warning("Realtime subscription failed, will rely on polling mechanism")
-        realtime_connected = False
         connection_monitor.update_realtime_status(False, str(e))
-    
-    # Start realtime connection monitor
-    if realtime_channel:
-        logger.info("Starting realtime connection monitor")
-        asyncio.create_task(monitor_realtime_connection())
-    
+
     # Check for existing pending commands
     logger.info("Checking for existing pending parameter control commands...")
     await check_pending_parameter_commands()
-    
+
     # Start polling for commands as a fallback (will be more aggressive if realtime fails)
     poll_task = asyncio.create_task(poll_for_parameter_commands())
     logger.info("Started parameter control command polling as fallback mechanism")
-    
-    # Log the final status
-    if realtime_connected:
+
+    # Log the final status using connection_monitor as single source of truth
+    if connection_monitor.realtime_status["connected"]:
         logger.info("✅ Parameter control listener ready with REALTIME + polling fallback")
     else:
         logger.warning("⚠️ Parameter control listener ready with POLLING ONLY (realtime failed)")
@@ -325,10 +260,11 @@ async def handle_parameter_command_insert(payload):
         payload: The event payload from Supabase
     """
     try:
-        # Determine if this is from realtime or polling
+        # Determine if this is from realtime or polling using connection_monitor
+        realtime_connected = connection_monitor.realtime_status["connected"]
         source = "realtime" if realtime_connected else "polling"
         logger.info(f"🔔 PARAMETER COMMAND RECEIVED [{source.upper()}] - Processing parameter control command")
-        
+
         # Update realtime status if this came from realtime
         if realtime_connected:
             connection_monitor.update_realtime_status(True)

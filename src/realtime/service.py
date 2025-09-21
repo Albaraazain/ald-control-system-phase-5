@@ -20,6 +20,7 @@ class RealtimeService:
         self._subscribe_timeout = subscribe_timeout_seconds
         self._lock = asyncio.Lock()
         self._connected = False
+        self._monitor_task: Optional[asyncio.Task] = None
 
     async def _ensure_client(self):
         if self._client is None:
@@ -96,5 +97,105 @@ class RealtimeService:
 
             for name, channel in self._channels.items():
                 asyncio.create_task(_reconnect(name, channel))
+
+    async def _monitor_loop(self):
+        """Periodically check and attempt reconnection when disconnected."""
+        try:
+            while True:
+                if not self._connected and self._channels:
+                    logger.info("RealtimeService: monitoring detected disconnected state, attempting reconnects...")
+                    await self.reconnect_all()
+                await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            return
+
+    def start_monitoring(self):
+        if self._monitor_task is None or self._monitor_task.done():
+            self._monitor_task = asyncio.create_task(self._monitor_loop())
+
+    async def self_test(self, table: str, schema: str = "public", timeout_seconds: float = 8.0) -> bool:
+        """Attempt a short-lived subscription to verify realtime works.
+
+        Returns True on successful subscribe/unsubscribe cycle, False otherwise.
+        """
+        try:
+            client = await self._ensure_client()
+            channel_name = f"self-test-{table}"
+            channel = client.channel(channel_name)
+
+            # No-op callback; just validating handshake
+            def _noop(_payload):
+                return None
+
+            channel = channel.on_postgres_changes(
+                event="INSERT", schema=schema, table=table, callback=_noop
+            )
+
+            try:
+                await asyncio.wait_for(channel.subscribe(), timeout=timeout_seconds)
+                logger.info(f"RealtimeService: self-test subscribed '{schema}.{table}'")
+                self._connected = True
+                connection_monitor.update_realtime_status(True)
+            except asyncio.TimeoutError:
+                logger.error(f"RealtimeService: self-test timeout subscribing '{schema}.{table}'")
+                self._connected = False
+                connection_monitor.update_realtime_status(False, "self-test subscribe timeout")
+                return False
+            except Exception as e:
+                logger.error(f"RealtimeService: self-test subscribe error for '{schema}.{table}': {e}", exc_info=True)
+                self._connected = False
+                connection_monitor.update_realtime_status(False, str(e))
+                return False
+
+            # Attempt a clean unsubscribe
+            try:
+                if hasattr(channel, 'unsubscribe'):
+                    await channel.unsubscribe()
+            except Exception as e:
+                logger.warning(f"RealtimeService: self-test unsubscribe error for '{schema}.{table}': {e}")
+
+            return True
+        except Exception as e:
+            logger.error(f"RealtimeService: self-test fatal error for '{schema}.{table}': {e}", exc_info=True)
+            return False
+
+    async def cleanup(self):
+        """Cleanup all channels and close the client connection."""
+        async with self._lock:
+            try:
+                # Stop monitor task first
+                if self._monitor_task and not self._monitor_task.done():
+                    self._monitor_task.cancel()
+                    try:
+                        await self._monitor_task
+                    except asyncio.CancelledError:
+                        pass
+                    logger.info("RealtimeService: monitor task stopped")
+
+                if self._client and self._channels:
+                    # Remove all channels
+                    for name, channel in self._channels.items():
+                        try:
+                            await self._client.remove_channel(channel)
+                            logger.info(f"RealtimeService: removed channel '{name}'")
+                        except Exception as e:
+                            logger.warning(f"RealtimeService: error removing channel '{name}': {e}")
+
+                    # Close the realtime connection if available
+                    try:
+                        if hasattr(self._client, 'realtime') and hasattr(self._client.realtime, 'close'):
+                            await self._client.realtime.close()
+                            logger.info("RealtimeService: realtime connection closed")
+                    except Exception as e:
+                        logger.warning(f"RealtimeService: error closing realtime connection: {e}")
+
+                # Clear channels and reset state
+                self._channels.clear()
+                self._connected = False
+                connection_monitor.update_realtime_status(False, "service shutdown")
+                logger.info("RealtimeService: cleanup completed")
+
+            except Exception as e:
+                logger.error(f"RealtimeService: cleanup error: {e}", exc_info=True)
 
 

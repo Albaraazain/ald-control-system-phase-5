@@ -1,3 +1,0 @@
-[2m2025-09-20T11:09:03.618080Z[0m [32m INFO[0m [2mcodex_core::config[0m[2m:[0m cwd not set, using current dir
-[2m2025-09-20T11:09:04.996541Z[0m [32m INFO[0m [2mcodex_core::mcp_connection_manager[0m[2m:[0m aggregated 78 tools from 4 servers
-{"id":"","msg":{"type":"session_configured","session_id":"019966d0-2f05-7000-b006-8398b3708be8","model":"gpt-5","reasoning_effort":"high","history_log_id":4274433,"history_entry_count":513,"rollout_path":"/Users/albaraa/.codex/sessions/2025/09/20/rollout-2025-09-20T14-09-03-019966d0-2f05-7000-b006-8398b3708be8.jsonl"}}

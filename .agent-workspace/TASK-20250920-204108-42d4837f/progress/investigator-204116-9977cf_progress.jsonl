@@ -1,2 +1,0 @@
-{"timestamp": "2025-09-20T20:41:38.476474", "agent_id": "investigator-204116-9977cf", "status": "working", "message": "Initiating repository scan for SQL/migrations and Supabase table references.", "progress": 0}
-{"timestamp": "2025-09-20T20:47:29.459551", "agent_id": "investigator-204116-9977cf", "status": "working", "message": "Mapped relationships among execution/state/steps/history; extracting change points that should write history.", "progress": 55}

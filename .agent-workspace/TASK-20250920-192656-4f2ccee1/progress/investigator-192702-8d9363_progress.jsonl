@@ -1,4 +1,0 @@
-{"timestamp": "2025-09-20T19:27:18.667485", "agent_id": "investigator-192702-8d9363", "status": "working", "message": "Initialized. Scanning repo for purge step code and AGENTS.md location.", "progress": 0}
-{"timestamp": "2025-09-20T19:29:07.774925", "agent_id": "investigator-192702-8d9363", "status": "working", "message": "Ready to implement: make purge step wait-only; update agents.md note.", "progress": 40}
-{"timestamp": "2025-09-20T19:32:26.870479", "agent_id": "investigator-192702-8d9363", "status": "working", "message": "Patched purge to wait-only with cancellation checks; added AGENTS note.", "progress": 70}
-{"timestamp": "2025-09-20T19:33:49.275656", "agent_id": "investigator-192702-8d9363", "status": "completed", "message": "Investigation complete: purge mapped, code updated to wait-only, docs updated, validation steps provided.", "progress": 100}

@@ -6,7 +6,7 @@ import traceback
 from supabase import create_client, Client
 from supabase import create_async_client
 
-from src.config import SUPABASE_URL, SUPABASE_KEY, is_supabase_config_present
+from src.config import SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_ROLE_KEY, is_supabase_config_present
 from src.log_setup import logger
 
 # Singleton instance for the synchronized client
@@ -26,8 +26,9 @@ def get_supabase():
                 )
             logger.info(f"Initializing Supabase client with URL: {SUPABASE_URL}")
             # Avoid slicing None; safe because of the check above
-            logger.info(f"API Key (first 10 chars): {SUPABASE_KEY[:10]}...")
-            _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            api_key = SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY
+            logger.info(f"API Key (first 10 chars): {api_key[:10]}...")
+            _supabase_client = create_client(SUPABASE_URL, api_key)
             logger.info("Supabase client initialized successfully")
         except Exception:
             logger.exception("Error initializing Supabase client")
@@ -45,8 +46,9 @@ async def create_async_supabase():
                 "Supabase configuration missing: set SUPABASE_URL and SUPABASE_KEY in the environment/.env"
             )
         logger.info(f"Initializing async Supabase client with URL: {SUPABASE_URL}")
-        logger.info(f"API Key (first 10 chars): {SUPABASE_KEY[:10]}...")
-        _async_supabase_client = await create_async_client(SUPABASE_URL, SUPABASE_KEY)
+        api_key = SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY
+        logger.info(f"API Key (first 10 chars): {api_key[:10]}...")
+        _async_supabase_client = await create_async_client(SUPABASE_URL, api_key)
         logger.info("Async Supabase client initialized successfully")
         return _async_supabase_client
     except Exception:

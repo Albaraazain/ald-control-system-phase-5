@@ -1,4 +1,0 @@
-error: invalid value 'auto' for '--ask-for-approval <APPROVAL_POLICY>'
-  [possible values: untrusted, on-failure, on-request, never]
-
-For more information, try '--help'.

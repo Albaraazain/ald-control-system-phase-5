@@ -16,6 +16,7 @@ load_dotenv()
 
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # Machine configuration
@@ -40,7 +41,7 @@ def missing_required_keys() -> list:
     missing = []
     if not SUPABASE_URL:
         missing.append("SUPABASE_URL")
-    if not SUPABASE_KEY:
+    if not (SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY):
         missing.append("SUPABASE_KEY")
     if not MACHINE_ID:
         missing.append("MACHINE_ID")

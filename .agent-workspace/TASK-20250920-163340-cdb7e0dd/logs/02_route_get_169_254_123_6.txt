@@ -1,8 +1,0 @@
-# route -n get 169.254.123.6
-   route to: 169.254.123.6
-destination: 169.254.123.6
-  interface: en0
-      flags: <UP,HOST,DONE,LLINFO,STATIC,b016,WASCLONED>
- recvpipe  sendpipe  ssthresh  rtt,msec    rttvar  hopcount      mtu     expire
-       0         0         0         0         0         0      1500      1191 
-

@@ -1,3 +1,0 @@
-{"timestamp": "2025-09-20T17:53:10.757069", "agent_id": "investigator-175251-c3aec1", "status": "working", "message": "Initializing; scanning repo for Supabase client and machine ID source.", "progress": 0}
-{"timestamp": "2025-09-20T17:55:51.034090", "agent_id": "investigator-175251-c3aec1", "status": "working", "message": "Adjusting insert to include explicit integer id; retrying E2E flow.", "progress": 20}
-{"timestamp": "2025-09-20T18:03:39.189235", "agent_id": "investigator-175251-c3aec1", "status": "completed", "message": "DB E2E run executed via here-doc: start insert succeeded, machine never reached processing due to DB constraint; final result FAIL.", "progress": 100}

@@ -66,6 +66,10 @@ class AgentSupervisor:
         await asyncio.gather(*self._tasks.values(), return_exceptions=True)
         logger.info("All agents stopped")
 
+    async def cleanup(self) -> None:
+        """Stop all agents and cleanup resources."""
+        await self.stop()
+
 
 def make_command_listener_agent(async_supabase, realtime_service: RealtimeService) -> Agent:
     async def run() -> None:

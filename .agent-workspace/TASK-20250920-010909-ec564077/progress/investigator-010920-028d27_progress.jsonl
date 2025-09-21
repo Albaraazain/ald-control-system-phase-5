@@ -1,3 +1,0 @@
-{"timestamp": "2025-09-20T01:09:41.989969", "agent_id": "investigator-010920-028d27", "status": "working", "message": "Starting: run fetch script to fetch Supabase OpenAPI and table map, then generate concise schema summary.", "progress": 0}
-{"timestamp": "2025-09-20T01:11:40.574642", "agent_id": "investigator-010920-028d27", "status": "working", "message": "Fetched OpenAPI and regenerated correct table map. Wrote concise schema summary with highlighted mismatches.", "progress": 80}
-{"timestamp": "2025-09-20T01:11:45.121040", "agent_id": "investigator-010920-028d27", "status": "completed", "message": "Schema fetched and summarized. Outputs ready under docs/schema/. Key mismatches documented for app alignment.", "progress": 100}

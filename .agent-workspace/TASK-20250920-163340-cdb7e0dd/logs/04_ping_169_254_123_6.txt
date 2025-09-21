@@ -1,8 +1,0 @@
-PING 169.254.123.6 (169.254.123.6): 56 data bytes
-64 bytes from 169.254.123.6: icmp_seq=0 ttl=255 time=0.496 ms
-64 bytes from 169.254.123.6: icmp_seq=1 ttl=255 time=0.592 ms
-64 bytes from 169.254.123.6: icmp_seq=2 ttl=255 time=0.527 ms
-
---- 169.254.123.6 ping statistics ---
-3 packets transmitted, 3 packets received, 0.0% packet loss
-round-trip min/avg/max/stddev = 0.496/0.538/0.592/0.040 ms

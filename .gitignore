@@ -28,6 +28,14 @@ venv/
 *.tmp
 *.log
 
+# Agent workspace and orchestration files
+.agent-workspace/
+
+# Report and result files (may contain sensitive data)
+*_results.json
+*_report.json
+*_assessment*.json
+
 # Security - Database files
 *.db
 *.sqlite

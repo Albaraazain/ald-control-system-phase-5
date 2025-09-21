@@ -1,2 +1,0 @@
-{"timestamp": "2025-09-20T18:02:25.061449", "agent_id": "builder-180149-ebd8a7", "status": "working", "message": "Preparing final SQL migration output; no commentary per instructions.", "progress": 0}
-{"timestamp": "2025-09-20T18:02:28.290922", "agent_id": "builder-180149-ebd8a7", "status": "completed", "message": "Final SQL migration output emitted.", "progress": 100}

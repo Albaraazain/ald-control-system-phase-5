@@ -26,41 +26,57 @@ from src.agents.supervisor import (
 )
 from src.realtime.service import RealtimeService
 
-async def cleanup_handler():
+async def cleanup_handler(supervisor=None, realtime_service=None):
     """Perform cleanup when application is interrupted"""
     logger.info("Beginning cleanup process...")
     supabase = get_supabase()
-    
+
     try:
         # Get current machine status
         machine = supabase.table('machines').select('*').eq('id', MACHINE_ID).single().execute()
-        
+
         if machine.data and machine.data['status'] == 'processing':
             process_id = machine.data['current_process_id']
             if process_id:
                 # Stop continuous data recording
                 await continuous_recorder.stop()
-                
+
                 # Update process status to aborted when cleanup is triggered
                 await update_process_status(process_id, 'aborted')
-                
+
                 # Update machine status and state
                 await update_machine_status(process_id)
                 await update_machine_state(process_id)
-                
+
                 # Close any potentially open valves
                 # In real implementation, this would interface with hardware
                 logger.info("Ensuring all valves are closed")
-                
+
                 # Update command status if we have a command ID
                 if state.current_command_id is not None:
                     await update_command_status(state.current_command_id, 'error', 'Process aborted by user')
                     logger.info(f"Updated command {state.current_command_id} status to error")
-                
+
                 logger.info(f"Cleanup completed for process {process_id}")
-        
+
         # Stop data collection service
         await data_collection_service.stop()
+
+        # Stop agent supervisor
+        if supervisor:
+            try:
+                await supervisor.cleanup()
+                logger.info("Agent supervisor stopped successfully")
+            except Exception as e:
+                logger.warning(f"Error stopping agent supervisor: {e}")
+
+        # Cleanup realtime service (channels and connections)
+        if realtime_service:
+            try:
+                await realtime_service.cleanup()
+                logger.info("Realtime service cleanup completed")
+            except Exception as e:
+                logger.warning(f"Error during realtime service cleanup: {e}")
 
         # Disconnect PLC
         await plc_manager.disconnect()
@@ -71,19 +87,22 @@ async def cleanup_handler():
         logger.info("Application shutdown complete")
         sys.exit(0)
 
-async def signal_handler(signal, frame):
-    """Handle SIGINT signal"""
-    logger.info("Received interrupt signal, initiating cleanup...")
-    await cleanup_handler()
-
 async def main():
     """
     Main application function.
     Sets up the Supabase listener and runs indefinitely.
     """
+    supervisor = None
+    realtime_service = None
+
+    async def signal_handler(signal, frame):
+        """Handle SIGINT signal"""
+        logger.info("Received interrupt signal, initiating cleanup...")
+        await cleanup_handler(supervisor, realtime_service)
+
     try:
         logger.info("Starting machine control application")
-        
+
         # Set up signal handler
         signal.signal(signal.SIGINT, lambda s, f: asyncio.create_task(signal_handler(s, f)))
         
@@ -117,6 +136,18 @@ async def main():
 
         # Initialize shared RealtimeService
         realtime_service = RealtimeService()
+        realtime_service.start_monitoring()
+
+        # Realtime self-test (non-fatal)
+        try:
+            ok_param = await realtime_service.self_test(table="parameter_control_commands")
+            ok_recipe = await realtime_service.self_test(table="recipe_commands")
+            if ok_param and ok_recipe:
+                logger.info("Realtime self-test passed for both tables")
+            else:
+                logger.warning("Realtime self-test failed; system will rely on polling fallback until reconnected")
+        except Exception:
+            logger.warning("Realtime self-test encountered an error; continuing with startup", exc_info=True)
 
         # Start agents (headless)
         agent_list = [
@@ -130,6 +161,10 @@ async def main():
         # Start data collection service
         logger.info("Starting data collection service...")
         await data_collection_service.start()
+
+        # Give connection monitor a moment to run its first check
+        logger.info("Waiting for connection monitor to initialize...")
+        await asyncio.sleep(1.0)
 
         logger.info("Machine control application running")
         logger.info("="*60)
@@ -172,7 +207,7 @@ async def main():
             
     except Exception as e:
         logger.error(f"Error in main application loop: {str(e)}", exc_info=True)
-        await cleanup_handler()  # Ensure cleanup happens on unexpected errors too
+        await cleanup_handler(supervisor, realtime_service)  # Ensure cleanup happens on unexpected errors too
         raise
 
 if __name__ == "__main__":

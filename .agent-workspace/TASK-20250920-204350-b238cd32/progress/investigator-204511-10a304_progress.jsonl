@@ -1,2 +1,0 @@
-{"timestamp": "2025-09-20T20:45:24.039593", "agent_id": "investigator-204511-10a304", "status": "working", "message": "Initializing investigation; scanning focus files and main for listener setup, tables/channels, env vars.", "progress": 0}
-{"timestamp": "2025-09-20T20:48:56.337482", "agent_id": "investigator-204511-10a304", "status": "completed", "message": "Analysis complete. Delivered code-mapped listener details: startup function, Supabase channels/tables, main call sites, required env vars, and backfill/polling behavior with file:line refs.", "progress": 100}
