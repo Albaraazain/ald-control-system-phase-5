@@ -2,17 +2,16 @@
 """
 Terminal 1: PLC Data Service
 
-**PRIMARY RESPONSIBILITY**: Exclusive PLC hardware access and data collection
+**PRIMARY RESPONSIBILITY**: PLC data collection and logging
 
 This terminal provides:
-1. Exclusive PLC hardware connection ownership
+1. PLC hardware connection for data reading
 2. Precise 1-second data collection timing (±100ms precision)
-3. Database command queue processing for PLC operations
-4. Emergency coordination and hardware state validation
-5. Audit logging for all hardware operations
+3. Parameter value logging to database
+4. Enhanced logging with parameter metadata
+5. Performance monitoring and metrics
 
-CRITICAL: Only this terminal may directly access PLC hardware to solve
-the 26 singleton conflicts in the current architecture.
+Simplified architecture focused on reliable data collection.
 """
 import asyncio
 import atexit
@@ -61,22 +60,13 @@ def ensure_single_instance():
         exit(1)
 
 
-@dataclass
-class PLCOperationRequest:
-    """Represents a PLC operation request from the database queue."""
-    id: str
-    operation_type: str  # 'read_parameter', 'write_parameter', 'control_valve', 'execute_purge'
-    parameters: Dict[str, Any]
-    requesting_service: str  # 'recipe_service', 'parameter_service', etc.
-    priority: int = 1  # 1=high, 2=medium, 3=low
-    created_at: datetime = None
 
 
 class PLCDataService:
     """
     Terminal 1: PLC Data Service
 
-    Provides exclusive PLC access with precise timing and safe command processing.
+    Provides PLC data collection with precise timing and reliable database logging.
     """
 
     def __init__(self):
@@ -84,25 +74,17 @@ class PLCDataService:
         self.supabase = get_supabase()
         self.is_running = False
         self.data_collection_task = None
-        self.command_processing_task = None
-        self.emergency_monitoring_task = None
 
         # Timing control for precise 1s intervals
         self.data_collection_interval = 1.0  # 1 second
         self.last_collection_time = 0.0
         self.timing_precision_threshold = 0.1  # ±100ms precision
 
-        # Command queue and state
-        self.command_queue: List[PLCOperationRequest] = []
-        self.processing_command = False
-        self.emergency_stop_active = False
-
         # Performance metrics
         self.metrics = {
             'total_readings': 0,
             'successful_readings': 0,
             'failed_readings': 0,
-            'commands_processed': 0,
             'timing_violations': 0,
             'last_collection_duration': 0.0,
             'average_collection_duration': 0.0
@@ -111,7 +93,7 @@ class PLCDataService:
         # Parameter metadata cache for enhanced logging
         self.parameter_metadata = {}  # Cache parameter name/component info
 
-        plc_logger.info("PLC Data Service initialized - Terminal 1 ready for exclusive hardware access")
+        plc_logger.info("PLC Data Service initialized - Terminal 1 ready for data collection")
 
     async def initialize(self) -> bool:
         """
@@ -121,20 +103,17 @@ class PLCDataService:
             bool: True if initialization successful
         """
         try:
-            plc_logger.info("Initializing PLC Data Service - claiming exclusive hardware access")
+            plc_logger.info("Initializing PLC Data Service for data collection")
 
             # Initialize parameter metadata cache for enhanced logging
             await self._initialize_parameter_metadata()
 
-            # Claim exclusive PLC connection
+            # Initialize PLC connection
             plc_connected = await self.plc_manager.initialize(PLC_TYPE, PLC_CONFIG)
             if plc_connected:
-                plc_logger.info("✅ Exclusive PLC connection established")
+                plc_logger.info("✅ PLC connection established")
             else:
                 plc_logger.warning("⚠️ PLC connection failed - will retry in background")
-
-            # Create database tables for command queuing if needed
-            await self._ensure_command_queue_table()
 
             # Initialize metrics
             self.metrics['service_start_time'] = asyncio.get_event_loop().time()
@@ -154,18 +133,14 @@ class PLCDataService:
         try:
             self.is_running = True
 
-            # Start core service tasks
+            # Start core service task
             self.data_collection_task = asyncio.create_task(self._data_collection_loop())
-            self.command_processing_task = asyncio.create_task(self._command_processing_loop())
-            self.emergency_monitoring_task = asyncio.create_task(self._emergency_monitoring_loop())
 
-            plc_logger.info("🚀 PLC Data Service started - all systems operational")
+            plc_logger.info("🚀 PLC Data Service started - data collection operational")
 
-            # Wait for tasks to complete
+            # Wait for task to complete
             await asyncio.gather(
                 self.data_collection_task,
-                self.command_processing_task,
-                self.emergency_monitoring_task,
                 return_exceptions=True
             )
 
@@ -184,7 +159,7 @@ class PLCDataService:
             self.is_running = False
 
             # Cancel all tasks
-            tasks = [self.data_collection_task, self.command_processing_task, self.emergency_monitoring_task]
+            tasks = [self.data_collection_task]
             for task in tasks:
                 if task and not task.done():
                     task.cancel()
@@ -291,225 +266,7 @@ class PLCDataService:
             data_logger.error(f"Failed to collect and log PLC data: {e}", exc_info=True)
             raise
 
-    async def _command_processing_loop(self):
-        """
-        Process PLC operation commands from database queue.
-        """
-        plc_logger.info("Starting PLC command processing loop")
 
-        while self.is_running:
-            try:
-                # Fetch pending commands from database
-                await self._fetch_pending_commands()
-
-                # Process commands in priority order
-                if self.command_queue and not self.processing_command:
-                    await self._process_next_command()
-
-                # Check for commands every 100ms for responsiveness
-                await asyncio.sleep(0.1)
-
-            except asyncio.CancelledError:
-                plc_logger.info("Command processing loop cancelled")
-                break
-            except Exception as e:
-                plc_logger.error(f"Error in command processing loop: {e}", exc_info=True)
-                await asyncio.sleep(1.0)
-
-    async def _emergency_monitoring_loop(self):
-        """
-        Monitor for emergency conditions and coordinate with other terminals.
-        """
-        plc_logger.info("Starting emergency monitoring loop")
-
-        while self.is_running:
-            try:
-                # Check for emergency signals from other terminals
-                await self._check_emergency_signals()
-
-                # Validate hardware state
-                await self._validate_hardware_state()
-
-                # Check every 500ms for quick emergency response
-                await asyncio.sleep(0.5)
-
-            except asyncio.CancelledError:
-                plc_logger.info("Emergency monitoring loop cancelled")
-                break
-            except Exception as e:
-                plc_logger.error(f"Error in emergency monitoring: {e}", exc_info=True)
-                await asyncio.sleep(1.0)
-
-    async def _fetch_pending_commands(self):
-        """Fetch pending PLC operation commands from database."""
-        try:
-            # Query for pending commands for this machine
-            response = self.supabase.table('plc_operation_commands').select('*').eq(
-                'machine_id', MACHINE_ID
-            ).eq('status', 'pending').order('priority', desc=False).order('created_at', desc=False).execute()
-
-            if response.data:
-                for cmd_data in response.data:
-                    cmd = PLCOperationRequest(
-                        id=cmd_data['id'],
-                        operation_type=cmd_data['operation_type'],
-                        parameters=cmd_data['parameters'],
-                        requesting_service=cmd_data['requesting_service'],
-                        priority=cmd_data.get('priority', 2),
-                        created_at=datetime.fromisoformat(cmd_data['created_at'])
-                    )
-                    self.command_queue.append(cmd)
-
-                # Sort by priority
-                self.command_queue.sort(key=lambda x: (x.priority, x.created_at))
-
-        except Exception as e:
-            plc_logger.error(f"Error fetching pending commands: {e}", exc_info=True)
-
-    async def _process_next_command(self):
-        """Process the next command in the queue."""
-        if not self.command_queue:
-            return
-
-        self.processing_command = True
-        command = self.command_queue.pop(0)
-
-        try:
-            plc_logger.info(f"🔧 Processing PLC command: {command.operation_type} from {command.requesting_service}")
-
-            # Mark command as processing
-            await self._update_command_status(command.id, 'processing')
-
-            # Execute the command
-            success = await self._execute_plc_command(command)
-
-            # Update command status
-            if success:
-                await self._update_command_status(command.id, 'completed')
-                plc_logger.info(f"✅ Command {command.id} completed successfully")
-            else:
-                await self._update_command_status(command.id, 'failed')
-                plc_logger.error(f"❌ Command {command.id} failed")
-
-            self.metrics['commands_processed'] += 1
-
-        except Exception as e:
-            await self._update_command_status(command.id, 'error', str(e))
-            plc_logger.error(f"Error processing command {command.id}: {e}", exc_info=True)
-        finally:
-            self.processing_command = False
-
-    async def _execute_plc_command(self, command: PLCOperationRequest) -> bool:
-        """Execute a specific PLC command."""
-        try:
-            if not self.plc_manager.is_connected():
-                plc_logger.error("Cannot execute command - PLC not connected")
-                return False
-
-            if command.operation_type == 'read_parameter':
-                param_id = command.parameters.get('parameter_id')
-                value = await self.plc_manager.read_parameter(param_id)
-                plc_logger.info(f"Read parameter {param_id}: {value}")
-                return True
-
-            elif command.operation_type == 'write_parameter':
-                param_id = command.parameters.get('parameter_id')
-                value = command.parameters.get('value')
-                success = await self.plc_manager.write_parameter(param_id, value)
-                plc_logger.info(f"Write parameter {param_id} = {value}: {'success' if success else 'failed'}")
-                return success
-
-            elif command.operation_type == 'control_valve':
-                valve_number = command.parameters.get('valve_number')
-                state = command.parameters.get('state')
-                duration_ms = command.parameters.get('duration_ms')
-                success = await self.plc_manager.control_valve(valve_number, state, duration_ms)
-                plc_logger.info(f"Control valve {valve_number} state={state} duration={duration_ms}ms: {'success' if success else 'failed'}")
-                return success
-
-            elif command.operation_type == 'execute_purge':
-                duration_ms = command.parameters.get('duration_ms')
-                success = await self.plc_manager.execute_purge(duration_ms)
-                plc_logger.info(f"Execute purge duration={duration_ms}ms: {'success' if success else 'failed'}")
-                return success
-
-            else:
-                plc_logger.error(f"Unknown operation type: {command.operation_type}")
-                return False
-
-        except Exception as e:
-            plc_logger.error(f"Error executing PLC command: {e}", exc_info=True)
-            return False
-
-    async def _update_command_status(self, command_id: str, status: str, error_message: str = None):
-        """Update command status in database."""
-        try:
-            update_data = {'status': status, 'updated_at': datetime.utcnow().isoformat()}
-            if error_message:
-                update_data['error_message'] = error_message
-
-            self.supabase.table('plc_operation_commands').update(update_data).eq('id', command_id).execute()
-
-        except Exception as e:
-            plc_logger.error(f"Error updating command status: {e}", exc_info=True)
-
-    async def _check_emergency_signals(self):
-        """Check for emergency signals from other terminals."""
-        try:
-            # Check for emergency stop signals
-            response = self.supabase.table('terminal_coordination').select('*').eq(
-                'machine_id', MACHINE_ID
-            ).eq('signal_type', 'emergency_stop').eq('status', 'active').execute()
-
-            if response.data:
-                if not self.emergency_stop_active:
-                    plc_logger.critical("🚨 EMERGENCY STOP RECEIVED - Activating safety protocols")
-                    await self._activate_emergency_stop()
-                    self.emergency_stop_active = True
-            else:
-                if self.emergency_stop_active:
-                    plc_logger.info("Emergency stop cleared - Resuming normal operations")
-                    self.emergency_stop_active = False
-
-        except Exception as e:
-            plc_logger.error(f"Error checking emergency signals: {e}", exc_info=True)
-
-    async def _validate_hardware_state(self):
-        """Validate current hardware state for safety."""
-        if not self.plc_manager.is_connected():
-            return
-
-        try:
-            # This would implement hardware-specific safety checks
-            # For example: ensure valves are in safe state, check pressure limits, etc.
-            pass
-
-        except Exception as e:
-            plc_logger.error(f"Error validating hardware state: {e}", exc_info=True)
-
-    async def _activate_emergency_stop(self):
-        """Activate emergency stop procedures."""
-        try:
-            plc_logger.critical("🚨 ACTIVATING EMERGENCY STOP PROCEDURES")
-
-            # Close all valves immediately
-            # In a real implementation, this would query the hardware for active valves
-            # and close them systematically
-
-            # Stop any ongoing operations
-            self.processing_command = False
-            self.command_queue.clear()
-
-            plc_logger.critical("Emergency stop procedures activated")
-
-        except Exception as e:
-            plc_logger.critical(f"CRITICAL: Error in emergency stop procedures: {e}", exc_info=True)
-
-    async def _ensure_command_queue_table(self):
-        """Ensure the PLC command queue table exists."""
-        # This would be handled by database migrations in a real implementation
-        # For now, we assume the table exists
-        pass
 
     async def _initialize_parameter_metadata(self):
         """Initialize parameter metadata cache for enhanced logging."""
@@ -677,9 +434,6 @@ class PLCDataService:
             'service_name': 'PLC Data Service (Terminal 1)',
             'is_running': self.is_running,
             'plc_connected': self.plc_manager.is_connected(),
-            'emergency_stop_active': self.emergency_stop_active,
-            'command_queue_length': len(self.command_queue),
-            'processing_command': self.processing_command,
             'uptime_seconds': uptime,
             'metrics': self.metrics.copy()
         }
@@ -735,7 +489,7 @@ async def main():
     main_logger.info("="*60)
     main_logger.info(f"Machine ID: {MACHINE_ID}")
     main_logger.info(f"PLC Type: {PLC_TYPE}")
-    main_logger.info("EXCLUSIVE PLC HARDWARE ACCESS - Terminal 1 Authority")
+    main_logger.info("PLC DATA COLLECTION SERVICE - Terminal 1")
     main_logger.info("="*60)
 
     # Create and initialize service
