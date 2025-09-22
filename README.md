@@ -5,6 +5,7 @@ A comprehensive **Atomic Layer Deposition (ALD) control system** built with Pyth
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Python 3.9+
 - PostgreSQL database (Supabase)
 - PLC hardware (or simulation mode)
@@ -12,6 +13,7 @@ A comprehensive **Atomic Layer Deposition (ALD) control system** built with Pyth
 ### Installation
 
 1. **Clone and setup environment:**
+
 ```bash
 git clone <repository-url>
 cd ald-control-system-phase-5
@@ -21,6 +23,7 @@ pip install -r requirements.txt
 ```
 
 2. **Configuration:**
+
 ```bash
 cp .env.example .env
 # Edit .env with your database credentials and PLC settings
@@ -31,6 +34,7 @@ cp .env.example .env
 This system uses a **SIMPLE 3-TERMINAL ARCHITECTURE** that eliminates coordination complexity and provides direct PLC access for easy debugging. Each terminal operates independently with its own PLC connection.
 
 ### 🔧 TERMINAL 1: PLC Read Service
+
 - **Purpose**: Continuous PLC data collection
 - **Function**: Reads PLC parameters every 1 second and updates database
 - **Database**: Updates `parameter_value_history` table
@@ -38,6 +42,7 @@ This system uses a **SIMPLE 3-TERMINAL ARCHITECTURE** that eliminates coordinati
 - **Features**: Direct PLC access, simple database inserts, error handling with retry logic
 
 ### 🍳 TERMINAL 2: Recipe Service
+
 - **Purpose**: Recipe command processing and execution
 - **Function**: Listens for recipe commands and executes them via direct PLC access
 - **Database**: Monitors `recipe_commands` table, updates `process_executions`
@@ -45,6 +50,7 @@ This system uses a **SIMPLE 3-TERMINAL ARCHITECTURE** that eliminates coordinati
 - **Features**: Direct PLC access, simple polling, reuses existing recipe_flow components
 
 ### ⚙️ TERMINAL 3: Parameter Service
+
 - **Purpose**: Parameter control and writing
 - **Function**: Listens for parameter commands and writes directly to PLC
 - **Database**: Monitors `parameter_control_commands` table
@@ -86,6 +92,7 @@ python terminal3_launcher.py --demo
 3. **Terminal 3 (Parameter)**: Database (parameter_control_commands) → Direct PLC Write
 
 ### Quick Test
+
 ```bash
 # Test individual terminals
 python terminal1_launcher.py --demo  # Test PLC data collection
@@ -97,39 +104,12 @@ python tests/integration/test_parameter_synchronization.py
 python tests/integration/test_parameter_cross_component.py
 ```
 
-## 📁 Project Structure
-
-```
-ald-control-system-phase-5/
-├── main.py                       # Unified entry point with terminal selection
-├── terminal1_launcher.py         # Terminal 1 (PLC Read) launcher
-├── terminal2_launcher.py         # Terminal 2 (Recipe) launcher
-├── terminal3_launcher.py         # Terminal 3 (Parameter) launcher
-├── plc_data_service.py           # Terminal 1 service implementation
-├── simple_recipe_service.py      # Terminal 2 service implementation
-├── parameter_service.py          # Terminal 3 service implementation
-├── src/                          # Core shared modules
-│   ├── config.py                 # Configuration management
-│   ├── db.py                     # Database client
-│   ├── log_setup.py             # Logging setup
-│   ├── connection_monitor.py    # Connection monitoring
-│   ├── recipe_flow/             # Recipe execution (shared)
-│   ├── plc/                     # PLC communication (shared)
-│   └── data_collection/         # Data collection utilities
-├── tests/                        # Test suite
-│   ├── integration/             # Integration tests
-│   └── unit/                    # Unit tests
-├── tools/                        # Development tools
-│   └── debug/                   # Debug utilities
-├── docs/                         # Documentation
-├── requirements.txt
-├── .env.example                  # Environment configuration template
-└── logs/                         # Service-specific log files
-```
+## 📁 Project Structureald-control-system-phase-5/
 
 ## 🧪 Testing
 
 ### Run Integration Tests
+
 ```bash
 # Test parameter synchronization (3-terminal integration)
 python tests/integration/test_parameter_synchronization.py
@@ -145,6 +125,7 @@ python tools/debug/test_supabase_connection.py
 ```
 
 ### Test Individual Terminals
+
 ```bash
 # Terminal 1 (PLC Read) tests
 python terminal1_launcher.py --demo
@@ -157,6 +138,7 @@ python terminal3_launcher.py --demo
 ```
 
 ### Test Coverage
+
 - ✅ 3-terminal architecture integration
 - ✅ Parameter synchronization across terminals
 - ✅ PLC communication (simulation and real)
@@ -167,6 +149,7 @@ python terminal3_launcher.py --demo
 ## 🔧 Development
 
 ### Debug Tools
+
 ```bash
 # PLC connection testing
 python tools/debug/test_plc_connection.py
@@ -183,7 +166,9 @@ python tools/debug/test_valve_control.py
 ```
 
 ### Service-Specific Logging
+
 The system uses service-specific logging for better debugging:
+
 ```bash
 # Monitor specific service logs
 tail -f logs/plc.log              # Terminal 1 (PLC Read)
@@ -199,6 +184,7 @@ tail -f logs/machine_control.log logs/command_flow.log logs/plc.log
 ```
 
 ### Code Style
+
 ```bash
 # Format code
 black src/ tests/
@@ -217,7 +203,7 @@ The system uses a normalized PostgreSQL database with the following key tables:
 - `recipes` - Recipe definitions
 - `recipe_steps` - Individual recipe steps
 - `valve_step_config` - Valve step configurations
-- `purge_step_config` - Purge step configurations  
+- `purge_step_config` - Purge step configurations
 - `loop_step_config` - Loop step configurations
 - `recipe_parameters` - Recipe-level parameters
 - `process_executions` - Process execution records
@@ -226,22 +212,27 @@ The system uses a normalized PostgreSQL database with the following key tables:
 ## 🚦 Operation Modes
 
 ### Production Mode
+
 - Real PLC hardware communication
 - Full database logging
 - Continuous data recording
 
 ### Simulation Mode
+
 - Virtual PLC simulation
 - Safe testing environment
 - Full feature compatibility
 
 ### Debug Mode
+
 - Detailed logging
 - Step-by-step execution
 - Hardware diagnostics
 
 ### 3-Terminal Operation
+
 Each terminal can be run independently:
+
 - **Terminal 1 Only**: Just PLC data collection
 - **Terminal 2 Only**: Just recipe execution
 - **Terminal 3 Only**: Just parameter control
@@ -287,6 +278,7 @@ metadata loader and does not change any database data.
 - Other machines remain unaffected unless listed in `ESSENTIALS_FILTER_MACHINE_IDS`.
 
 Kept parameter names:
+
 - `temperature*` (prefix match)
 - `flow`, `flow_rate`, `flow_read`, `flow_set`
 - `pressure`, `pressure_read`, `pressure_set`
@@ -297,15 +289,18 @@ Ignored examples: `scale_min`, `scale_max`, `scale_min_voltage`, `scale_max_volt
 `span_cal`, `purity`, and placeholder names (e.g., `ultrathink`).
 
 Environment control (comma-separated list):
+
 ```bash
 ESSENTIALS_FILTER_MACHINE_IDS=e3e6e280-0794-459f-84d5-5e468f60746e
 ```
+
 If unset, the filter defaults to the machine above only. To disable everywhere, set it to an empty
 value.
 
 ## 🏃‍♂️ Commands
 
 ### 3-Terminal System Commands
+
 ```bash
 # Run complete 3-terminal system (3 separate windows)
 python main.py --terminal 1 --demo      # Terminal 1: PLC Read
@@ -319,6 +314,7 @@ python terminal3_launcher.py --demo    # Terminal 3: Parameter Service
 ```
 
 ### Testing Commands
+
 ```bash
 # Test 3-terminal integration
 python tests/integration/test_parameter_synchronization.py
@@ -332,6 +328,7 @@ python tools/debug/test_supabase_connection.py
 ```
 
 ### Database Commands
+
 ```bash
 # Test database connectivity
 python tools/debug/test_supabase_connection.py
@@ -360,12 +357,13 @@ This project is proprietary software for ALD system control.
 ## Safety Features
 
 1. **Error Handling**
+
    - Comprehensive error detection
    - Graceful failure recovery
    - Detailed error logging
    - State preservation during failures
-
 2. **Parameter Validation**
+
    - Range checking for all parameters
    - Type validation
    - Machine capability verification
@@ -374,12 +372,13 @@ This project is proprietary software for ALD system control.
 ## Real-time Monitoring
 
 1. **Data Collection**
+
    - Component parameter tracking
    - Process milestone recording
    - Error and warning logging
    - Performance metrics gathering
-
 2. **Process Analytics**
+
    - Step execution timing
    - Parameter trend analysis
    - Process completion statistics
@@ -388,26 +387,30 @@ This project is proprietary software for ALD system control.
 ## Infrastructure Setup
 
 ### PLC Configuration
+
 1. **Network Setup**
+
    - Static IP configuration
    - Modbus TCP/IP settings
    - Connection security
    - I/O mapping
-
 2. **Program Structure**
+
    - Component control logic
    - Safety interlocks
    - State management
    - Communication handlers
 
 ### Raspberry Pi Setup
+
 1. **System Requirements**
+
    - Raspberry Pi 4 or later
    - Debian-based Linux OS
    - Python 3.9+
    - Network configuration
-
 2. **Service Installation**
+
    ```bash
    # Install system dependencies
    sudo apt-get update
@@ -421,24 +424,28 @@ This project is proprietary software for ALD system control.
    ```
 
 ### Supabase Configuration
+
 1. **Project Setup**
+
    - Database initialization
    - Schema creation
    - Authentication setup
    - API key generation
-
 2. **Security Rules**
+
    - Row-level security
    - API access control
    - User role definitions
 
 ### Mobile App Setup
+
 1. **Development Requirements**
+
    - Flutter SDK
    - Android Studio / Xcode
    - Supabase Flutter SDK
-
 2. **Build Configuration**
+
    ```bash
    # Install dependencies
    flutter pub get
@@ -450,6 +457,7 @@ This project is proprietary software for ALD system control.
 ## Environment Setup
 
 Required environment variables:
+
 ```
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_key
@@ -459,6 +467,7 @@ PLC_PORT=your_plc_port
 ```
 
 For testing:
+
 ```
 TEST_RECIPE_ID=test_recipe_id
 TEST_OPERATOR_ID=test_operator_id
@@ -486,11 +495,13 @@ TEST_OPERATOR_ID=test_operator_id
 ## Running the System
 
 Start the machine control service:
+
 ```bash
 python machine_control.py
 ```
 
 Run tests:
+
 ```bash
 python test_handle_recipe_start_command.py
 python test_recipe_execution_functions.py
@@ -501,27 +512,28 @@ python test_recipe_execution_functions.py
 Common issues and solutions:
 
 1. **Connection Issues**
+
    - Verify Supabase credentials
    - Check network connectivity
    - Confirm server status
    - Verify PLC connectivity
    - Check Raspberry Pi network
-
 2. **Recipe Execution Errors**
+
    - Validate recipe parameters
    - Check component availability
    - Verify operator permissions
    - Check PLC status
    - Verify hardware state
-
 3. **State Synchronization**
+
    - Clear machine state
    - Reset process status
    - Reinitialize connections
    - Verify PLC communication
    - Check Supabase sync
-
 4. **Mobile App Issues**
+
    - Verify authentication
    - Check internet connectivity
    - Update app version
