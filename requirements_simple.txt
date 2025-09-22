@@ -1,3 +1,0 @@
-# This file previously listed optional extras.
-# Legacy UI dependencies removed; keep empty or add extras as needed.
-pymodbus
