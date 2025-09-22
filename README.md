@@ -26,91 +26,143 @@ cp .env.example .env
 # Edit .env with your database credentials and PLC settings
 ```
 
-3. **Run the system (with new CLI):**
+## 🏗️ Architecture - Simple 3-Terminal Design
+
+This system uses a **SIMPLE 3-TERMINAL ARCHITECTURE** that eliminates coordination complexity and provides direct PLC access for easy debugging. Each terminal operates independently with its own PLC connection.
+
+### 🔧 TERMINAL 1: PLC Read Service
+- **Purpose**: Continuous PLC data collection
+- **Function**: Reads PLC parameters every 1 second and updates database
+- **Database**: Updates `parameter_value_history` table
+- **Launch**: `python main.py --terminal 1 --demo` or `python terminal1_launcher.py --demo`
+- **Features**: Direct PLC access, simple database inserts, error handling with retry logic
+
+### 🍳 TERMINAL 2: Recipe Service
+- **Purpose**: Recipe command processing and execution
+- **Function**: Listens for recipe commands and executes them via direct PLC access
+- **Database**: Monitors `recipe_commands` table, updates `process_executions`
+- **Launch**: `python main.py --terminal 2 --demo` or `python terminal2_launcher.py --demo`
+- **Features**: Direct PLC access, simple polling, reuses existing recipe_flow components
+
+### ⚙️ TERMINAL 3: Parameter Service
+- **Purpose**: Parameter control and writing
+- **Function**: Listens for parameter commands and writes directly to PLC
+- **Database**: Monitors `parameter_control_commands` table
+- **Launch**: `python main.py --terminal 3 --demo` or `python terminal3_launcher.py --demo`
+- **Features**: Direct PLC access, parameter validation, retry logic
+
+### Running the 3-Terminal System
+
 ```bash
-# Simulation (demo) mode
-python main.py --demo
+# Open 3 separate terminal windows and run each service:
 
-# Real PLC with explicit IP/port
-python main.py --plc real --ip 192.168.1.50 --port 502
+# Terminal 1 - PLC Read Service
+python main.py --terminal 1 --demo
 
-# Increase verbosity for debugging
-LOG_LEVEL=DEBUG python main.py --demo
+# Terminal 2 - Recipe Service
+python main.py --terminal 2 --demo
 
-# One-shot connectivity check (doctor) and exit
-python main.py --doctor
+# Terminal 3 - Parameter Service
+python main.py --terminal 3 --demo
+
+# Or use launcher scripts:
+python terminal1_launcher.py --demo
+python terminal2_launcher.py --demo
+python terminal3_launcher.py --demo
 ```
+
+### Key Architecture Benefits
+
+✅ **No Coordination Complexity**: Each terminal operates independently
+✅ **Direct PLC Access**: No singleton conflicts, each terminal has its own connection
+✅ **Easy Debugging**: Simple to understand, no complex agent coordination
+✅ **Independent Operation**: Terminals can run separately without dependencies
+✅ **Simplified Deployment**: Just run the terminal you need
+
+### Simple Data Flow
+
+1. **Terminal 1 (PLC Read)**: PLC → Direct Read → Database (parameter_value_history)
+2. **Terminal 2 (Recipe)**: Database (recipe_commands) → Direct PLC Execution → Process Updates
+3. **Terminal 3 (Parameter)**: Database (parameter_control_commands) → Direct PLC Write
 
 ### Quick Test
 ```bash
-python tests/integration/test_basic_integration.py
+# Test individual terminals
+python terminal1_launcher.py --demo  # Test PLC data collection
+python terminal2_launcher.py --demo  # Test recipe execution
+python terminal3_launcher.py --demo  # Test parameter control
+
+# Test basic integration
+python tests/integration/test_parameter_synchronization.py
+python tests/integration/test_parameter_cross_component.py
 ```
 
 ## 📁 Project Structure
 
 ```
 ald-control-system-phase-5/
-├── src/                          # Core application
-│   ├── main.py                   # Application entry point
+├── main.py                       # Unified entry point with terminal selection
+├── terminal1_launcher.py         # Terminal 1 (PLC Read) launcher
+├── terminal2_launcher.py         # Terminal 2 (Recipe) launcher
+├── terminal3_launcher.py         # Terminal 3 (Parameter) launcher
+├── plc_data_service.py           # Terminal 1 service implementation
+├── simple_recipe_service.py      # Terminal 2 service implementation
+├── parameter_service.py          # Terminal 3 service implementation
+├── src/                          # Core shared modules
 │   ├── config.py                 # Configuration management
 │   ├── db.py                     # Database client
 │   ├── log_setup.py             # Logging setup
-│   ├── command_flow/            # Command processing
-│   ├── recipe_flow/             # Recipe execution
-│   ├── step_flow/               # Step execution
-│   └── plc/                     # PLC communication
+│   ├── connection_monitor.py    # Connection monitoring
+│   ├── recipe_flow/             # Recipe execution (shared)
+│   ├── plc/                     # PLC communication (shared)
+│   └── data_collection/         # Data collection utilities
 ├── tests/                        # Test suite
 │   ├── integration/             # Integration tests
-│   ├── unit/                    # Unit tests (future)
-│   └── fixtures/                # Test data
+│   └── unit/                    # Unit tests
 ├── tools/                        # Development tools
-│   ├── debug/                   # Debug utilities
-│   └── utilities/               # Helper scripts
+│   └── debug/                   # Debug utilities
 ├── docs/                         # Documentation
 ├── requirements.txt
-├── pyproject.toml               # Modern Python config
-└── .env                         # Environment configuration
+├── .env.example                  # Environment configuration template
+└── logs/                         # Service-specific log files
 ```
-
-## 🏗️ Architecture
-
-### Core Components
-
-- **Command Flow** (`src/command_flow/`) - Listens for and processes commands from database
-- **Recipe Flow** (`src/recipe_flow/`) - Executes ALD recipes with multiple steps  
-- **Step Flow** (`src/step_flow/`) - Handles individual recipe steps (valve, purge, parameter, loop)
-- **PLC Communication** (`src/plc/`) - Hardware abstraction layer for PLC operations
-
-### Data Flow
-
-1. **Command Processing**: Supabase → Command Listener → Command Processor → Recipe Execution
-2. **Hardware Control**: Recipe Steps → PLC Manager → PLC Interface → Hardware
-3. **Data Recording**: PLC Values → Continuous Recorder → Supabase Process Data
 
 ## 🧪 Testing
 
 ### Run Integration Tests
 ```bash
-# Basic connectivity and database tests
-python tests/integration/test_basic_integration.py
+# Test parameter synchronization (3-terminal integration)
+python tests/integration/test_parameter_synchronization.py
 
-# Recipe loading and execution tests  
-python tests/integration/test_recipe_execution.py
+# Test cross-component communication
+python tests/integration/test_parameter_cross_component.py
 
-# Command flow integration tests
-python tests/integration/test_command_flow.py
+# Test PLC connectivity
+python tools/debug/test_plc_connection.py
 
-# Comprehensive integration suite
-python tests/integration/test_comprehensive.py
+# Test database connectivity
+python tools/debug/test_supabase_connection.py
+```
+
+### Test Individual Terminals
+```bash
+# Terminal 1 (PLC Read) tests
+python terminal1_launcher.py --demo
+
+# Terminal 2 (Recipe) tests
+python terminal2_launcher.py --demo
+
+# Terminal 3 (Parameter) tests
+python terminal3_launcher.py --demo
 ```
 
 ### Test Coverage
-- ✅ Database schema integration
-- ✅ Recipe loading and execution
-- ✅ Command processing
-- ✅ Step configuration loading
-- ✅ PLC communication (simulation)
+- ✅ 3-terminal architecture integration
+- ✅ Parameter synchronization across terminals
+- ✅ PLC communication (simulation and real)
+- ✅ Database operations for each terminal
 - ✅ Error handling and recovery
+- ✅ Service-specific logging
 
 ## 🔧 Development
 
@@ -122,8 +174,28 @@ python tools/debug/test_plc_connection.py
 # Database connectivity
 python tools/debug/test_supabase_connection.py
 
-# Valve control testing  
+# Parameter read/write testing
+python tools/debug/test_parameter_read.py
+python tools/debug/test_parameter_write.py
+
+# Valve control testing
 python tools/debug/test_valve_control.py
+```
+
+### Service-Specific Logging
+The system uses service-specific logging for better debugging:
+```bash
+# Monitor specific service logs
+tail -f logs/plc.log              # Terminal 1 (PLC Read)
+tail -f logs/command_flow.log    # Terminal 2 (Recipe)
+tail -f logs/data_collection.log # Terminal 1 data collection
+tail -f logs/machine_control.log # Legacy/fallback
+
+# Monitor all errors
+tail -f logs/*.log | grep ERROR
+
+# Monitor startup sequence
+tail -f logs/machine_control.log logs/command_flow.log logs/plc.log
 ```
 
 ### Code Style
@@ -131,11 +203,11 @@ python tools/debug/test_valve_control.py
 # Format code
 black src/ tests/
 
-# Type checking  
+# Type checking
 mypy src/
 
 # Linting
-flake8 src/ tests/
+python -m pylint --disable=C0103,C0111 --max-line-length=100 *.py
 ```
 
 ## 📊 Database Schema
@@ -158,7 +230,7 @@ The system uses a normalized PostgreSQL database with the following key tables:
 - Full database logging
 - Continuous data recording
 
-### Simulation Mode  
+### Simulation Mode
 - Virtual PLC simulation
 - Safe testing environment
 - Full feature compatibility
@@ -168,10 +240,21 @@ The system uses a normalized PostgreSQL database with the following key tables:
 - Step-by-step execution
 - Hardware diagnostics
 
+### 3-Terminal Operation
+Each terminal can be run independently:
+- **Terminal 1 Only**: Just PLC data collection
+- **Terminal 2 Only**: Just recipe execution
+- **Terminal 3 Only**: Just parameter control
+- **All Three**: Complete system operation
+
 ## 📖 Documentation
 
 - [Architecture Overview](docs/ARCHITECTURE.md)
-- [Deployment Guide](docs/DEPLOYMENT.md) 
+- [3-Terminal Design](CLAUDE.md) - Complete system documentation
+- [Terminal 1 Guide](Terminal_1_PLC_Read_Service_Guide.md)
+- [Terminal 2 Guide](Terminal_2_Recipe_Service_Documentation.md)
+- [Terminal 3 Guide](Terminal_3_Implementation_Guide.md)
+- [Deployment Guide](docs/DEPLOYMENT.md)
 - [API Reference](docs/API.md)
 - [Test Reports](docs/reports/)
 
@@ -222,16 +305,30 @@ value.
 
 ## 🏃‍♂️ Commands
 
-### System Commands
+### 3-Terminal System Commands
 ```bash
-# Start system
-python main.py
+# Run complete 3-terminal system (3 separate windows)
+python main.py --terminal 1 --demo      # Terminal 1: PLC Read
+python main.py --terminal 2 --demo      # Terminal 2: Recipe Service
+python main.py --terminal 3 --demo      # Terminal 3: Parameter Service
 
-# Run specific test
-python tests/integration/test_basic_integration.py
+# Or use launcher scripts
+python terminal1_launcher.py --demo    # Terminal 1: PLC Read
+python terminal2_launcher.py --demo    # Terminal 2: Recipe Service
+python terminal3_launcher.py --demo    # Terminal 3: Parameter Service
+```
+
+### Testing Commands
+```bash
+# Test 3-terminal integration
+python tests/integration/test_parameter_synchronization.py
+python tests/integration/test_parameter_cross_component.py
 
 # Debug PLC connection
 python tools/debug/test_plc_connection.py
+
+# Test database connectivity
+python tools/debug/test_supabase_connection.py
 ```
 
 ### Database Commands
@@ -245,10 +342,12 @@ python tools/debug/test_db_update.py
 
 ## 🤝 Contributing
 
-1. Follow the existing code structure under `src/`
-2. Add tests for new features in `tests/`
-3. Update documentation as needed
-4. Use the debug tools for testing hardware integration
+1. Follow the 3-terminal architecture pattern
+2. Each terminal should operate independently
+3. Add tests for new features in `tests/`
+4. Use service-specific logging from `src/log_setup.py`
+5. Update documentation as needed
+6. Use the debug tools for testing hardware integration
 
 ## 📝 License
 
@@ -256,16 +355,7 @@ This project is proprietary software for ALD system control.
 
 ---
 
-**🔬 Built for precision ALD process control with Python reliability and modern architecture**
-
-## Agents (Headless Runtime)
-
-The service runs as multiple cooperating agents managed by a lightweight supervisor:
-- Connection Monitor Agent – maintains PLC connectivity and writes machine health
-- Command Listener Agent – subscribes to `recipe_commands` and polls as fallback
-- Parameter Control Agent – consumes `parameter_control_commands` (optional for ops/testing)
-
-All agents are asyncio tasks with backoff/restart and clean shutdown.
+**🔬 Built for precision ALD process control with Python reliability and modern 3-terminal architecture**
 
 ## Safety Features
 
