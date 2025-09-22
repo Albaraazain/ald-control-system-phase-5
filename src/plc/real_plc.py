@@ -151,10 +151,10 @@ class RealPLC(PLCInterface):
             if n.startswith("temperature"):
                 return True
 
-            # Special handling for valve_state: keep only numbered process valves
+            # Special handling for valve_state: keep all valve state parameters
             if n == "valve_state":
-                # Keep "Valve N"; ignore other variants like "Gas Valve", "Exhaust Gate Valve"
-                return comp.startswith("valve ")
+                # Include all valve types: process valves, gate valves, gas valves, etc.
+                return "valve" in comp
 
             return False
 
@@ -402,6 +402,13 @@ class RealPLC(PLCInterface):
             # TODO: Decide if we should raise instead of returning DB value
             return param_meta.get('current_value', 0.0)
 
+        # Set parameter info for enhanced logging
+        param_info = {
+            'name': param_meta.get('name', 'unknown'),
+            'component_name': param_meta.get('component_name', 'unknown')
+        }
+        self.communicator.set_current_parameter_info(param_info)
+
         # Read the parameter using explicit read_modbus_type when available.
         # Fallback: infer from data_type (binary -> coils, else holding regs).
         # TODO: Add communicator methods for input registers and discrete inputs
@@ -509,14 +516,17 @@ class RealPLC(PLCInterface):
                 f"Error reading parameter {parameter_id} ({param_meta.get('name')}): "
                 f"{str(e)}"
             )
-        
+        finally:
+            # Clear parameter info regardless of success/failure
+            self.communicator.clear_current_parameter_info()
+
         if value is None:
             logger.warning(f"Failed to read value for parameter {parameter_id}. Returning None.")
             return None
-            
+
         # Update database with current value (in background task)
         asyncio.create_task(self._update_parameter_value(parameter_id, value))
-        
+
         return float(value)
     
     async def _update_parameter_value(self, parameter_id: str, value: float):

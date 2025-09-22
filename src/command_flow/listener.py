@@ -4,7 +4,9 @@ Includes realtime subscription with timeout and polling fallback.
 """
 
 import asyncio
-from src.log_setup import logger
+from src.log_setup import get_command_flow_logger
+
+logger = get_command_flow_logger()
 from src.config import MACHINE_ID, CommandStatus
 from src.db import get_supabase
 from src.command_flow.processor import process_command

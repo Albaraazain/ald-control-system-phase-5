@@ -3,7 +3,9 @@
 Manager for PLC interface instances.
 """
 from typing import Dict, Any, Optional
-from src.log_setup import logger
+from src.log_setup import get_plc_logger
+
+logger = get_plc_logger()
 from src.config import PLC_TYPE, PLC_CONFIG
 from src.plc.interface import PLCInterface
 from src.plc.factory import PLCFactory
@@ -94,42 +96,55 @@ class PLCManager:
     async def read_parameter(self, parameter_id: str) -> float:
         """
         Read a parameter value from the PLC.
-        
+
         Args:
             parameter_id: The ID of the parameter to read
-            
+
         Returns:
             float: The current value of the parameter
         """
         if self._plc is None:
             raise RuntimeError("Not connected to PLC")
-        return await self._plc.read_parameter(parameter_id)
+
+        value = await self._plc.read_parameter(parameter_id)
+        logger.debug(f"PLC read parameter {parameter_id}: {value}")
+        return value
         
     async def write_parameter(self, parameter_id: str, value: float) -> bool:
         """
         Write a parameter value to the PLC.
-        
+
         Args:
             parameter_id: The ID of the parameter to write
             value: The value to write
-            
+
         Returns:
             bool: True if successful, False otherwise
         """
         if self._plc is None:
             raise RuntimeError("Not connected to PLC")
-        return await self._plc.write_parameter(parameter_id, value)
+
+        logger.info(f"PLC write parameter {parameter_id}: {value}")
+        success = await self._plc.write_parameter(parameter_id, value)
+        if success:
+            logger.info(f"✅ PLC write successful: {parameter_id} = {value}")
+        else:
+            logger.error(f"❌ PLC write failed: {parameter_id} = {value}")
+        return success
         
     async def read_all_parameters(self) -> Dict[str, float]:
         """
         Read all parameter values from the PLC.
-        
+
         Returns:
             Dict[str, float]: Dictionary of parameter IDs to values
         """
         if self._plc is None:
             raise RuntimeError("Not connected to PLC")
-        return await self._plc.read_all_parameters()
+
+        parameter_values = await self._plc.read_all_parameters()
+        logger.debug(f"PLC read all parameters: {len(parameter_values)} values retrieved")
+        return parameter_values
         
     async def control_valve(self, valve_number: int, state: bool, duration_ms: Optional[int] = None) -> bool:
         """

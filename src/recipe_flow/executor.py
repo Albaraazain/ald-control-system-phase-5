@@ -2,7 +2,9 @@
 Executes a recipe by processing its steps in sequence.
 """
 import asyncio
-from src.log_setup import logger
+from src.log_setup import get_recipe_flow_logger
+
+logger = get_recipe_flow_logger()
 from src.config import MACHINE_ID
 from src.db import get_supabase, get_current_timestamp
 from src.recipe_flow.data_recorder import record_process_data

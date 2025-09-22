@@ -3,7 +3,9 @@
 Data collection service integration for the main application with transactional data integrity.
 """
 import asyncio
-from src.log_setup import logger
+from src.log_setup import get_data_collection_logger
+
+logger = get_data_collection_logger()
 from src.data_collection.transactional_adapter import transactional_parameter_logger_adapter
 
 

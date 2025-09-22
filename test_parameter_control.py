@@ -36,36 +36,42 @@ def create_parameter_test_commands():
         
         print(f"Creating test commands for machine: {machine_id}")
         
-        # Define test commands for different parameter types
+        # Define test commands using correct component_parameter_ids from database
         test_commands = [
             {
-                "parameter_name": "pump_1",
-                "target_value": 1,  # Turn ON
+                "parameter_name": "power_on",
+                "component_parameter_id": "9c53f4ef-5506-4a45-9718-af8a7b233056",
+                "target_value": 1,  # Turn ON Nitrogen Generator
                 "machine_id": machine_id,
             },
             {
-                "parameter_name": "pump_2",
-                "target_value": 0,  # Turn OFF
+                "parameter_name": "flow",
+                "component_parameter_id": "35969620-6843-4130-8eca-d6b62dc74dbf",
+                "target_value": 150.5,  # Set MFC 1 flow rate to 150.5 sccm
                 "machine_id": machine_id,
             },
             {
-                "parameter_name": "nitrogen_generator",
-                "target_value": 1,  # Turn ON
+                "parameter_name": "power_on",
+                "component_parameter_id": "ca61248a-9be5-43d2-a204-df6f15ef4fe7",
+                "target_value": 1,  # Turn ON Chamber Heater
                 "machine_id": machine_id,
             },
             {
-                "parameter_name": "mfc_1_flow_rate",
-                "target_value": 150.5,  # Set flow rate to 150.5 sccm
+                "parameter_name": "temperature",
+                "component_parameter_id": "b6433c16-cb13-4e6a-b5b8-1b1519f0b44b",
+                "target_value": 250.0,  # Set Chamber Heater temperature to 250°C
                 "machine_id": machine_id,
             },
             {
-                "parameter_name": "chamber_heater",
-                "target_value": 1,  # Turn ON
+                "parameter_name": "valve_state",
+                "component_parameter_id": "5d2cfe0a-151c-4745-9865-cd78125f93d0",
+                "target_value": 1,  # Open Exhaust Gate Valve
                 "machine_id": machine_id,
             },
             {
-                "parameter_name": "pressure_setpoint",
-                "target_value": 0.75,  # Set pressure to 0.75 torr
+                "parameter_name": "power_on",
+                "component_parameter_id": "6c08a1b0-5674-46c1-9fb5-a4c4eca1adf1",
+                "target_value": 1,  # Turn ON Frontend Heater
                 "machine_id": machine_id,
             }
         ]
@@ -76,7 +82,8 @@ def create_parameter_test_commands():
         if result.data:
             print(f"✅ Successfully created {len(result.data)} test parameter commands:")
             for i, cmd in enumerate(result.data):
-                print(f"   {i+1}. {cmd['parameter_name']} = {cmd['target_value']} (ID: {cmd['id']})")
+                component_name = get_component_name(supabase, cmd['component_parameter_id'])
+                print(f"   {i+1}. [{component_name}] {cmd['parameter_name']} = {cmd['target_value']} (ID: {cmd['id']})")
             return True
         else:
             print("❌ Failed to create test commands")
@@ -87,13 +94,45 @@ def create_parameter_test_commands():
         return False
 
 
+def get_component_name(supabase, component_parameter_id):
+    """
+    Get component name for a given component_parameter_id.
+    """
+    try:
+        # First get the component_id from component_parameters
+        result = (
+            supabase.table("component_parameters")
+            .select("component_id")
+            .eq("id", component_parameter_id)
+            .execute()
+        )
+
+        if result.data and result.data[0].get('component_id'):
+            component_id = result.data[0]['component_id']
+
+            # Then get the component name from machine_components
+            component_result = (
+                supabase.table("machine_components")
+                .select("name")
+                .eq("id", component_id)
+                .execute()
+            )
+
+            if component_result.data and component_result.data[0].get('name'):
+                return component_result.data[0]['name']
+
+        return "Unknown Component"
+    except Exception:
+        return "Unknown Component"
+
+
 def show_pending_commands():
     """
     Display all pending parameter control commands.
     """
     try:
         supabase = get_supabase()
-        
+
         result = (
             supabase.table("parameter_control_commands")
             .select("*")
@@ -101,14 +140,15 @@ def show_pending_commands():
             .order("created_at")
             .execute()
         )
-        
+
         if result.data:
             print(f"\n📋 Found {len(result.data)} pending parameter commands:")
             for cmd in result.data:
-                print(f"   • {cmd['parameter_name']} = {cmd['target_value']}")
+                component_name = get_component_name(supabase, cmd['component_parameter_id'])
+                print(f"   • [{component_name}] {cmd['parameter_name']} = {cmd['target_value']}")
         else:
             print("\n✅ No pending parameter commands found")
-            
+
     except Exception as e:
         print(f"❌ Error fetching pending commands: {str(e)}")
 
@@ -119,7 +159,7 @@ def show_recent_commands():
     """
     try:
         supabase = get_supabase()
-        
+
         result = (
             supabase.table("parameter_control_commands")
             .select("*")
@@ -127,7 +167,7 @@ def show_recent_commands():
             .limit(10)
             .execute()
         )
-        
+
         if result.data:
             print(f"\n📊 Last 10 parameter commands:")
             for cmd in result.data:
@@ -146,12 +186,13 @@ def show_recent_commands():
                     'completed': '✅',
                     'failed': '❌'
                 }.get(status, '❓')
-                print(f"   {status_emoji} {cmd['parameter_name']} = {cmd['target_value']} ({status})")
+                component_name = get_component_name(supabase, cmd['component_parameter_id'])
+                print(f"   {status_emoji} [{component_name}] {cmd['parameter_name']} = {cmd['target_value']} ({status})")
                 if error:
                     print(f"      Error: {error}")
         else:
             print("\n✅ No parameter commands found")
-            
+
     except Exception as e:
         print(f"❌ Error fetching recent commands: {str(e)}")
 
@@ -180,11 +221,30 @@ def clear_all_commands():
 
 def main():
     """
-    Main function with interactive menu.
+    Main function with interactive menu or command-line arguments.
     """
+    if len(sys.argv) > 1:
+        # Command-line mode
+        arg = sys.argv[1].lower()
+        if arg == 'create':
+            print("🔨 Creating test parameter commands...")
+            create_parameter_test_commands()
+        elif arg == 'pending':
+            print("📋 Checking pending commands...")
+            show_pending_commands()
+        elif arg == 'recent':
+            print("📊 Showing recent commands...")
+            show_recent_commands()
+        elif arg == 'clear':
+            clear_all_commands()
+        else:
+            print("Usage: python test_parameter_control.py [create|pending|recent|clear]")
+        return
+
+    # Interactive mode
     print("🔧 Parameter Control Test Script")
     print("=" * 40)
-    
+
     while True:
         print("\nOptions:")
         print("1. Create test parameter commands")
@@ -192,32 +252,32 @@ def main():
         print("3. Show recent commands")
         print("4. Clear all commands")
         print("5. Exit")
-        
+
         try:
             choice = input("\nSelect option (1-5): ").strip()
-            
+
             if choice == '1':
                 print("\n🔨 Creating test parameter commands...")
                 create_parameter_test_commands()
-                
+
             elif choice == '2':
                 print("\n📋 Checking pending commands...")
                 show_pending_commands()
-                
+
             elif choice == '3':
                 print("\n📊 Showing recent commands...")
                 show_recent_commands()
-                
+
             elif choice == '4':
                 clear_all_commands()
-                
+
             elif choice == '5':
                 print("👋 Goodbye!")
                 break
-                
+
             else:
                 print("❌ Invalid choice. Please select 1-5.")
-                
+
         except KeyboardInterrupt:
             print("\n👋 Goodbye!")
             break

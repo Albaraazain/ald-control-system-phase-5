@@ -217,7 +217,7 @@ class PLCCommunicator:
         # Try a quick read operation to verify connection
         try:
             # Read a single coil as a lightweight health check
-            result = self.client.read_coils(0, count=1, slave=self.slave_id)
+            result = self.client.read_coils(0, count=1)
             # Even if the read fails due to invalid address, if we get a proper Modbus response,
             # the connection is healthy
             return not result.isError() or 'connection' not in str(result).lower()
@@ -337,7 +337,7 @@ class PLCCommunicator:
         self.log("DEBUG", f"Reading float from address {address}")
 
         def _read_operation():
-            return self.client.read_holding_registers(address, count=2, slave=self.slave_id)
+            return self.client.read_holding_registers(address, count=2)
 
         result = self._execute_with_retry(_read_operation, f"read_float(address={address})")
         
@@ -369,7 +369,13 @@ class PLCCommunicator:
             self.log("ERROR", f"Failed to read float: {result}")
             return None
 
-        self.log("INFO", f"Float value: {float_value}")
+        # Enhanced logging with parameter info if available
+        if hasattr(self, '_current_param_info') and self._current_param_info:
+            param_name = self._current_param_info.get('name', 'unknown')
+            component_name = self._current_param_info.get('component_name', 'unknown')
+            self.log("INFO", f"Float value: {float_value} [{component_name} - {param_name}]")
+        else:
+            self.log("INFO", f"Float value: {float_value}")
         return float_value
     
     def write_float(self, address, value):
@@ -412,7 +418,7 @@ class PLCCommunicator:
         self.log("DEBUG", f"Registers in '{self.byte_order}' order: {registers}")
 
         def _write_operation():
-            return self.client.write_registers(address, registers, slave=self.slave_id)
+            return self.client.write_registers(address, registers)
 
         result = self._execute_with_retry(_write_operation, f"write_float(address={address}, value={value})")
         
@@ -436,7 +442,7 @@ class PLCCommunicator:
         self.log("DEBUG", f"Reading 32-bit integer from address {address}")
 
         def _read_operation():
-            return self.client.read_holding_registers(address, count=2, slave=self.slave_id)
+            return self.client.read_holding_registers(address, count=2)
 
         result = self._execute_with_retry(_read_operation, f"read_integer_32bit(address={address})")
         
@@ -512,7 +518,7 @@ class PLCCommunicator:
         self.log("DEBUG", f"Registers ({self.byte_order}): {registers} (hex: [0x{registers[0]:04x}, 0x{registers[1]:04x}])")
 
         def _write_operation():
-            return self.client.write_registers(address, registers, slave=self.slave_id)
+            return self.client.write_registers(address, registers)
 
         result = self._execute_with_retry(_write_operation, f"write_integer_32bit(address={address}, value={value})")
         
@@ -537,7 +543,7 @@ class PLCCommunicator:
         self.log("DEBUG", f"Reading {count} coils from address {address}")
 
         def _read_operation():
-            return self.client.read_coils(address, count=count, slave=self.slave_id)
+            return self.client.read_coils(address, count=count)
 
         result = self._execute_with_retry(_read_operation, f"read_coils(address={address}, count={count})")
         
@@ -553,10 +559,24 @@ class PLCCommunicator:
         self.log("DEBUG", f"Raw coil values: {result.bits}")
         for i, bit in enumerate(result.bits[:count]):
             state = "ON" if bit else "OFF"
-            self.log("INFO", f"Coil {address + i}: {state}")
+            # Enhanced logging with parameter info if available
+            if hasattr(self, '_current_param_info') and self._current_param_info:
+                param_name = self._current_param_info.get('name', 'unknown')
+                component_name = self._current_param_info.get('component_name', 'unknown')
+                self.log("INFO", f"Coil {address + i}: {state} [{component_name} - {param_name}]")
+            else:
+                self.log("INFO", f"Coil {address + i}: {state}")
 
         return result.bits[:count]
-    
+
+    def set_current_parameter_info(self, param_info):
+        """Set current parameter information for enhanced logging."""
+        self._current_param_info = param_info
+
+    def clear_current_parameter_info(self):
+        """Clear current parameter information."""
+        self._current_param_info = None
+
     def write_coil(self, address, value):
         """
         Write a binary value (coil) to the PLC.
@@ -572,7 +592,7 @@ class PLCCommunicator:
         self.log("DEBUG", f"Writing {state} to coil {address}")
 
         def _write_operation():
-            return self.client.write_coil(address, value, slave=self.slave_id)
+            return self.client.write_coil(address, value)
 
         result = self._execute_with_retry(_write_operation, f"write_coil(address={address}, value={value})")
         
@@ -660,7 +680,7 @@ class PLCCommunicator:
             List of parsed values or None if failed
         """
         def _read_operation():
-            return self.client.read_holding_registers(start_addr, count=total_registers, slave=self.slave_id)
+            return self.client.read_holding_registers(start_addr, count=total_registers)
 
         result = self._execute_with_retry(
             _read_operation,
@@ -780,7 +800,7 @@ class PLCCommunicator:
             List of boolean values or None if failed
         """
         def _read_operation():
-            return self.client.read_coils(start_addr, count=count, slave=self.slave_id)
+            return self.client.read_coils(start_addr, count=count)
 
         result = self._execute_with_retry(
             _read_operation,

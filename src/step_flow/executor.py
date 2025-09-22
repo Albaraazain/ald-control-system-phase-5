@@ -1,7 +1,9 @@
 """
 Executes recipe steps based on their type.
 """
-from src.log_setup import logger
+from src.log_setup import get_step_flow_logger
+
+logger = get_step_flow_logger()
 from src.db import get_supabase
 from src.step_flow.loop_step import execute_loop_step
 from src.step_flow.purge_step import execute_purge_step

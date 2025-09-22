@@ -1,7 +1,9 @@
 """
 Command processor for handling different types of commands.
 """
-from src.log_setup import logger
+from src.log_setup import get_command_flow_logger
+
+logger = get_command_flow_logger()
 from src.config import CommandStatus, MACHINE_ID
 from src.db import get_supabase
 from src.command_flow.status import update_command_status

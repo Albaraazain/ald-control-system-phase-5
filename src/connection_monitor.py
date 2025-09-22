@@ -14,7 +14,9 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import os
-from src.log_setup import logger, OK_MARK, WARN_MARK, FAIL_MARK
+from src.log_setup import get_connection_monitor_logger, OK_MARK, WARN_MARK, FAIL_MARK
+
+logger = get_connection_monitor_logger()
 from src.plc.manager import plc_manager
 from src.db import get_supabase
 from src.config import MACHINE_ID

@@ -6,7 +6,9 @@ Listens to the parameter_control_commands table to validate the end-to-end contr
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, Optional, Set
-from src.log_setup import logger
+from src.log_setup import get_plc_logger
+
+logger = get_plc_logger()  # Parameter control is PLC-related
 from src.config import MACHINE_ID
 from src.db import get_supabase
 from src.plc.manager import plc_manager
@@ -399,15 +401,37 @@ async def process_parameter_command(command: Dict[str, Any]):
             data_type = command.get('data_type', 'float')  # Default to float if not specified
 
             # Write directly using override address
-            if hasattr(plc_manager.plc, 'write_coil') and data_type == 'binary':
-                success = await plc_manager.plc.write_coil(command_write_addr, bool(target_value))
-                logger.info(f"Wrote binary value {bool(target_value)} to coil {command_write_addr}")
-            elif hasattr(plc_manager.plc, 'write_holding_register'):
-                success = await plc_manager.plc.write_holding_register(command_write_addr, float(target_value))
-                logger.info(f"Wrote value {float(target_value)} to holding register {command_write_addr}")
+            # Handle both RealPLC (with communicator) and SimulationPLC (direct methods)
+            if hasattr(plc_manager.plc, 'communicator'):
+                # RealPLC with communicator
+                if hasattr(plc_manager.plc.communicator, 'write_coil') and data_type == 'binary':
+                    success = plc_manager.plc.communicator.write_coil(command_write_addr, bool(target_value))
+                    logger.info(f"Wrote binary value {bool(target_value)} to coil {command_write_addr}")
+                elif (hasattr(plc_manager.plc.communicator, 'write_float') and callable(getattr(plc_manager.plc.communicator, 'write_float'))) or (hasattr(plc_manager.plc.communicator, 'write_integer_32bit') and callable(getattr(plc_manager.plc.communicator, 'write_integer_32bit'))):
+                    # Use write_float for float values, write_integer_32bit for integer values
+                    if hasattr(plc_manager.plc.communicator, 'write_integer_32bit') and callable(getattr(plc_manager.plc.communicator, 'write_integer_32bit')) and (isinstance(target_value, int) or target_value.is_integer()):
+                        success = plc_manager.plc.communicator.write_integer_32bit(command_write_addr, int(float(target_value)))
+                    elif hasattr(plc_manager.plc.communicator, 'write_float') and callable(getattr(plc_manager.plc.communicator, 'write_float')):
+                        success = plc_manager.plc.communicator.write_float(command_write_addr, float(target_value))
+                    else:
+                        logger.warning(f"No suitable write method available on communicator")
+                        success = False
+                    if success:
+                        logger.info(f"Wrote value {float(target_value)} to holding register {command_write_addr}")
+                else:
+                    logger.warning(f"PLC communicator doesn't support direct address writing")
+                    success = False
             else:
-                logger.warning(f"PLC interface doesn't support direct address writing")
-                success = False
+                # SimulationPLC with direct methods
+                if hasattr(plc_manager.plc, 'write_coil') and data_type == 'binary':
+                    success = await plc_manager.plc.write_coil(command_write_addr, bool(target_value))
+                    logger.info(f"Wrote binary value {bool(target_value)} to coil {command_write_addr}")
+                elif hasattr(plc_manager.plc, 'write_holding_register'):
+                    success = await plc_manager.plc.write_holding_register(command_write_addr, float(target_value))
+                    logger.info(f"Wrote value {float(target_value)} to holding register {command_write_addr}")
+                else:
+                    logger.warning(f"PLC doesn't support direct address writing")
+                    success = False
         else:
             # No override address - use parameter lookup with component_parameter_id preference
             param_row = None
@@ -440,14 +464,6 @@ async def process_parameter_command(command: Dict[str, Any]):
                         .execute()
                     )
                     rows = q1.data or []
-                    if not rows:
-                        q2 = (
-                            supabase.table('component_parameters_full')
-                            .select('*')
-                            .eq('name', parameter_name)
-                            .execute()
-                        )
-                        rows = q2.data or []
 
                     if rows:
                         # Prefer writable parameter when multiple rows
@@ -488,10 +504,14 @@ async def process_parameter_command(command: Dict[str, Any]):
                 addr = param_row.get('write_modbus_address')
                 if addr is not None:
                     logger.info(f"Using parameter table modbus address {addr} for {parameter_name}")
-                    if hasattr(plc_manager.plc, 'write_coil') and data_type == 'binary':
-                        success = await plc_manager.plc.write_coil(addr, bool(target_value))
-                    elif hasattr(plc_manager.plc, 'write_holding_register'):
-                        success = await plc_manager.plc.write_holding_register(addr, float(target_value))
+                    if hasattr(plc_manager.plc.communicator, 'write_coil') and data_type == 'binary':
+                        success = plc_manager.plc.communicator.write_coil(addr, bool(target_value))
+                    elif hasattr(plc_manager.plc.communicator, 'write_float') or hasattr(plc_manager.plc.communicator, 'write_integer_32bit'):
+                        # Use write_float for float values, write_integer_32bit for integer values
+                        if isinstance(target_value, int) or target_value.is_integer():
+                            success = plc_manager.plc.communicator.write_integer_32bit(addr, int(float(target_value)))
+                        else:
+                            success = plc_manager.plc.communicator.write_float(addr, float(target_value))
                 else:
                     logger.error(f"No modbus address available for parameter {parameter_name} (ID: {parameter_id})")
         
