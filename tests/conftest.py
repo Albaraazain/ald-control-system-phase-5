@@ -21,6 +21,44 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 # Test configuration
 pytest_plugins = ["pytest_asyncio"]
 
+# Import all new test fixtures
+from tests.fixtures.terminal_fixtures import (
+    terminal_launcher,
+    three_terminals,
+    terminal_health_monitor,
+    terminal_log_capture
+)
+from tests.fixtures.plc_fixtures import (
+    plc_simulation,
+    plc_with_parameters,
+    plc_state_validator,
+    plc_connection_monitor,
+    plc_reset_utility,
+    plc_with_binary_parameters,
+    mock_plc_manager
+)
+from tests.fixtures.database_fixtures import (
+    clean_test_database,
+    test_machine,
+    test_operator,
+    database_validator,
+    database_cleanup_utility,
+    database_connection_monitor
+)
+from tests.utils.async_helpers import (
+    wait_for_condition,
+    wait_for_database_record,
+    wait_for_terminal_log,
+    run_with_timeout,
+    collect_events,
+    drain_queue,
+    AsyncSubprocessManager,
+    retry_on_exception,
+    measure_execution_time,
+    run_concurrently,
+    sleep_until
+)
+
 # Environment setup
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_environment():
@@ -39,9 +77,29 @@ def setup_test_environment():
 # Async event loop configuration
 @pytest.fixture(scope="session")
 def event_loop():
-    """Create an instance of the default event loop for the test session."""
+    """Create an instance of the default event loop for the test session.
+
+    Configured with extended timeout for long-running multi-terminal tests.
+    """
     loop = asyncio.new_event_loop()
+
+    # Configure loop for long-running tests
+    loop.set_debug(True)  # Enable debug mode for async tracking
+
+    # Set slow callback threshold to 100ms for performance monitoring
+    loop.slow_callback_duration = 0.1
+
     yield loop
+
+    # Cleanup: cancel all pending tasks
+    pending = asyncio.all_tasks(loop)
+    for task in pending:
+        task.cancel()
+
+    # Wait for tasks to complete cancellation
+    if pending:
+        loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+
     loop.close()
 
 # Temporary directory fixture
@@ -387,6 +445,25 @@ def pytest_addoption(parser):
         action="store",
         help="Performance baseline file for comparison"
     )
+    parser.addoption(
+        "--run-integration",
+        action="store_true",
+        default=False,
+        help="Run integration tests with real terminals and database"
+    )
+    parser.addoption(
+        "--run-stress",
+        action="store_true",
+        default=False,
+        help="Run stress tests with high load scenarios"
+    )
+    parser.addoption(
+        "--terminal-timeout",
+        action="store",
+        type=int,
+        default=60,
+        help="Timeout in seconds for terminal operations (default: 60)"
+    )
 
 def pytest_configure(config):
     """Configure pytest with custom markers and settings."""
@@ -396,13 +473,32 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "benchmark: mark test as performance benchmark")
     config.addinivalue_line("markers", "flaky: mark test as potentially flaky")
 
+    # Multi-terminal testing markers
+    config.addinivalue_line("markers", "multi_terminal: mark test as requiring multiple terminal processes")
+    config.addinivalue_line("markers", "serial: mark test to run serially (no parallel execution)")
+    config.addinivalue_line("markers", "integration: mark test as integration test (requires --run-integration)")
+    config.addinivalue_line("markers", "stress: mark test as stress test (requires --run-stress)")
+    config.addinivalue_line("markers", "terminal1: mark test as using terminal 1 (PLC Read Service)")
+    config.addinivalue_line("markers", "terminal2: mark test as using terminal 2 (Recipe Service)")
+    config.addinivalue_line("markers", "terminal3: mark test as using terminal 3 (Parameter Service)")
+
 def pytest_collection_modifyitems(config, items):
     """Modify test collection based on configuration."""
     skip_slow = pytest.mark.skip(reason="need --run-slow option to run")
     skip_hardware = pytest.mark.skip(reason="need --run-hardware option to run")
+    skip_integration = pytest.mark.skip(reason="need --run-integration option to run")
+    skip_stress = pytest.mark.skip(reason="need --run-stress option to run")
 
     for item in items:
         if "slow" in item.keywords and not config.getoption("--run-slow"):
             item.add_marker(skip_slow)
         if "hardware" in item.keywords and not config.getoption("--run-hardware"):
             item.add_marker(skip_hardware)
+        if "integration" in item.keywords and not config.getoption("--run-integration"):
+            item.add_marker(skip_integration)
+        if "stress" in item.keywords and not config.getoption("--run-stress"):
+            item.add_marker(skip_stress)
+
+        # Serial tests should not run in parallel (xdist)
+        if "serial" in item.keywords:
+            item.add_marker(pytest.mark.xdist_group(name="serial"))

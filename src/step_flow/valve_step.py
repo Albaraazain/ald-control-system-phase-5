@@ -2,10 +2,44 @@
 Executes valve steps in a recipe.
 """
 import asyncio
+import os
 from src.log_setup import logger
 from src.db import get_supabase, get_current_timestamp
 from src.plc.manager import plc_manager
 from src.recipe_flow.cancellation import is_cancelled
+
+
+async def _audit_log_valve_command(valve_number: int, process_id: str = None):
+    """
+    Background task to audit log valve commands to parameter_control_commands table.
+    Runs asynchronously and does NOT block recipe execution.
+
+    Args:
+        valve_number: The valve number that was controlled
+        process_id: The process execution ID (optional, for logging only - not stored in audit table)
+    """
+    try:
+        supabase = get_supabase()
+        machine_id = os.environ.get('MACHINE_ID', 'unknown')
+
+        # Create audit record showing valve was already executed
+        # Note: parameter_control_commands table does not have process_id column
+        audit_record = {
+            'machine_id': machine_id,
+            'parameter_name': f'Valve_{valve_number}',
+            'target_value': 1.0,  # Valve opened
+            'executed_at': get_current_timestamp(),
+            'completed_at': get_current_timestamp(),
+        }
+
+        # Insert audit record (non-blocking background operation)
+        supabase.table('parameter_control_commands').insert(audit_record).execute()
+
+        logger.debug(f"Audit logged valve {valve_number} command for process {process_id}")
+    except Exception as e:
+        # Log error but DO NOT propagate - recipe must continue even if audit fails
+        logger.error(f"Failed to audit log valve {valve_number} command: {e}", exc_info=True)
+
 
 async def execute_valve_step(process_id: str, step: dict):
     """
@@ -86,8 +120,11 @@ async def execute_valve_step(process_id: str, step: dict):
         success = await plc.control_valve(valve_number, True, duration_ms)
         if not success:
             raise RuntimeError(f"Failed to control valve {valve_number}")
+
+        # Audit log the valve command in background (non-blocking)
+        asyncio.create_task(_audit_log_valve_command(valve_number, process_id))
     else:
         # Fallback to simulation behavior if no PLC
         await asyncio.sleep(duration_ms / 1000)
-    
+
     logger.info(f"Valve {valve_number} operation completed successfully")

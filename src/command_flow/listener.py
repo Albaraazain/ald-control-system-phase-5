@@ -11,8 +11,6 @@ from src.config import MACHINE_ID, CommandStatus
 from src.db import get_supabase
 from src.command_flow.processor import process_command
 from src.connection_monitor import connection_monitor
-from typing import Optional
-from src.realtime.service import RealtimeService
 
 
 realtime_connected = False
@@ -74,7 +72,7 @@ async def poll_for_commands():
             await asyncio.sleep(10)
 
 
-async def setup_command_listener(async_supabase, realtime_service: Optional[RealtimeService] = None):
+async def setup_command_listener(async_supabase):
     """
     Set up a listener for command inserts in the Supabase database.
 
@@ -93,41 +91,31 @@ async def setup_command_listener(async_supabase, realtime_service: Optional[Real
         logger.debug(f"Payload: {payload}")
         asyncio.create_task(handle_command_insert(payload))
 
-    if realtime_service is not None:
-        # Use centralized realtime service (non-blocking)
-        logger.info("Registering recipe_commands subscription via RealtimeService...")
-        await realtime_service.subscribe_postgres(
-            name=channel_name,
-            table="recipe_commands",
-            on_insert=on_insert,
-        )
-        realtime_connected = realtime_service.is_connected()
-    else:
-        # Fallback to direct subscription
-        channel = async_supabase.channel(channel_name)
-        logger.info("Subscribing to INSERT events on recipe_commands table...")
-        channel = channel.on_postgres_changes(
-            event="INSERT", schema="public", table="recipe_commands", callback=on_insert
-        )
+    # Direct subscription
+    channel = async_supabase.channel(channel_name)
+    logger.info("Subscribing to INSERT events on recipe_commands table...")
+    channel = channel.on_postgres_changes(
+        event="INSERT", schema="public", table="recipe_commands", callback=on_insert
+    )
 
-        logger.info("Subscribing to recipe_commands realtime channel...")
-        async def _subscribe_with_timeout():
-            global realtime_connected
-            try:
-                await asyncio.wait_for(channel.subscribe(), timeout=10.0)
-                realtime_connected = True
-                connection_monitor.update_realtime_status(True)
-                logger.info("Successfully subscribed to recipe_commands realtime channel")
-            except asyncio.TimeoutError:
-                logger.warning("Recipe command realtime subscription timed out after 10 seconds; using polling fallback")
-                realtime_connected = False
-                connection_monitor.update_realtime_status(False, "recipe subscribe timeout")
-            except Exception as e:
-                logger.error(f"Failed to subscribe to recipe_commands realtime channel: {str(e)}", exc_info=True)
-                realtime_connected = False
-                connection_monitor.update_realtime_status(False, str(e))
+    logger.info("Subscribing to recipe_commands realtime channel...")
+    async def _subscribe_with_timeout():
+        global realtime_connected
+        try:
+            await asyncio.wait_for(channel.subscribe(), timeout=10.0)
+            realtime_connected = True
+            connection_monitor.update_realtime_status(True)
+            logger.info("Successfully subscribed to recipe_commands realtime channel")
+        except asyncio.TimeoutError:
+            logger.warning("Recipe command realtime subscription timed out after 10 seconds; using polling fallback")
+            realtime_connected = False
+            connection_monitor.update_realtime_status(False, "recipe subscribe timeout")
+        except Exception as e:
+            logger.error(f"Failed to subscribe to recipe_commands realtime channel: {str(e)}", exc_info=True)
+            realtime_connected = False
+            connection_monitor.update_realtime_status(False, str(e))
 
-        asyncio.create_task(_subscribe_with_timeout())
+    await _subscribe_with_timeout()
     
     # Check for existing pending commands
     await check_pending_commands()

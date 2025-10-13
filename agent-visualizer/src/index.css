@@ -1,0 +1,201 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
+  }
+}
+
+@layer base {
+  * {
+    /* Tailwind v4 no longer supports applying some color utilities via @apply.
+       Use the CSS variable directly to set the default border color. */
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track { background-color: hsl(var(--muted)); }
+
+::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.30);
+  border-radius: 0.375rem; /* rounded-md */
+}
+
+::-webkit-scrollbar-thumb:hover { background-color: hsl(var(--muted-foreground) / 0.50); }
+
+/* Agent status animations */
+@keyframes pulse-running {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.agent-running {
+  animation: pulse-running 2s ease-in-out infinite;
+}
+
+/* Progress bar animations */
+@keyframes progress-shine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: progress-shine 2s ease-in-out infinite;
+}
+
+/* Notification styles */
+.notification-enter {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.notification-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.notification-exit {
+  opacity: 1;
+}
+
+.notification-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* File tree styles */
+.file-tree-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* gap-2 */
+  padding: 0.25rem; /* p-1 */
+  border-radius: 0.25rem; /* rounded */
+  font-size: 0.875rem; /* text-sm */
+  cursor: pointer;
+}
+.file-tree-item:hover { background-color: hsl(var(--muted) / 0.50); }
+
+.file-tree-folder { color: #2563eb; }
+.dark .file-tree-folder { color: #60a5fa; }
+
+.file-tree-file { color: hsl(var(--muted-foreground)); }
+
+/* Status indicators */
+.status-healthy { background-color: #22c55e; }
+
+.status-warning { background-color: #eab308; }
+
+.status-error { background-color: #ef4444; }
+
+.status-offline { background-color: #6b7280; }
+
+.status-running { background-color: #3b82f6; }
+
+.status-completed { background-color: #22c55e; }
+
+.status-failed { background-color: #ef4444; }
+
+.status-paused { background-color: #eab308; }
+
+/* Agent card hover effects */
+.agent-card { transition: all 200ms; }
+.agent-card:hover {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  transform: scale(1.02);
+}
+
+/* Log viewer styles */
+.log-viewer {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.log-info { color: #2563eb; }
+.dark .log-info { color: #60a5fa; }
+
+.log-warning { color: #ca8a04; }
+.dark .log-warning { color: #facc15; }
+
+.log-error { color: #dc2626; }
+.dark .log-error { color: #f87171; }
+
+.log-success { color: #16a34a; }
+.dark .log-success { color: #4ade80; }
+
+.log-debug { color: hsl(var(--muted-foreground)); }

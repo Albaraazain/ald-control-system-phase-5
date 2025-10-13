@@ -232,7 +232,7 @@ async def setup_parameter_control_listener(async_supabase, realtime_service=None
                     logger.error(f"Realtime subscribe error: {sub_err}", exc_info=True)
                     connection_monitor.update_realtime_status(False, str(sub_err))
 
-            asyncio.create_task(_subscribe_with_timeout())
+            await _subscribe_with_timeout()
 
     except Exception as e:
         logger.error(f"Failed to set up realtime channel: {str(e)}", exc_info=True)
@@ -496,7 +496,10 @@ async def process_parameter_command(command: Dict[str, Any]):
             if success:
                 # Confirmation read when available
                 try:
-                    current_value = await plc_manager.read_parameter(parameter_id)
+                    # Read with skip_noise=True for confirmation - need exact value for tolerance check
+                    # SIMULATION NOTE: Without skip_noise, simulation adds ±0.5-1.0 noise, causing
+                    # confirmation read to fail tolerance check (noise is 500-1000x larger than tolerance)
+                    current_value = await plc_manager.read_parameter(parameter_id, skip_noise=True)
                 except Exception as read_err:
                     logger.debug(f"Confirmation read failed for '{parameter_name}': {read_err}")
             else:

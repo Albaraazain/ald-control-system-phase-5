@@ -1,6 +1,9 @@
 """
 Executes parameter setting steps in a recipe and handles parameter set commands.
 """
+import asyncio
+import os
+import uuid
 from src.log_setup import logger
 from src.db import get_supabase, get_current_timestamp
 from src.plc.manager import plc_manager
@@ -121,4 +124,40 @@ async def set_parameter_value(parameter_id, parameter_value):
         raise RuntimeError(f"Failed to update parameter {parameter_id}")
     
     logger.info(f"Parameter {parameter_id} set successfully to {parameter_value}")
+
+    # 5. Audit log the parameter write (non-blocking background task)
+    asyncio.create_task(_audit_log_parameter_write(parameter_id, parameter_value))
+
     return result.data[0]
+
+
+async def _audit_log_parameter_write(parameter_id: str, parameter_value: float):
+    """
+    Background task to log parameter write to audit trail.
+    Runs asynchronously to avoid blocking recipe execution.
+    Failures are logged but do not propagate.
+
+    Args:
+        parameter_id: UUID of the parameter that was written
+        parameter_value: Value that was written to the parameter
+    """
+    try:
+        supabase = get_supabase()
+        machine_id = os.environ.get('MACHINE_ID', 'unknown')
+
+        # Create audit record in parameter_control_commands
+        audit_record = {
+            'id': str(uuid.uuid4()),
+            'component_parameter_id': parameter_id,
+            'target_value': parameter_value,
+            'machine_id': machine_id,
+            'executed_at': get_current_timestamp(),
+            'completed_at': get_current_timestamp(),
+        }
+
+        supabase.table('parameter_control_commands').insert(audit_record).execute()
+        logger.debug(f"Audit log created for parameter {parameter_id} = {parameter_value}")
+
+    except Exception as e:
+        # Log error but do not propagate - recipe execution must continue
+        logger.error(f"Failed to create audit log for parameter {parameter_id}: {e}", exc_info=True)

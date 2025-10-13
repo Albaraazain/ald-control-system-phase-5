@@ -31,10 +31,11 @@ sys.path.insert(0, str(project_root))
 
 from src.log_setup import get_recipe_flow_logger, set_log_level
 from src.config import MACHINE_ID
-from src.db import get_supabase, get_current_timestamp
+from src.db import get_supabase, get_current_timestamp, create_async_supabase
 from src.plc.manager import plc_manager
 from src.recipe_flow.executor import execute_recipe
 from src.recipe_flow.continuous_data_recorder import continuous_recorder
+from src.command_flow.listener import setup_command_listener
 
 
 logger = get_recipe_flow_logger()
@@ -80,6 +81,16 @@ class SimpleRecipeService:
             raise RuntimeError("Failed to initialize PLC connection")
 
         logger.info("✅ PLC connection established successfully")
+
+        # Initialize realtime listener for recipe commands
+        try:
+            async_supabase = await create_async_supabase()
+            await setup_command_listener(async_supabase)
+            logger.info("✅ Realtime listener initialized (with polling fallback)")
+        except Exception as e:
+            logger.warning(f"⚠️ Realtime listener failed to initialize: {e}")
+            logger.info("📋 Continuing with polling-only mode")
+
         logger.debug("🔧 Recipe service initialization complete")
 
     async def check_for_recipe_commands(self) -> Optional[Dict[str, Any]]:
@@ -320,7 +331,7 @@ class SimpleRecipeService:
         """Main service loop"""
         logger.info("🚀 Simple Recipe Service started - polling for commands")
         logger.info(f"👂 Listening for recipe commands for machine_id={MACHINE_ID}")
-        logger.info("📋 Polling mode: Checking database every 2 seconds")
+        logger.info("📋 Realtime listener active with polling fallback (2s interval)")
         self.running = True
 
         poll_count = 0

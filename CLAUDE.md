@@ -33,13 +33,15 @@ This is an Atomic Layer Deposition (ALD) control system with a **SIMPLE 3-TERMIN
 - **Database**: Monitors `recipe_commands` table, updates `process_executions`
 - **Launch**: `python main.py --terminal 2 --demo` or `python terminal2_launcher.py --demo`
 - **Features**: Direct PLC access, simple polling, reuses existing recipe_flow components
+- **Hybrid Architecture**: Recipe execution writes PLC DIRECTLY for performance (160-350ms per step), then logs audit trail to `parameter_control_commands` AFTER write completes. This hybrid approach provides fast execution + full traceability without routing through Terminal 3.
 
 ### ⚙️ TERMINAL 3: Parameter Service (`parameter_service.py`)
-- **Purpose**: Parameter control and writing
+- **Purpose**: Parameter control and writing for EXTERNAL commands
 - **Function**: Listens for parameter commands and writes directly to PLC
 - **Database**: Monitors `parameter_control_commands` table
 - **Launch**: `python main.py --terminal 3 --demo` or `python terminal3_launcher.py --demo`
 - **Features**: Direct PLC access, parameter validation, retry logic
+- **Scope**: Handles EXTERNAL manual parameter commands from operators/systems. Does NOT process recipe commands - recipes use direct PLC access (Terminal 2) for speed, then audit to this table for traceability.
 
 ### Key Architecture Benefits
 
@@ -52,8 +54,10 @@ This is an Atomic Layer Deposition (ALD) control system with a **SIMPLE 3-TERMIN
 ### Simple Data Flow
 
 1. **Terminal 1 (PLC Read)**: PLC → Direct Read → Database (parameter_value_history)
-2. **Terminal 2 (Recipe)**: Database (recipe_commands) → Direct PLC Execution → Process Updates
-3. **Terminal 3 (Parameter)**: Database (parameter_control_commands) → Direct PLC Write
+2. **Terminal 2 (Recipe)**: Database (recipe_commands) → Direct PLC Execution → Process Updates + Audit Trail (parameter_control_commands)
+3. **Terminal 3 (Parameter)**: Database (parameter_control_commands) → Direct PLC Write (external commands only)
+
+**Note**: Terminal 2 uses a hybrid architecture - it writes to PLC directly (fast path: 160-350ms), then logs to parameter_control_commands for audit trail (async background task). Terminal 3 handles external commands only, not recipe-driven changes.
 
 ### Key Design Principles
 
@@ -184,3 +188,4 @@ tail -f logs/machine_control.log logs/command_flow.log logs/plc.log
 ### Documentation
 - **Enhanced Logging Guide**: `docs/Enhanced_Logging_Guide.md` - Complete usage guide
 - **Troubleshooting Guide**: `docs/Log_Troubleshooting_Guide.md` - Debug patterns and solutions
+- proceed with the one that makes sense, that one that ensure proper implementation longterm, the one that is not mock or a fallback., all must be real actual functional decisions, for getting the app not just to run but run properly./

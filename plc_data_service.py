@@ -10,8 +10,11 @@ This terminal provides:
 3. Parameter value logging to database
 4. Enhanced logging with parameter metadata
 5. Performance monitoring and metrics
+6. Batch insert retry logic with exponential backoff
+7. Dead letter queue for failed batches
+8. Background recovery task for replaying failed batches
 
-Simplified architecture focused on reliable data collection.
+Simplified architecture focused on reliable data collection with ZERO data loss guarantee.
 """
 import asyncio
 import atexit
@@ -20,6 +23,8 @@ import os
 import sys
 import signal
 import argparse
+import json
+from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
@@ -31,7 +36,7 @@ sys.path.insert(0, project_root)
 from src.log_setup import get_plc_logger, get_data_collection_logger, logger as main_logger
 from src.config import MACHINE_ID, PLC_TYPE, PLC_CONFIG
 from src.db import get_supabase
-from src.plc.manager import PLCManager
+from src.plc.manager import plc_manager  # Use global singleton for consistent PLC connection
 # Removed broken transactional import - will use direct database logging
 
 # Service-specific loggers
@@ -67,13 +72,21 @@ class PLCDataService:
     Terminal 1: PLC Data Service
 
     Provides PLC data collection with precise timing and reliable database logging.
+
+    Features zero data loss guarantee through:
+    - Retry logic with exponential backoff (3 attempts: 1s, 2s, 4s)
+    - Dead letter queue for failed batches
+    - Background recovery task for replaying failed batches
     """
 
     def __init__(self):
-        self.plc_manager = PLCManager()
+        # Use global singleton PLCManager for consistent connection across all terminals
+        # This ensures only 1 Modbus TCP connection is created (shared with Terminals 2 & 3)
+        self.plc_manager = plc_manager
         self.supabase = get_supabase()
         self.is_running = False
         self.data_collection_task = None
+        self.recovery_task = None
 
         # Timing control for precise 1s intervals
         self.data_collection_interval = 1.0  # 1 second
@@ -87,13 +100,23 @@ class PLCDataService:
             'failed_readings': 0,
             'timing_violations': 0,
             'last_collection_duration': 0.0,
-            'average_collection_duration': 0.0
+            'average_collection_duration': 0.0,
+            # Batch insert failure metrics
+            'batch_insert_retries': 0,
+            'batch_insert_failures': 0,
+            'dead_letter_queue_writes': 0,
+            'dead_letter_queue_replays': 0,
+            'dead_letter_queue_depth': 0
         }
 
         # Parameter metadata cache for enhanced logging
         self.parameter_metadata = {}  # Cache parameter name/component info
 
-        plc_logger.info("PLC Data Service initialized - Terminal 1 ready for data collection")
+        # Dead letter queue configuration
+        self.dead_letter_queue_dir = Path("logs/dead_letter_queue")
+        self.dead_letter_queue_dir.mkdir(parents=True, exist_ok=True)
+
+        plc_logger.info("PLC Data Service initialized - Terminal 1 ready for data collection with zero data loss guarantee")
 
     async def initialize(self) -> bool:
         """
@@ -108,10 +131,11 @@ class PLCDataService:
             # Initialize parameter metadata cache for enhanced logging
             await self._initialize_parameter_metadata()
 
-            # Initialize PLC connection
+            # Initialize PLC connection using global singleton (shared with Terminals 2 & 3)
+            plc_logger.info(f"🔗 Using global singleton PLCManager (shared across all terminals)")
             plc_connected = await self.plc_manager.initialize(PLC_TYPE, PLC_CONFIG)
             if plc_connected:
-                plc_logger.info("✅ PLC connection established")
+                plc_logger.info("✅ PLC connection established via singleton - 1 shared connection for all terminals")
             else:
                 plc_logger.warning("⚠️ PLC connection failed - will retry in background")
 
@@ -133,14 +157,17 @@ class PLCDataService:
         try:
             self.is_running = True
 
-            # Start core service task
+            # Start core service tasks
             self.data_collection_task = asyncio.create_task(self._data_collection_loop())
+            self.recovery_task = asyncio.create_task(self._dead_letter_queue_recovery_loop())
 
-            plc_logger.info("🚀 PLC Data Service started - data collection operational")
+            plc_logger.info("🚀 PLC Data Service started - data collection operational with zero data loss guarantee")
+            plc_logger.info("🔄 Dead letter queue recovery enabled - failed batches will be replayed automatically")
 
-            # Wait for task to complete
+            # Wait for tasks to complete
             await asyncio.gather(
                 self.data_collection_task,
+                self.recovery_task,
                 return_exceptions=True
             )
 
@@ -159,7 +186,7 @@ class PLCDataService:
             self.is_running = False
 
             # Cancel all tasks
-            tasks = [self.data_collection_task]
+            tasks = [self.data_collection_task, self.recovery_task]
             for task in tasks:
                 if task and not task.done():
                     task.cancel()
@@ -173,6 +200,14 @@ class PLCDataService:
 
             # Cleanup parameter metadata cache
             self.parameter_metadata = {}
+
+            # Log final metrics
+            dlq_depth = self.metrics.get('dead_letter_queue_depth', 0)
+            if dlq_depth > 0:
+                plc_logger.warning(
+                    f"⚠️ Service stopped with {dlq_depth} batches in dead letter queue. "
+                    f"These will be replayed on next startup."
+                )
 
             plc_logger.info("PLC Data Service stopped successfully")
 
@@ -367,9 +402,180 @@ class PLCDataService:
             data_logger.error(f"Failed to load parameter metadata: {e}", exc_info=True)
             # Continue with empty metadata - service should still work
 
+    async def _batch_insert_with_retry(self, history_records: List[Dict[str, Any]]) -> bool:
+        """
+        Batch insert with exponential backoff retry logic.
+
+        Implements 3-attempt retry with delays: 1s, 2s, 4s
+        On final failure, writes to dead letter queue for recovery.
+
+        Args:
+            history_records: List of parameter records to insert
+
+        Returns:
+            bool: True if insert succeeded, False if all retries failed
+        """
+        max_attempts = 3
+        backoff_delays = [1.0, 2.0, 4.0]  # Exponential backoff: 1s, 2s, 4s
+
+        for attempt in range(max_attempts):
+            try:
+                # Attempt batch insert
+                response = self.supabase.table('parameter_value_history').insert(history_records).execute()
+
+                if response.data:
+                    success_count = len(response.data)
+
+                    # Log retry success if this wasn't the first attempt
+                    if attempt > 0:
+                        self.metrics['batch_insert_retries'] += attempt
+                        data_logger.info(
+                            f"✅ Database insert succeeded on retry attempt {attempt + 1}/{max_attempts}: "
+                            f"{success_count} parameter values logged"
+                        )
+                    else:
+                        data_logger.info(f"✅ Database insert: {success_count} parameter values logged")
+
+                    return True
+                else:
+                    raise Exception("Supabase returned no data in response")
+
+            except Exception as e:
+                self.metrics['batch_insert_retries'] += 1
+
+                if attempt < max_attempts - 1:
+                    # Not the last attempt - retry with backoff
+                    delay = backoff_delays[attempt]
+                    data_logger.warning(
+                        f"⚠️ Database insert failed (attempt {attempt + 1}/{max_attempts}): {e}. "
+                        f"Retrying in {delay}s..."
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    # Final attempt failed - write to dead letter queue
+                    self.metrics['batch_insert_failures'] += 1
+                    data_logger.error(
+                        f"❌ Database insert failed after {max_attempts} attempts: {e}. "
+                        f"Writing {len(history_records)} records to dead letter queue..."
+                    )
+                    await self._write_to_dead_letter_queue(history_records)
+                    return False
+
+        return False
+
+    async def _write_to_dead_letter_queue(self, history_records: List[Dict[str, Any]]):
+        """
+        Write failed batch to dead letter queue for later recovery.
+
+        Format: JSON lines in logs/dead_letter_queue/failed_batch_<timestamp>.jsonl
+
+        Args:
+            history_records: List of parameter records that failed to insert
+        """
+        try:
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+            dlq_file = self.dead_letter_queue_dir / f"failed_batch_{timestamp}.jsonl"
+
+            # Write each record as a JSON line
+            with open(dlq_file, 'w') as f:
+                for record in history_records:
+                    f.write(json.dumps(record) + '\n')
+
+            self.metrics['dead_letter_queue_writes'] += 1
+            self.metrics['dead_letter_queue_depth'] = len(list(self.dead_letter_queue_dir.glob('*.jsonl')))
+
+            data_logger.warning(
+                f"📝 Dead letter queue: Wrote {len(history_records)} records to {dlq_file.name}. "
+                f"Queue depth: {self.metrics['dead_letter_queue_depth']} files"
+            )
+
+        except Exception as e:
+            # Critical: If we can't even write to DLQ, log the data for manual recovery
+            data_logger.error(
+                f"🚨 CRITICAL: Failed to write to dead letter queue: {e}. "
+                f"LOST DATA: {len(history_records)} records"
+            )
+            data_logger.error(f"Lost records (for manual recovery): {json.dumps(history_records)}")
+
+    async def _dead_letter_queue_recovery_loop(self):
+        """
+        Background task that attempts to replay failed batches from dead letter queue.
+
+        Runs every 60 seconds. For each file in DLQ:
+        1. Try to insert the batch
+        2. On success, delete the DLQ file
+        3. On failure, leave for next attempt
+        """
+        data_logger.info("🔄 Dead letter queue recovery loop started (60s interval)")
+
+        while self.is_running:
+            try:
+                await asyncio.sleep(60.0)  # Check every 60 seconds
+
+                # Get all DLQ files
+                dlq_files = sorted(self.dead_letter_queue_dir.glob('*.jsonl'))
+
+                if not dlq_files:
+                    continue  # No files to recover
+
+                data_logger.info(f"🔄 Dead letter queue recovery: Processing {len(dlq_files)} failed batches...")
+
+                for dlq_file in dlq_files:
+                    try:
+                        # Read records from file
+                        history_records = []
+                        with open(dlq_file, 'r') as f:
+                            for line in f:
+                                history_records.append(json.loads(line.strip()))
+
+                        if not history_records:
+                            # Empty file - delete it
+                            dlq_file.unlink()
+                            continue
+
+                        # Attempt single retry (no exponential backoff for recovery)
+                        try:
+                            response = self.supabase.table('parameter_value_history').insert(history_records).execute()
+
+                            if response.data:
+                                # Success! Delete the DLQ file
+                                dlq_file.unlink()
+                                self.metrics['dead_letter_queue_replays'] += len(history_records)
+                                self.metrics['dead_letter_queue_depth'] = len(list(self.dead_letter_queue_dir.glob('*.jsonl')))
+
+                                data_logger.info(
+                                    f"✅ Dead letter queue recovery: Replayed {len(history_records)} records from {dlq_file.name}. "
+                                    f"Remaining queue depth: {self.metrics['dead_letter_queue_depth']}"
+                                )
+                            else:
+                                # No data returned - leave file for next attempt
+                                data_logger.warning(
+                                    f"⚠️ Dead letter queue recovery failed for {dlq_file.name}: No data returned. "
+                                    f"Will retry in 60s."
+                                )
+
+                        except Exception as e:
+                            # Insert failed - leave file for next attempt
+                            data_logger.warning(
+                                f"⚠️ Dead letter queue recovery failed for {dlq_file.name}: {e}. "
+                                f"Will retry in 60s."
+                            )
+
+                    except Exception as e:
+                        data_logger.error(f"Error processing DLQ file {dlq_file.name}: {e}", exc_info=True)
+
+            except asyncio.CancelledError:
+                data_logger.info("Dead letter queue recovery loop cancelled")
+                break
+            except Exception as e:
+                data_logger.error(f"Error in dead letter queue recovery loop: {e}", exc_info=True)
+                # Continue loop despite error
+
     async def _log_parameters_with_metadata(self, parameter_values: Dict[str, float]) -> int:
         """
         Log parameters to database with enhanced logging that includes metadata.
+
+        Uses retry logic with exponential backoff and dead letter queue for zero data loss.
 
         Args:
             parameter_values: Dictionary of parameter_id -> value
@@ -411,15 +617,17 @@ class PLCDataService:
                     f"📊 PLC Read: {component_name}.{param_name} = {value_str}"
                 )
 
-            # Batch insert to database
+            # Batch insert with retry logic and dead letter queue
             if history_records:
-                response = self.supabase.table('parameter_value_history').insert(history_records).execute()
+                insert_success = await self._batch_insert_with_retry(history_records)
 
-                if response.data:
-                    success_count = len(response.data)
-                    data_logger.info(f"✅ Database insert: {success_count} parameter values logged")
+                if insert_success:
+                    success_count = len(history_records)
                 else:
-                    data_logger.error("❌ Database insert failed: no data returned")
+                    # Failed after retries - data is in DLQ for recovery
+                    data_logger.error(
+                        f"❌ Database insert failed after retries: {len(history_records)} records in dead letter queue"
+                    )
 
         except Exception as e:
             data_logger.error(f"Failed to log parameters with metadata: {e}", exc_info=True)

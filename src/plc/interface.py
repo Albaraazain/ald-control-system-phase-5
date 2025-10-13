@@ -29,13 +29,21 @@ class PLCInterface(ABC):
         pass
     
     @abstractmethod
-    async def read_parameter(self, parameter_id: str) -> float:
+    async def read_parameter(self, parameter_id: str, skip_noise: bool = False) -> float:
         """
         Read a parameter value from the PLC.
-        
+
         Args:
             parameter_id: The ID of the parameter to read
-            
+            skip_noise: If True, return exact value without synthetic noise (simulation only).
+
+                       ⚠️ CRITICAL: Required for confirmation reads after writes in simulation.
+                       Without this flag, simulation noise (±0.5-1.0 units) exceeds tolerance,
+                       causing false failures. Real PLCs ignore this flag (no synthetic noise).
+
+                       Use skip_noise=True for: Confirmation reads after parameter writes
+                       Use skip_noise=False for: Normal data collection reads
+
         Returns:
             float: The current value of the parameter
         """

@@ -372,19 +372,28 @@ class RealPLC(PLCInterface):
             logger.error(f"Error loading purge parameters: {str(e)}", exc_info=True)
             # TODO: Decide on safe fallback behavior for purge if addresses are missing
     
-    async def read_parameter(self, parameter_id: str) -> float:
+    async def read_parameter(self, parameter_id: str, skip_noise: bool = False) -> float:
         """
         Read a parameter value from the PLC.
-        
+
         Args:
             parameter_id: The ID of the parameter to read
-            
+            skip_noise: Interface compatibility parameter (ignored by real PLC -
+                       real hardware has no synthetic noise to skip)
+
         Returns:
             float: The current value of the parameter
         """
         if not self.connected:
             raise RuntimeError("Not connected to PLC")
-        
+
+        # Log when skip_noise is used (even though real PLC ignores it) for debugging
+        if skip_noise:
+            logger.debug(
+                f"skip_noise=True requested for parameter {parameter_id}, but real PLC has no "
+                f"synthetic noise to skip (flag ignored). This is normal for confirmation reads."
+            )
+
         # Get parameter metadata from cache
         param_meta = self._parameter_cache.get(parameter_id)
         if not param_meta:

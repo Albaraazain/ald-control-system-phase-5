@@ -1,4 +1,9 @@
 {
-    "python.defaultInterpreterPath": "${workspaceFolder}/newenv/bin/python",
-    "python.analysis.extraPaths": ["${workspaceFolder}/newenv/lib/python3.10/site-packages"]
+    "python.defaultInterpreterPath": "${workspaceFolder}/myenv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "python.analysis.extraPaths": ["${workspaceFolder}/myenv/lib/python3.10/site-packages"],
+    "terminal.integrated.env.osx": {
+        "PYTHONPATH": "${workspaceFolder}"
+    }
 }

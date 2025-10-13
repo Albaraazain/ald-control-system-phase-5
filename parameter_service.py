@@ -26,14 +26,18 @@ from typing import Dict, Any, Optional, Set
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
-from src.log_setup import get_service_logger, get_plc_logger, set_log_level
+from supabase import Client
+
+from src.log_setup import get_service_logger, get_plc_logger, set_log_level, get_data_collection_logger
 from src.config import MACHINE_ID
 from src.db import create_async_supabase, get_supabase
 from src.plc.manager import plc_manager
 from src.connection_monitor import connection_monitor
+from src.parameter_validation import validate_parameter_write
 
 # Initialize parameter service logger (using PLC logger for consistency with parameter_control_listener)
 logger = get_plc_logger()
+data_logger = get_data_collection_logger()  # For parameter metadata initialization
 
 # Global state for the parameter service
 class ParameterServiceState:
@@ -45,6 +49,8 @@ class ParameterServiceState:
         self.retry_delay_base = 5  # Base delay in seconds for exponential backoff
         self.is_running = False
         self.async_supabase = None
+        self.supabase: Client = None  # Sync Supabase client for metadata queries
+        self.parameter_metadata: Dict[str, Dict[str, Any]] = {}  # Cache of parameter metadata
 
 state = ParameterServiceState()
 
@@ -226,6 +232,19 @@ async def process_parameter_command(command: Dict[str, Any]):
             data_type = command.get('data_type', 'float')  # Default to float if not specified
             logger.debug(f"🔢 [DATA TYPE] Parameter data type: {data_type}")
 
+            # SAFETY VALIDATION before direct address write
+            param_validation_info = {
+                'data_type': data_type,
+                'is_writable': True,  # Command override assumes writable
+                'min_value': None,  # No bounds for direct address override (logged as warning)
+                'max_value': None
+            }
+            is_valid, validation_error = validate_parameter_write(
+                parameter_name, target_value, param_validation_info
+            )
+            if not is_valid:
+                raise ValueError(f"Parameter validation failed: {validation_error}")
+
             # Write directly using override address
             logger.debug(f"✏️ [PLC WRITE START] Writing to modbus address {command_write_addr}...")
 
@@ -286,59 +305,95 @@ async def process_parameter_command(command: Dict[str, Any]):
 
             try:
                 if component_parameter_id:
-                    # Primary: Direct lookup by component_parameter_id (preferred method)
-                    logger.debug(f"🔍 [PARAM LOOKUP] Using component_parameter_id {component_parameter_id} for direct parameter lookup")
-                    q_id = (
-                        supabase.table('component_parameters_full')
-                        .select('*')
-                        .eq('id', component_parameter_id)
-                        .execute()
-                    )
-                    rows = q_id.data or []
-                    if rows:
-                        param_row = rows[0]
-                        logger.info(f"✅ [PARAM FOUND] Found parameter by ID: {param_row.get('name', parameter_name)} (ID: {component_parameter_id})")
-                        logger.debug(f"📋 [PARAM DETAILS] Parameter config: modbus_addr={param_row.get('write_modbus_address')}, data_type={param_row.get('data_type')}, writable={param_row.get('is_writable')}")
+                    # Primary: Direct lookup by component_parameter_id in cache
+                    logger.debug(f"🔍 [CACHE LOOKUP] Using component_parameter_id {component_parameter_id} for direct cache lookup")
+                    cached_metadata = state.parameter_metadata.get(component_parameter_id)
+                    if cached_metadata:
+                        param_row = {
+                            'id': component_parameter_id,
+                            'name': cached_metadata.get('name'),
+                            'data_type': cached_metadata.get('data_type'),
+                            'min_value': cached_metadata.get('min_value'),
+                            'max_value': cached_metadata.get('max_value'),
+                            'is_writable': cached_metadata.get('is_writable'),
+                            'component_name': cached_metadata.get('component_name')
+                        }
+                        logger.info(f"✅ [CACHE FOUND] Found parameter by ID in cache: {param_row.get('name', parameter_name)} (ID: {component_parameter_id})")
+                        logger.debug(f"📋 [CACHE DETAILS] Parameter config from cache: data_type={param_row.get('data_type')}, writable={param_row.get('is_writable')}")
                     else:
-                        logger.warning(f"⚠️ [PARAM LOOKUP] component_parameter_id {component_parameter_id} not found, falling back to parameter_name lookup")
+                        logger.warning(f"⚠️ [CACHE LOOKUP] component_parameter_id {component_parameter_id} not found in cache, falling back to parameter_name lookup")
 
-                # Fallback: parameter_name lookup (for backward compatibility)
+                # Fallback: parameter_name lookup using cache (parse Component.Parameter format)
                 if not param_row:
-                    logger.debug(f"🔍 [PARAM FALLBACK] Using parameter_name '{parameter_name}' for fallback lookup")
-                    q1 = (
-                        supabase.table('component_parameters_full')
-                        .select('*')
-                        .eq('parameter_name', parameter_name)
-                        .execute()
-                    )
-                    rows = q1.data or []
+                    logger.debug(f"🔍 [CACHE FALLBACK] Using parameter_name '{parameter_name}' for cache reverse lookup")
 
-                    if rows:
-                        # Prefer writable parameter when multiple rows
-                        writable_rows = [r for r in rows if r.get('is_writable')]
-                        param_row = (writable_rows[0] if writable_rows else rows[0])
-                        if len(rows) > 1:
-                            logger.warning(f"⚠️ [PARAM AMBIGUOUS] Multiple parameters found for name '{parameter_name}', using {param_row['id']}. Consider using component_parameter_id for precise targeting.")
-                            param_info = [f"ID:{r['id']} writable:{r.get('is_writable')}" for r in rows]
-                            logger.debug(f"📋 [PARAM OPTIONS] Found {len(rows)} parameters: {param_info}")
-                        logger.info(f"✅ [PARAM FOUND] Found parameter by name: {parameter_name} (ID: {param_row['id']})")
-                        logger.debug(f"📋 [PARAM DETAILS] Parameter config: modbus_addr={param_row.get('write_modbus_address')}, data_type={param_row.get('data_type')}, writable={param_row.get('is_writable')}")
+                    # Parse parameter_name format: "Component.Parameter" (e.g., "Precursor 3.temperature")
+                    if '.' not in parameter_name:
+                        raise ValueError(f"Invalid parameter_name format '{parameter_name}' - expected 'Component.Parameter'")
+
+                    component_name, param_type = parameter_name.rsplit('.', 1)
+                    logger.debug(f"🔍 [CACHE PARSE] Parsed parameter_name into component='{component_name}', type='{param_type}'")
+
+                    # Map lowercase param_type to expected cache name (case-insensitive matching)
+                    param_type_lower = param_type.lower()
+                    type_to_name_mapping = {
+                        'temperature': 'Temperature',
+                        'pressure': 'Pressure',
+                        'valve_state': 'Valve_State',
+                        'state': 'State',
+                        'flow_rate': 'Flow_Rate',
+                        'set_point': 'Set_Point',
+                        'binary': 'Binary_State',
+                        'reading': 'Reading',
+                        'value': 'Value'
+                    }
+                    expected_name = type_to_name_mapping.get(param_type_lower, param_type.title())
+
+                    # Search cache for matching component_name and parameter name
+                    found_param_id = None
+                    found_metadata = None
+                    for param_id, metadata in state.parameter_metadata.items():
+                        if (metadata.get('component_name') == component_name and
+                            metadata.get('name') == expected_name):
+                            found_param_id = param_id
+                            found_metadata = metadata
+                            break
+
+                    if found_param_id and found_metadata:
+                        param_row = {
+                            'id': found_param_id,
+                            'name': found_metadata.get('name'),
+                            'data_type': found_metadata.get('data_type'),
+                            'min_value': found_metadata.get('min_value'),
+                            'max_value': found_metadata.get('max_value'),
+                            'is_writable': found_metadata.get('is_writable'),
+                            'component_name': found_metadata.get('component_name')
+                        }
+                        logger.info(f"✅ [CACHE FOUND] Found parameter by name in cache: {parameter_name} (ID: {found_param_id})")
+                        logger.debug(f"📋 [CACHE DETAILS] Parameter config from cache: data_type={param_row.get('data_type')}, writable={param_row.get('is_writable')}")
 
             except Exception as lookup_err:
-                logger.error(f"Parameter lookup error for '{parameter_name}' (ID: {component_parameter_id}): {lookup_err}")
+                logger.error(f"Cache lookup error for '{parameter_name}' (ID: {component_parameter_id}): {lookup_err}")
 
             if not param_row:
                 if component_parameter_id:
                     raise ValueError(
-                        f"Parameter with component_parameter_id '{component_parameter_id}' and name '{parameter_name}' not found"
+                        f"Parameter with component_parameter_id '{component_parameter_id}' and name '{parameter_name}' not found in cache"
                     )
                 else:
                     raise ValueError(
-                        f"Parameter '{parameter_name}' not found in component_parameters_full"
+                        f"Parameter '{parameter_name}' not found in cache (parsed as component='{component_name}', type='{param_type}')"
                     )
 
             parameter_id = param_row['id']
             data_type = param_row.get('data_type')
+
+            # SAFETY VALIDATION before PLC write
+            is_valid, validation_error = validate_parameter_write(
+                parameter_name, target_value, param_row
+            )
+            if not is_valid:
+                raise ValueError(f"Parameter validation failed: {validation_error}")
 
             # DIRECT PLC ACCESS - write via PLC manager (NO coordination)
             logger.info(
@@ -351,29 +406,49 @@ async def process_parameter_command(command: Dict[str, Any]):
                 # Confirmation read when available
                 try:
                     logger.debug(f"🔍 [CONFIRMATION READ] Attempting to read back parameter value...")
-                    current_value = await plc_manager.read_parameter(parameter_id)
+                    # Read with skip_noise=True for confirmation - simulation noise (±0.5-1.0) is 500-1000x
+                    # larger than tolerance (0.001), causing false failures without this flag
+                    current_value = await plc_manager.read_parameter(parameter_id, skip_noise=True)
                     if current_value is not None:
                         logger.info(f"📖 [VALUE CONFIRMED] Parameter {parameter_name} current value: {current_value} (target was: {target_value})")
                         # Check if value matches target (with tolerance for floats)
                         if data_type == 'binary':
                             matches = bool(current_value) == bool(target_value)
                         else:
-                            matches = abs(float(current_value) - float(target_value)) < 0.001
+                            # Use 1.0 absolute tolerance for analog parameters to handle real sensor noise
+                            # Real hardware has ±0.1-1.0 units of natural noise from:
+                            # - Sensor electrical noise (thermocouples, RTDs, pressure transducers)
+                            # - ADC quantization error (typically ±1-2 LSB)
+                            # - Modbus communication timing jitter
+                            # - Environmental factors (EMI, temperature drift)
+                            #
+                            # LIMITATION: This is scale-dependent and may not work for all parameter types:
+                            # - Works well for: temperature (°C), flow (sccm), small-range pressures
+                            # - Too tight for: large-range pressures (mbar 0-100000)
+                            # - Too loose for: high-precision measurements
+                            #
+                            # TODO: Move to parameter-specific tolerance stored in database
+                            # (e.g., component_parameters.tolerance or percentage-based)
+                            matches = abs(float(current_value) - float(target_value)) < 1.0
 
                         if matches:
                             logger.info(f"✅ [VALUE MATCH] Parameter value matches target exactly")
                         else:
-                            logger.debug(f"🔍 [VALUE MISMATCH] Parameter value {current_value} differs from target {target_value} (expected in simulation mode)")
+                            error_msg = f"Confirmation read mismatch: expected {target_value}, got {current_value}"
+                            logger.error(f"❌ [VALUE MISMATCH] {error_msg}")
+                            # Mark command as failed due to confirmation mismatch
+                            success = False
                     else:
-                        logger.debug(f"🔍 [CONFIRMATION READ] No value returned from confirmation read")
+                        logger.warning(f"⚠️ [CONFIRMATION READ] No value returned from confirmation read (cannot verify write)")
                 except Exception as read_err:
-                    logger.debug(f"⚠️ [CONFIRMATION READ] Confirmation read failed for '{parameter_name}': {read_err}")
+                    logger.warning(f"⚠️ [CONFIRMATION READ] Confirmation read failed for '{parameter_name}': {read_err} (cannot verify write)")
             else:
                 logger.error(f"❌ [PLC WRITE FAILED] PLC manager write failed, attempting fallback...")
                 # Fallback by address when write fails and helpers exist
                 addr = param_row.get('write_modbus_address')
                 if addr is not None:
                     logger.info(f"📍 [FALLBACK WRITE] Using parameter table modbus address {addr} for {parameter_name}")
+                    # Note: Validation already performed above, safe to proceed with fallback
                     if hasattr(plc_manager.plc.communicator, 'write_coil') and data_type == 'binary':
                         bool_value = bool(target_value)
                         logger.debug(f"✏️ [FALLBACK WRITE] Writing binary {bool_value} to coil {addr}")
@@ -735,7 +810,7 @@ async def setup_parameter_control_listener():
                 logger.error(f"Realtime subscribe error: {sub_err}", exc_info=True)
                 connection_monitor.update_realtime_status(False, str(sub_err))
 
-        asyncio.create_task(_subscribe_with_timeout())
+        await _subscribe_with_timeout()
 
     except Exception as e:
         logger.error(f"Failed to set up realtime channel: {str(e)}", exc_info=True)
@@ -777,6 +852,118 @@ async def cleanup_handler():
         sys.exit(0)
 
 
+async def initialize_parameter_metadata_cache(service_state: ParameterServiceState) -> None:
+    """Initialize parameter metadata cache for enhanced logging - adapted from Terminal 1."""
+    try:
+        data_logger.info("Loading parameter metadata for enhanced logging...")
+
+        # Get all component parameters first
+        params_response = service_state.supabase.table('component_parameters').select(
+            'id, definition_id, component_id, min_value, max_value, is_writable, data_type'
+        ).execute()
+
+        # Get all component definitions
+        defs_response = service_state.supabase.table('component_definitions').select(
+            'id, name, type'
+        ).execute()
+
+        # Get all machine components (actual instances with correct names)
+        components_response = service_state.supabase.table('machine_components').select(
+            'id, name, definition_id'
+        ).execute()
+
+        # Create a lookup for component definitions
+        component_defs = {def_item['id']: def_item for def_item in defs_response.data}
+
+        # Create a lookup for component instances (maps component_id -> instance name)
+        component_instances = {comp['id']: comp for comp in components_response.data}
+
+        if params_response.data:
+            for param in params_response.data:
+                param_id = param['id']
+                definition_id = param.get('definition_id')
+
+                # Look up component definition
+                component_def = component_defs.get(definition_id, {})
+                component_type = component_def.get('type', '')
+
+                # Use machine component instance name instead of definition name
+                component_id = param.get('component_id')
+                component_instance = component_instances.get(component_id, {})
+                component_name = component_instance.get('name') or component_def.get('name', f'Component_{str(component_id)[:8] if component_id else "unknown"}')
+
+                # Create parameter name based on data type and improve naming
+                data_type = param.get('data_type') or 'unknown'
+                if data_type == 'temperature':
+                    param_name = 'Temperature'
+                elif data_type == 'pressure':
+                    param_name = 'Pressure'
+                elif data_type == 'valve_state':
+                    param_name = 'Valve_State'
+                elif data_type == 'flow_rate':
+                    param_name = 'Flow_Rate'
+                elif data_type == 'set_point':
+                    param_name = 'Set_Point'
+                elif data_type == 'binary':
+                    param_name = 'Binary_State'
+                elif data_type == 'float':
+                    param_name = 'Value'
+                elif data_type == 'unknown':
+                    param_name = 'Parameter'
+                else:
+                    param_name = str(data_type).title()
+
+                # If we have a valid component definition, use it for better naming
+                if component_def:
+                    # Try to create more specific parameter names based on component type
+                    if component_type == 'heater' and data_type == 'float':
+                        param_name = 'Temperature'
+                    elif component_type == 'gauge' and data_type == 'float':
+                        param_name = 'Reading'
+                    elif component_type == 'valve' and data_type == 'binary':
+                        param_name = 'State'
+
+                # Determine unit based on data type
+                unit = ''
+                if data_type == 'temperature':
+                    unit = '°C'
+                elif data_type == 'pressure':
+                    unit = 'Torr'
+                elif data_type == 'flow_rate':
+                    unit = 'sccm'
+                elif data_type == 'valve_state':
+                    unit = ''  # Binary state
+
+                service_state.parameter_metadata[param_id] = {
+                    'name': param_name,
+                    'component_name': component_name,
+                    'component_type': component_type,
+                    'component_id': param.get('component_id'),
+                    'data_type': data_type,
+                    'unit': unit,
+                    'min_value': param.get('min_value', 0),
+                    'max_value': param.get('max_value', 0),
+                    'is_writable': param.get('is_writable', False)
+                }
+
+            data_logger.info(f"✅ Loaded metadata for {len(service_state.parameter_metadata)} parameters")
+
+            # Log a few examples of the metadata for debugging
+            for i, (param_id, metadata) in enumerate(service_state.parameter_metadata.items()):
+                if i >= 3:  # Only show first 3
+                    break
+                data_logger.debug(
+                    f"Parameter {param_id}: {metadata['component_name']}.{metadata['name']} "
+                    f"({metadata['data_type']}, {metadata['unit']})"
+                )
+        else:
+            data_logger.warning("No parameter metadata found in database")
+
+    except Exception as e:
+        data_logger.error(f"Failed to load parameter metadata: {e}", exc_info=True)
+        # Continue with empty metadata - service should still work
+
+
 async def main():
     """
     Main function for Terminal 3: Simple Parameter Service
@@ -813,9 +1000,19 @@ async def main():
         else:
             logger.warning("⚠️ PLC manager initialization failed, will retry during operation")
 
+        # Initialize sync Supabase client for parameter metadata queries
+        logger.info("Creating sync Supabase client...")
+        state.supabase = get_supabase()
+        logger.info("✅ Sync Supabase client initialized")
+
         # Create async Supabase client for realtime features
         logger.info("Creating async Supabase client...")
         state.async_supabase = await create_async_supabase()
+
+        # Load parameter metadata cache
+        logger.info("Loading parameter metadata cache...")
+        await initialize_parameter_metadata_cache(state)
+        logger.info("✅ Parameter metadata cache initialized")
 
         # Start parameter control listener
         logger.info("Starting parameter control listener...")
@@ -840,10 +1037,17 @@ async def main():
 
             # Periodic status logging
             if asyncio.get_event_loop().time() % 300 < 1:  # Every 5 minutes
+                from src.parameter_validation import get_validation_stats
+                validation_stats = get_validation_stats()
+
                 logger.info(f"[Health Check] Realtime: {connection_monitor.realtime_status['connected']}, "
                            f"PLC: {plc_manager.is_connected()}, "
                            f"Processed: {len(state.processed_commands)}, "
                            f"Failed: {len(state.failed_commands)}")
+
+                if validation_stats['total_parameters_with_failures'] > 0:
+                    logger.warning(f"[Validation Stats] {validation_stats['total_parameters_with_failures']} parameters with validation failures: "
+                                 f"{validation_stats['failure_details']}")
 
     except Exception as e:
         logger.error(f"Error in parameter service main loop: {str(e)}", exc_info=True)

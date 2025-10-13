@@ -42,6 +42,7 @@ class SimulationPLC(PLCInterface):
         self.non_fluctuating_params = set()  # Parameters that shouldn't fluctuate
         self.valves = {}          # Valve states
         self._valve_cache = {}    # Valve parameter mappings
+        self._address_to_param_id = {}  # Maps modbus address → parameter_id for write synchronization
     
     async def initialize(self) -> bool:
         """Initialize the simulated PLC."""
@@ -96,6 +97,14 @@ class SimulationPLC(PLCInterface):
                     f"Parameter {param_id} ({param.get('name', str(param_id))}) "
                     f"will not fluctuate"
                 )
+
+            # Build address-to-parameter mapping for write synchronization
+            write_addr = param.get('write_modbus_address')
+            if write_addr is not None:
+                self._address_to_param_id[write_addr] = param_id
+
+        # Log mapping creation count
+        logger.info(f"Loaded {len(self._address_to_param_id)} address-to-parameter mappings for write synchronization")
 
     async def _load_valve_mappings(self):
         """Load valve mappings from the database for set_value synchronization."""
@@ -165,8 +174,13 @@ class SimulationPLC(PLCInterface):
         self.connected = False
         return True
     
-    async def read_parameter(self, parameter_id: str) -> float:
-        """Read a parameter from the simulation with realistic fluctuations."""
+    async def read_parameter(self, parameter_id: str, skip_noise: bool = False) -> float:
+        """Read a parameter from the simulation with realistic fluctuations.
+
+        Args:
+            parameter_id: The parameter ID to read
+            skip_noise: If True, return exact value without noise. See interface.py for details.
+        """
         if not self.connected:
             raise RuntimeError("Not connected to simulation PLC")
             
@@ -176,11 +190,16 @@ class SimulationPLC(PLCInterface):
         
         # Get the base value for this parameter
         base_value = self.current_values[parameter_id]
-        
+
+        # Skip noise for confirmation reads (see interface.py for details)
+        if skip_noise:
+            return base_value
+
         # If this parameter should not fluctuate, return its exact value
+        # Non-fluctuating params (binary, valve_state, etc.) don't add noise in normal reads
         if parameter_id in self.non_fluctuating_params:
             return base_value
-        
+
         # Get set value as target
         set_value = self.set_values.get(parameter_id, base_value)
         
@@ -350,6 +369,14 @@ class SimulationPLC(PLCInterface):
         if not hasattr(self, "_holding_registers"):
             self._holding_registers = {}
         self._holding_registers[address] = float(value)
+
+        # Synchronize with parameter-based storage for confirmation reads
+        if hasattr(self, '_address_to_param_id') and address in self._address_to_param_id:
+            param_id = self._address_to_param_id[address]
+            self.current_values[param_id] = value
+            self.set_values[param_id] = value
+            logger.debug(f"Synchronized write: address {address} → parameter {param_id} = {value}")
+
         return True
 
     async def read_holding_register(self, address: int) -> Optional[float]:
@@ -361,6 +388,16 @@ class SimulationPLC(PLCInterface):
         if not hasattr(self, "_coils"):
             self._coils = {}
         self._coils[address] = bool(value)
+
+        # Synchronize with parameter-based storage for confirmation reads
+        if hasattr(self, '_address_to_param_id') and address in self._address_to_param_id:
+            param_id = self._address_to_param_id[address]
+            # Convert bool to float for storage consistency (1.0 for True, 0.0 for False)
+            float_value = 1.0 if value else 0.0
+            self.current_values[param_id] = float_value
+            self.set_values[param_id] = float_value
+            logger.debug(f"Synchronized coil write: address {address} → parameter {param_id} = {float_value} (bool={value})")
+
         return True
 
     async def read_coils(self, address: int, count: int = 1):
