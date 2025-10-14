@@ -80,22 +80,25 @@ async def update_process_status(process_id: str, status: str):
     return result.data[0]
 
 async def update_machine_status(process_id: str):
-    """Update machine status to idle when a process stops."""
+    """
+    Update machine status to idle when a process stops.
+    Note: machines_base doesn't have 'status' column - status is tracked in machine_state table.
+    This function only updates current_process_id.
+    """
     supabase = get_supabase()
     
     update_data = {
-        'status': 'idle',
         'current_process_id': None,
         'updated_at': get_current_timestamp()
     }
     
-    result = supabase.table('machines').update(update_data).eq('id', MACHINE_ID).execute()
+    result = supabase.table('machines_base').update(update_data).eq('id', MACHINE_ID).execute()
     
     if not result.data or len(result.data) == 0:
         logger.warning(f"Failed to update machine status")
         return None
     
-    logger.info(f"Updated machine status to idle")
+    logger.info(f"Updated machines_base current_process_id to None (status tracked in machine_state)")
     return result.data[0]
 
 async def update_machine_state(process_id: str):

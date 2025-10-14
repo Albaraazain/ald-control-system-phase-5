@@ -172,3 +172,4 @@ asyncio.run(test())
 - ⚠️ If using address override, set `data_type='binary'`
 - ⚠️ Value of 0 = OFF, Value > 0 = ON
 
+

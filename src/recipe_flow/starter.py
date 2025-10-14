@@ -100,12 +100,21 @@ async def start_recipe(command_id: int, parameters: dict):
         elif not step.get('parent_step_id'):  # Only count non-child steps
             total_steps += 1
     
-    # 8.6 Create process execution state record (DB trigger may handle this)
-    # Many deployments auto-create this row via a DB trigger; avoid racing inserts here.
-    logger.info("Skipping explicit process_execution_state insert (handled by trigger if present)")
+    # 8.6 Create process execution state record
+    # Create the state record explicitly since trigger may not exist
+    try:
+        state_data = {
+            'execution_id': process_id,
+            'progress': {'total_steps': len(recipe_steps), 'completed_steps': 0},
+            'last_updated': get_current_timestamp()
+        }
+        supabase.table('process_execution_state').insert(state_data).execute()
+        logger.info("Created process_execution_state record")
+    except Exception as e:
+        logger.warning(f"Failed to create process_execution_state (may already exist via trigger): {e}")
     
-    # 9. Update machine status
-    await update_machine_status('processing', process_id)
+    # 9. Skip deprecated update_machine_status - machines_base doesn't have status column
+    # Status is tracked via machine_state.current_state instead
     
     # 10. Update machine state
     await update_machine_state('processing', process_id)
@@ -179,11 +188,14 @@ async def create_process_execution(session_id, recipe_id, recipe_version, operat
     return process_result.data[0]['id']
 
 async def update_machine_status(status, process_id=None):
-    """Update the machine status in the database."""
+    """
+    Update the machine status in the database.
+    Note: machines_base doesn't have 'status' column - status is tracked in machine_state table.
+    This function only updates current_process_id for backward compatibility.
+    """
     supabase = get_supabase()
     
     update_data = {
-        'status': status,
         'updated_at': get_current_timestamp()
     }
     
@@ -192,11 +204,11 @@ async def update_machine_status(status, process_id=None):
     elif status == 'idle':
         update_data['current_process_id'] = None
     
-    result = supabase.table('machines').update(update_data).eq('id', MACHINE_ID).execute()
+    result = supabase.table('machines_base').update(update_data).eq('id', MACHINE_ID).execute()
     if not result.data or len(result.data) == 0:
         raise RuntimeError("Failed to update machine status")
     
-    logger.info(f"Updated machine status to {status}")
+    logger.info(f"Updated machines_base current_process_id (status={status} tracked in machine_state)")
     return result.data[0]
 
 async def update_machine_state(state, process_id=None):

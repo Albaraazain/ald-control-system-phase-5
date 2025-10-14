@@ -298,18 +298,27 @@ class SimpleRecipeService:
             logger.info(f"✅ Process execution record created: {process_id}")
 
             # Create process execution state record
-            logger.debug("💾 Creating process execution state record")
-            state_data = {
-                'execution_id': process_id,
-                'progress': {'total_steps': len(recipe_steps), 'completed_steps': 0},
-                'last_updated': get_current_timestamp()
-            }
-            supabase.table('process_execution_state').insert(state_data).execute()
-            logger.debug("✅ Process execution state record created")
+            logger.info("💾 Creating process_execution_state record for process: " + process_id)
+            try:
+                state_data = {
+                    'execution_id': process_id,
+                    'progress': {'total_steps': len(recipe_steps), 'completed_steps': 0},
+                    'last_updated': get_current_timestamp()
+                }
+                logger.debug(f"💾 State data: {state_data}")
+                state_result = supabase.table('process_execution_state').insert(state_data).execute()
+                if state_result.data:
+                    logger.info(f"✅ Process execution state record created successfully")
+                else:
+                    logger.error(f"❌ Failed to create process_execution_state - no data returned")
+            except Exception as e:
+                logger.error(f"❌ Failed to create process_execution_state record: {e}", exc_info=True)
+                # Try to continue anyway - the executor may create it
+                logger.warning("⚠️ Continuing recipe execution despite state record creation failure")
 
             # Update machine status
             logger.debug(f"💾 Updating machine {MACHINE_ID} status to 'running'")
-            supabase.table('machines').update({
+            supabase.table('machines_base').update({
                 'status': 'running',
                 'current_process_id': process_id
             }).eq('id', MACHINE_ID).execute()
@@ -368,7 +377,7 @@ class SimpleRecipeService:
 
             # Update machine status
             logger.debug(f"💾 Updating machine {MACHINE_ID} status to 'idle'")
-            supabase.table('machines').update({
+            supabase.table('machines_base').update({
                 'status': 'idle',
                 'current_process_id': None
             }).eq('id', MACHINE_ID).execute()

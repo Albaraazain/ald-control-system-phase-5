@@ -147,3 +147,4 @@ coil_results, reg_results = await asyncio.gather(coils_task, regs_task)
 5. Monitor performance for 24 hours
 6. If successful, implement Phase 2
 
+

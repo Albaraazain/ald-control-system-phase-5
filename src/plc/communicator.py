@@ -856,6 +856,11 @@ class PLCCommunicator:
         if not params:
             return []
 
+        # Modbus protocol limit: maximum 125 registers per read
+        MODBUS_MAX_REGISTERS = 125
+        # Use the smaller of user-specified max or Modbus limit
+        effective_max_range = min(max_range_size, MODBUS_MAX_REGISTERS)
+
         # Sort by address
         sorted_params = sorted(params, key=lambda x: x[1])
         ranges = []
@@ -874,9 +879,11 @@ class PLCCommunicator:
             # Check if we can add this parameter to current range
             gap = address - current_range['end_address'] - 1
             range_registers = current_range['end_address'] - current_range['start_address'] + 1
+            new_total_registers = param_end - current_range['start_address'] + 1
 
             if (gap <= max_gap and
-                range_registers + gap + reg_size <= max_range_size and
+                new_total_registers <= effective_max_range and
+                range_registers + gap + reg_size <= effective_max_range and
                 len(current_range['data_types']) == 1 or data_type in current_range['data_types']):
 
                 # Add to current range
@@ -904,15 +911,29 @@ class PLCCommunicator:
             data_type = list(range_info['data_types'])[0] if len(range_info['data_types']) == 1 else 'int16'
 
             total_registers = range_info['end_address'] - range_info['start_address'] + 1
-            value_count = len(range_info['parameters'])
-
-            optimized_ranges.append({
-                'start_address': range_info['start_address'],
-                'count': total_registers,
-                'data_type': data_type,
-                'value_count': value_count,
-                'parameters': range_info['parameters']
-            })
+            
+            # CRITICAL: Enforce Modbus limit - split ranges that exceed 125 registers
+            if total_registers > MODBUS_MAX_REGISTERS:
+                self.log("WARNING", f"Range with {total_registers} registers exceeds Modbus limit ({MODBUS_MAX_REGISTERS}), splitting into individual reads")
+                # Fall back to individual parameter reads
+                for param_id, param_address, param_data_type in range_info['parameters']:
+                    param_size = 2 if param_data_type in ['float', 'int32'] else 1
+                    optimized_ranges.append({
+                        'start_address': param_address,
+                        'count': param_size,
+                        'data_type': param_data_type,
+                        'value_count': 1,
+                        'parameters': [(param_id, param_address, param_data_type)]
+                    })
+            else:
+                value_count = len(range_info['parameters'])
+                optimized_ranges.append({
+                    'start_address': range_info['start_address'],
+                    'count': total_registers,
+                    'data_type': data_type,
+                    'value_count': value_count,
+                    'parameters': range_info['parameters']
+                })
 
         return optimized_ranges
 
