@@ -26,6 +26,7 @@ async def start_recipe(command_id: int, parameters: dict):
     
     recipe_id = parameters['recipe_id']
     operator_id = parameters.get('operator_id')
+    reservation_id = parameters.get('reservation_id')
     
     # 1. Get recipe details
     recipe_result = supabase.table('recipes').select('*').eq('id', recipe_id).execute()
@@ -62,7 +63,7 @@ async def start_recipe(command_id: int, parameters: dict):
             raise ValueError("No operator specified for recipe execution")
     
     # 6. Get or create operator session
-    current_session = await get_or_create_operator_session(operator_id)
+    current_session = await get_or_create_operator_session(operator_id, reservation_id)
     
     # 7. Load recipe parameters from recipe_parameters table
     params_result = supabase.table('recipe_parameters').select('*').eq('recipe_id', recipe_id).execute()
@@ -123,12 +124,15 @@ async def start_recipe(command_id: int, parameters: dict):
     
     logger.info(f"Recipe {recipe_id} started successfully with process ID: {process_id}")
     
-async def get_or_create_operator_session(operator_id):
+async def get_or_create_operator_session(operator_id, reservation_id=None):
     """Get an existing operator session or create a new one."""
     supabase = get_supabase()
-    
+
     # Try to find an active session
-    session_result = supabase.table('operator_sessions').select('*').eq('operator_id', operator_id).eq('machine_id', MACHINE_ID).eq('status', 'active').execute()
+    session_query = supabase.table('operator_sessions').select('*').eq('operator_id', operator_id).eq('machine_id', MACHINE_ID).eq('session_status', 'active')
+    if reservation_id:
+        session_query = session_query.eq('reservation_id', reservation_id)
+    session_result = session_query.execute()
     
     if session_result.data and len(session_result.data) > 0:
         logger.info(f"Using existing operator session: {session_result.data[0]['id']}")
@@ -138,8 +142,9 @@ async def get_or_create_operator_session(operator_id):
     session_data = {
         'operator_id': operator_id,
         'machine_id': MACHINE_ID,
-        'start_time': get_current_timestamp(),
-        'status': 'active'
+        'session_start_time': get_current_timestamp(),
+        'session_status': 'active',
+        'reservation_id': reservation_id
     }
     
     session_result = supabase.table('operator_sessions').insert(session_data).execute()

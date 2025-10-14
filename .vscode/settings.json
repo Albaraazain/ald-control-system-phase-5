@@ -5,5 +5,13 @@
     "python.analysis.extraPaths": ["${workspaceFolder}/myenv/lib/python3.10/site-packages"],
     "terminal.integrated.env.osx": {
         "PYTHONPATH": "${workspaceFolder}"
-    }
+    },
+    // Prevent Live Server from reloading when logs change
+    // (the ALD services write to ./logs continuously)
+    "liveServer.settings.ignoreFiles": [
+        "logs/**",
+        "**/*.log",
+        ".agent-workspace/**",
+        ".git/**"
+    ]
 }

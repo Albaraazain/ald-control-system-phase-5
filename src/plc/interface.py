@@ -74,6 +74,38 @@ class PLCInterface(ABC):
         pass
     
     @abstractmethod
+    async def read_setpoint(self, parameter_id: str) -> Optional[float]:
+        """
+        Read the setpoint value for a parameter from the PLC.
+        
+        This reads from the write_modbus_address to get the actual setpoint
+        that is currently configured on the PLC. This is useful for detecting
+        external changes made directly on the machine.
+        
+        Args:
+            parameter_id: The ID of the parameter to read setpoint for
+            
+        Returns:
+            Optional[float]: The setpoint value, or None if parameter is not writable
+                           or setpoint cannot be read
+        """
+        pass
+    
+    @abstractmethod
+    async def read_all_setpoints(self) -> Dict[str, float]:
+        """
+        Read all setpoint values from the PLC.
+        
+        This reads setpoints for all writable parameters by reading from their
+        write_modbus_address. Used to synchronize database with external changes.
+        
+        Returns:
+            Dict[str, float]: Dictionary of parameter IDs to setpoint values
+                            (only includes writable parameters)
+        """
+        pass
+    
+    @abstractmethod
     async def control_valve(self, valve_number: int, state: bool, duration_ms: Optional[int] = None) -> bool:
         """
         Control a valve state.

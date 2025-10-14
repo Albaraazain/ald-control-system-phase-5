@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Terminal 3: Simple Parameter Service (parameter_service.py)
+Component Service (component_service.py)
 
 SIMPLIFIED IMPLEMENTATION:
-- Listens for parameter commands from database
-- Writes parameters DIRECTLY to PLC (NO coordination)
+- Listens for component commands from database
+- Processes component control operations DIRECTLY (NO coordination)
 - Simple main loop with polling and realtime fallback
-- Parameter validation and retry logic
+- Component validation and retry logic
 - Direct PLC manager access
 
-USER REQUIREMENT: Service that listens to parameter commands and writes directly to PLC.
+USER REQUIREMENT: Service that listens to component commands and processes component operations.
 """
 import asyncio
 import argparse
@@ -35,13 +35,13 @@ from src.plc.manager import plc_manager
 from src.connection_monitor import connection_monitor
 from src.parameter_validation import validate_parameter_write
 
-# Initialize parameter service logger (using PLC logger for consistency with parameter_control_listener)
+# Initialize component service logger (using PLC logger for consistency with component_control_listener)
 logger = get_plc_logger()
-data_logger = get_data_collection_logger()  # For parameter metadata initialization
+data_logger = get_data_collection_logger()  # For component metadata initialization
 
-# Global state for the parameter service
-class ParameterServiceState:
-    """Global state for parameter service operations"""
+# Global state for the component service
+class ComponentServiceState:
+    """Global state for component service operations"""
     def __init__(self):
         self.processed_commands: Set[str] = set()
         self.failed_commands: Dict[str, int] = {}
@@ -50,14 +50,14 @@ class ParameterServiceState:
         self.is_running = False
         self.async_supabase = None
         self.supabase: Client = None  # Sync Supabase client for metadata queries
-        self.parameter_metadata: Dict[str, Dict[str, Any]] = {}  # Cache of parameter metadata
+        self.component_metadata: Dict[str, Dict[str, Any]] = {}  # Cache of component metadata
 
-state = ParameterServiceState()
+state = ComponentServiceState()
 
 
 def ensure_single_instance():
-    """Ensure only one parameter service instance runs"""
-    lock_file = "/tmp/parameter_service.lock"
+    """Ensure only one component service instance runs"""
+    lock_file = "/tmp/component_service.lock"
     pid_file = "main_pid.tmp"  # Use local PID file for consistency
     
     def cleanup_lock_files():
@@ -86,7 +86,7 @@ def ensure_single_instance():
                         # Check if the process is still running
                         try:
                             os.kill(int(old_pid), 0)  # This will raise OSError if process doesn't exist
-                            logger.error("❌ Another parameter service is already running")
+                            logger.error("❌ Another component service is already running")
                             logger.error("💡 Kill existing instances or wait for them to finish")
                             exit(1)
                         except OSError:
@@ -121,7 +121,7 @@ def ensure_single_instance():
         
         return fd
     except (OSError, IOError) as e:
-        logger.error("❌ Another parameter service is already running")
+        logger.error("❌ Another component service is already running")
         logger.error("💡 Kill existing instances or wait for them to finish")
         logger.debug(f"Lock error: {e}")
         exit(1)
@@ -168,10 +168,16 @@ async def ensure_plc_connection() -> bool:
     return False
 
 
-async def process_parameter_command(command: Dict[str, Any]):
+async def process_component_command(command: Dict[str, Any]):
     """
-    Process a parameter control command by executing it via PLC manager DIRECTLY.
-    NO COORDINATION - direct PLC access as requested by user.
+    Process a component control command.
+
+    TODO: Component-specific logic - Agent 2 will implement
+
+    This function will handle component-level operations such as:
+    - Component state changes
+    - Component configuration updates
+    - Component lifecycle management
 
     Args:
         command: The command data from the database
@@ -204,7 +210,7 @@ async def process_parameter_command(command: Dict[str, Any]):
 
             # Record the error but keep as uncompleted for retry
             if retry_count < state.max_retries:
-                supabase.table("parameter_control_commands").update({
+                supabase.table("component_control_commands").update({
                     "error_message": error_msg
                 }).eq("id", command_id).execute()
 
@@ -307,7 +313,7 @@ async def process_parameter_command(command: Dict[str, Any]):
                 if component_parameter_id:
                     # Primary: Direct lookup by component_parameter_id in cache
                     logger.debug(f"🔍 [CACHE LOOKUP] Using component_parameter_id {component_parameter_id} for direct cache lookup")
-                    cached_metadata = state.parameter_metadata.get(component_parameter_id)
+                    cached_metadata = state.component_metadata.get(component_parameter_id)
                     if cached_metadata:
                         param_row = {
                             'id': component_parameter_id,
@@ -352,7 +358,7 @@ async def process_parameter_command(command: Dict[str, Any]):
                     # Search cache for matching component_name and parameter name
                     found_param_id = None
                     found_metadata = None
-                    for param_id, metadata in state.parameter_metadata.items():
+                    for param_id, metadata in state.component_metadata.items():
                         if (metadata.get('component_name') == component_name and
                             metadata.get('name') == expected_name):
                             found_param_id = param_id
@@ -483,7 +489,7 @@ async def process_parameter_command(command: Dict[str, Any]):
                 logger.debug(f"🔄 [RETRY CLEARED] Cleared failed command tracking after {retry_count} previous attempts")
 
             logger.debug(f"💾 [DB UPDATE] Finalizing successful command in database...")
-            await finalize_parameter_command(command_id, success=True)
+            await finalize_component_command(command_id, success=True)
         else:
             # Track retry count
             retry_count = state.failed_commands.get(command_id, 0) + 1
@@ -499,7 +505,7 @@ async def process_parameter_command(command: Dict[str, Any]):
 
                 # Record the error for visibility and allow retry
                 logger.debug(f"💾 [DB UPDATE] Recording retry attempt in database...")
-                supabase.table("parameter_control_commands").update({
+                supabase.table("component_control_commands").update({
                     "error_message": error_msg
                 }).eq("id", command_id).execute()
                 logger.debug(f"✅ [DB UPDATED] Error message recorded for retry tracking")
@@ -509,14 +515,14 @@ async def process_parameter_command(command: Dict[str, Any]):
                 logger.debug(f"🔄 [RETRY ENABLED] Command removed from processed set for retry")
             else:
                 processing_time_ms = int((time.time() - start_time) * 1000)
-                logger.error(f"❌ [COMMAND FAILED] Parameter command failed permanently")
+                logger.error(f"❌ [COMMAND FAILED] Component command failed permanently")
                 logger.error(f"📊 [FAILURE DETAILS] ID: {command_id} | Parameter: {parameter_name} | Status: MAX_RETRIES_EXCEEDED | Duration: {processing_time_ms}ms")
                 logger.debug(f"💾 [DB UPDATE] Finalizing failed command in database...")
-                await finalize_parameter_command(command_id, success=False, error_message=f"Failed to write parameter to PLC after {state.max_retries} attempts")
+                await finalize_component_command(command_id, success=False, error_message=f"Failed to process component command after {state.max_retries} attempts")
 
     except Exception as e:
-        error_msg = f"Error executing parameter command: {str(e)}"
-        logger.error(f"Parameter command {command_id} failed: {error_msg}", exc_info=True)
+        error_msg = f"Error executing component command: {str(e)}"
+        logger.error(f"Component command {command_id} failed: {error_msg}", exc_info=True)
 
         # Track retry count for other errors too
         retry_count = state.failed_commands.get(command_id, 0) + 1
@@ -527,7 +533,7 @@ async def process_parameter_command(command: Dict[str, Any]):
             error_msg_with_retry = f"{error_msg} (retry {retry_count}/{state.max_retries})"
 
             # Record the error and allow retry after backoff
-            supabase.table("parameter_control_commands").update({
+            supabase.table("component_control_commands").update({
                 "error_message": error_msg_with_retry
             }).eq("id", command_id).execute()
 
@@ -540,16 +546,16 @@ async def process_parameter_command(command: Dict[str, Any]):
         else:
             # Non-PLC errors or exceeded retries
             processing_time_ms = int((time.time() - start_time) * 1000)
-            logger.error(f"❌ PARAMETER COMMAND FAILED - ID: {command_id} | Parameter: {parameter_name} | Status: ERROR | Duration: {processing_time_ms}ms")
-            await finalize_parameter_command(command_id, success=False, error_message=f"{error_msg} (after {retry_count} attempts)")
+            logger.error(f"❌ COMPONENT COMMAND FAILED - ID: {command_id} | Parameter: {parameter_name} | Status: ERROR | Duration: {processing_time_ms}ms")
+            await finalize_component_command(command_id, success=False, error_message=f"{error_msg} (after {retry_count} attempts)")
 
 
-async def finalize_parameter_command(
+async def finalize_component_command(
     command_id: str,
     success: bool,
     error_message: Optional[str] = None,
 ):
-    """Finalize a parameter control command by setting completed_at and optional error message."""
+    """Finalize a component control command by setting completed_at and optional error message."""
     try:
         supabase = get_supabase()
         update_data = {
@@ -559,7 +565,7 @@ async def finalize_parameter_command(
             update_data["error_message"] = error_message
 
         result = (
-            supabase.table("parameter_control_commands")
+            supabase.table("component_control_commands")
             .update(update_data)
             .eq("id", command_id)
             .execute()
@@ -567,14 +573,14 @@ async def finalize_parameter_command(
         if result.data:
             logger.info(f"Command {command_id} finalized: {'completed' if success else 'failed'}")
         else:
-            logger.warning(f"Failed to finalize parameter command {command_id}")
+            logger.warning(f"Failed to finalize component command {command_id}")
     except Exception as e:
-        logger.error(f"Error finalizing parameter command: {str(e)}", exc_info=True)
+        logger.error(f"Error finalizing component command: {str(e)}", exc_info=True)
 
 
-async def handle_parameter_command_insert(payload):
+async def handle_component_command_insert(payload):
     """
-    Handle an insert event for a parameter control command.
+    Handle an insert event for a component control command.
 
     Args:
         payload: The event payload from Supabase
@@ -583,7 +589,7 @@ async def handle_parameter_command_insert(payload):
         # Determine if this is from realtime or polling using connection_monitor
         realtime_connected = connection_monitor.realtime_status["connected"]
         source = "realtime" if realtime_connected else "polling"
-        logger.info(f"🔔 PARAMETER COMMAND RECEIVED [{source.upper()}] - Processing parameter control command")
+        logger.info(f"🔔 COMPONENT COMMAND RECEIVED [{source.upper()}] - Processing component control command")
 
         # Update realtime status if this came from realtime
         if realtime_connected:
@@ -599,13 +605,13 @@ async def handle_parameter_command_insert(payload):
         if "machine_id" in record and record["machine_id"] is not None:
             if record["machine_id"] != MACHINE_ID:
                 logger.info(
-                    f"Ignoring parameter command for different machine: {record['machine_id']}"
+                    f"Ignoring component command for different machine: {record['machine_id']}"
                 )
                 return
 
         # Process if not yet executed
         command_id = record["id"]
-        parameter_name = record.get("parameter_name", "?")
+        component_name = record.get("component_name", "?")
 
         # Already processed?
         if command_id in state.processed_commands:
@@ -621,11 +627,11 @@ async def handle_parameter_command_insert(payload):
         # Retry budget check
         if state.failed_commands.get(command_id, 0) >= state.max_retries:
             logger.warning(f"Command {command_id} exceeded max retries ({state.max_retries}), marking failed")
-            await finalize_parameter_command(command_id, success=False, error_message=f"Exceeded maximum retry attempts ({state.max_retries})")
+            await finalize_component_command(command_id, success=False, error_message=f"Exceeded maximum retry attempts ({state.max_retries})")
             state.processed_commands.add(command_id)
             return
 
-        logger.info(f"🟡 PARAMETER COMMAND PROCESSING - ID: {command_id} | Parameter: {parameter_name} | Status: CLAIMED")
+        logger.info(f"🟡 COMPONENT COMMAND PROCESSING - ID: {command_id} | Component: {component_name} | Status: CLAIMED")
 
         # Ensure PLC connection before claiming
         if not await ensure_plc_connection():
@@ -635,7 +641,7 @@ async def handle_parameter_command_insert(payload):
         # Claim by setting executed_at if still NULL
         supabase = get_supabase()
         result = (
-            supabase.table("parameter_control_commands")
+            supabase.table("component_control_commands")
             .update({
                 "executed_at": datetime.utcnow().isoformat(),
                 "error_message": None
@@ -646,31 +652,31 @@ async def handle_parameter_command_insert(payload):
         )
 
         if result.data and len(result.data) > 0:
-            logger.info(f"🟢 PARAMETER COMMAND EXECUTING - ID: {command_id} | Status: PROCESSING")
+            logger.info(f"🟢 COMPONENT COMMAND EXECUTING - ID: {command_id} | Status: PROCESSING")
             state.processed_commands.add(command_id)
-            await process_parameter_command(record)
+            await process_component_command(record)
         else:
-            logger.info(f"⚠️ PARAMETER COMMAND SKIPPED - ID: {command_id} | Status: ALREADY_CLAIMED")
+            logger.info(f"⚠️ COMPONENT COMMAND SKIPPED - ID: {command_id} | Status: ALREADY_CLAIMED")
             state.processed_commands.add(command_id)
 
     except Exception as e:
-        logger.error(f"Error handling parameter command insert: {str(e)}", exc_info=True)
+        logger.error(f"Error handling component command insert: {str(e)}", exc_info=True)
 
 
-async def check_pending_parameter_commands():
+async def check_pending_component_commands():
     """
-    Check for existing pending parameter control commands and process them.
+    Check for existing pending component control commands and process them.
     This is called after subscribing to the channel to handle any commands
     that were inserted before the subscription was established.
     """
     try:
-        logger.info("Checking for existing pending parameter control commands...")
+        logger.info("Checking for existing pending component control commands...")
         supabase = get_supabase()
 
-        # Query for pending parameter control commands for this machine
+        # Query for pending component control commands for this machine
         # Exclude commands that have been processed or exceeded retry limit
         result = (
-            supabase.table("parameter_control_commands")
+            supabase.table("component_control_commands")
             .select("*")
             .is_("executed_at", None)
             .order("created_at", desc=False)
@@ -690,42 +696,42 @@ async def check_pending_parameter_commands():
             ]
 
             if commands_to_process:
-                logger.info(f"Found {len(commands_to_process)} pending parameter control commands to process")
+                logger.info(f"Found {len(commands_to_process)} pending component control commands to process")
 
                 # Check PLC connection before processing
                 if not await ensure_plc_connection():
-                    logger.warning("Cannot process parameter commands: PLC is not connected")
+                    logger.warning("Cannot process component commands: PLC is not connected")
                     # Don't mark as failed yet, will retry on next poll
                     return
 
                 for command in commands_to_process:
-                    logger.info(f"Processing existing pending parameter command: {command['id']}")
+                    logger.info(f"Processing existing pending component command: {command['id']}")
                     # Create a payload similar to what would be received from a realtime event
                     payload = {
                         "data": {
                             "record": command
                         }
                     }
-                    await handle_parameter_command_insert(payload)
+                    await handle_component_command_insert(payload)
             else:
-                logger.debug("No new pending parameter control commands to process")
+                logger.debug("No new pending component control commands to process")
         else:
-            logger.debug("No pending parameter control commands found")
+            logger.debug("No pending component control commands found")
 
     except Exception as e:
-        logger.error(f"Error checking pending parameter commands: {str(e)}", exc_info=True)
+        logger.error(f"Error checking pending component commands: {str(e)}", exc_info=True)
 
 
-async def poll_for_parameter_commands():
+async def poll_for_component_commands():
     """
-    Periodically poll for new pending parameter control commands.
+    Periodically poll for new pending component control commands.
     This serves as a fallback when realtime isn't working and as a safety net.
     """
     # Use connection_monitor for realtime status instead of global variable
     realtime_connected = connection_monitor.realtime_status["connected"]
     poll_interval = 1 if not realtime_connected else 10  # Simplified logic
 
-    logger.info(f"Starting parameter command polling (interval: {poll_interval}s, realtime: {realtime_connected})")
+    logger.info(f"Starting component command polling (interval: {poll_interval}s, realtime: {realtime_connected})")
 
     while state.is_running:
         try:
@@ -736,7 +742,7 @@ async def poll_for_parameter_commands():
             should_poll = not realtime_connected or (asyncio.get_event_loop().time() % 60 < 1)
 
             if should_poll:
-                await check_pending_parameter_commands()
+                await check_pending_component_commands()
 
             # Clean up old processed commands periodically (keep last 100)
             if len(state.processed_commands) > 100:
@@ -761,26 +767,26 @@ async def poll_for_parameter_commands():
             await asyncio.sleep(poll_interval)
 
         except Exception as e:
-            logger.error(f"Error in parameter command polling: {str(e)}", exc_info=True)
+            logger.error(f"Error in component command polling: {str(e)}", exc_info=True)
             await asyncio.sleep(poll_interval)
 
 
-async def setup_parameter_control_listener():
+async def setup_component_control_listener():
     """
-    Set up a listener for parameter control command inserts in the Supabase database.
+    Set up a listener for component control command inserts in the Supabase database.
     Uses realtime channels for instant updates with polling as a fallback.
     """
-    logger.info("Setting up parameter control listener with realtime support...")
+    logger.info("Setting up component control listener with realtime support...")
 
     try:
-        # Create channel name for parameter control commands
-        channel_name = f"parameter-control-commands-{MACHINE_ID}"
+        # Create channel name for component control commands
+        channel_name = f"component-control-commands-{MACHINE_ID}"
 
         # Define callback for INSERT events only
         def on_insert(payload):
-            logger.info("🔔 PARAMETER COMMAND RECEIVED [REALTIME] - Processing new parameter control command")
+            logger.info("🔔 COMPONENT COMMAND RECEIVED [REALTIME] - Processing new component control command")
             logger.debug(f"Payload: {payload}")
-            asyncio.create_task(handle_parameter_command_insert(payload))
+            asyncio.create_task(handle_component_command_insert(payload))
 
         def on_error(payload):
             logger.error(f"Realtime channel error: {payload}")
@@ -788,11 +794,11 @@ async def setup_parameter_control_listener():
 
         # Direct subscription using async_supabase (only INSERT)
         realtime_channel = state.async_supabase.channel(channel_name)
-        logger.info("Setting up realtime subscription for parameter_control_commands INSERT events only...")
+        logger.info("Setting up realtime subscription for component_control_commands INSERT events only...")
         realtime_channel = realtime_channel.on_postgres_changes(
             event="INSERT",
             schema="public",
-            table="parameter_control_commands",
+            table="component_control_commands",
             callback=on_insert
         )
 
@@ -818,27 +824,27 @@ async def setup_parameter_control_listener():
         connection_monitor.update_realtime_status(False, str(e))
 
     # Check for existing pending commands
-    logger.info("Checking for existing pending parameter control commands...")
-    await check_pending_parameter_commands()
+    logger.info("Checking for existing pending component control commands...")
+    await check_pending_component_commands()
 
     # Start polling for commands as a fallback (will be more aggressive if realtime fails)
-    poll_task = asyncio.create_task(poll_for_parameter_commands())
-    logger.info("Started parameter control command polling as fallback mechanism")
+    poll_task = asyncio.create_task(poll_for_component_commands())
+    logger.info("Started component control command polling as fallback mechanism")
 
     # Log the final status using connection_monitor as single source of truth
     if connection_monitor.realtime_status["connected"]:
-        logger.info("✅ Parameter control listener ready with REALTIME + polling fallback")
+        logger.info("✅ Component control listener ready with REALTIME + polling fallback")
     else:
-        logger.warning("⚠️ Parameter control listener ready with POLLING ONLY (realtime failed)")
+        logger.warning("⚠️ Component control listener ready with POLLING ONLY (realtime failed)")
 
 
 async def cleanup_handler():
     """Perform cleanup when application is interrupted"""
-    logger.info(f"🧹 [CLEANUP START] Beginning parameter service cleanup...")
+    logger.info(f"🧹 [CLEANUP START] Beginning component service cleanup...")
 
     try:
         # Stop the service
-        logger.debug(f"⏹️ [SHUTDOWN] Stopping parameter service...")
+        logger.debug(f"⏹️ [SHUTDOWN] Stopping component service...")
         state.is_running = False
         logger.debug(f"✅ [SHUTDOWN] Service stopped successfully")
 
@@ -846,16 +852,16 @@ async def cleanup_handler():
         logger.debug(f"📋 [CLEANUP] No complex coordination to cleanup - using direct PLC access")
 
     except Exception as e:
-        logger.exception(f"❌ [CLEANUP ERROR] Error during parameter service cleanup")
+        logger.exception(f"❌ [CLEANUP ERROR] Error during component service cleanup")
     finally:
-        logger.info(f"✅ [SHUTDOWN COMPLETE] Parameter service shutdown complete")
+        logger.info(f"✅ [SHUTDOWN COMPLETE] Component service shutdown complete")
         sys.exit(0)
 
 
-async def initialize_parameter_metadata_cache(service_state: ParameterServiceState) -> None:
-    """Initialize parameter metadata cache for enhanced logging - adapted from Terminal 1."""
+async def initialize_component_metadata_cache(service_state: ComponentServiceState) -> None:
+    """Initialize component metadata cache for enhanced logging - adapted from Terminal 1."""
     try:
-        data_logger.info("Loading parameter metadata for enhanced logging...")
+        data_logger.info("Loading component metadata for enhanced logging...")
 
         # Get all component parameters first
         params_response = service_state.supabase.table('component_parameters').select(
@@ -934,7 +940,7 @@ async def initialize_parameter_metadata_cache(service_state: ParameterServiceSta
                 elif data_type == 'valve_state':
                     unit = ''  # Binary state
 
-                service_state.parameter_metadata[param_id] = {
+                service_state.component_metadata[param_id] = {
                     'name': param_name,
                     'component_name': component_name,
                     'component_type': component_type,
@@ -946,28 +952,28 @@ async def initialize_parameter_metadata_cache(service_state: ParameterServiceSta
                     'is_writable': param.get('is_writable', False)
                 }
 
-            data_logger.info(f"✅ Loaded metadata for {len(service_state.parameter_metadata)} parameters")
+            data_logger.info(f"✅ Loaded metadata for {len(service_state.component_metadata)} component parameters")
 
             # Log a few examples of the metadata for debugging
-            for i, (param_id, metadata) in enumerate(service_state.parameter_metadata.items()):
+            for i, (param_id, metadata) in enumerate(service_state.component_metadata.items()):
                 if i >= 3:  # Only show first 3
                     break
                 data_logger.debug(
-                    f"Parameter {param_id}: {metadata['component_name']}.{metadata['name']} "
+                    f"Component parameter {param_id}: {metadata['component_name']}.{metadata['name']} "
                     f"({metadata['data_type']}, {metadata['unit']})"
                 )
         else:
-            data_logger.warning("No parameter metadata found in database")
+            data_logger.warning("No component metadata found in database")
 
     except Exception as e:
-        data_logger.error(f"Failed to load parameter metadata: {e}", exc_info=True)
+        data_logger.error(f"Failed to load component metadata: {e}", exc_info=True)
         # Continue with empty metadata - service should still work
 
 
 async def main():
     """
-    Main function for Terminal 3: Simple Parameter Service
-    Sets up parameter control listener and runs indefinitely with DIRECT PLC ACCESS
+    Main function for Component Service
+    Sets up component control listener and runs indefinitely with DIRECT PLC ACCESS
     """
     async def signal_handler(signal, frame):
         """Handle SIGINT signal"""
@@ -976,13 +982,13 @@ async def main():
 
     try:
         # Ensure single instance before any initialization
-        logger.info("Checking for existing parameter service instances...")
+        logger.info("Checking for existing component service instances...")
         ensure_single_instance()
         logger.info("✅ Single instance lock acquired successfully")
 
-        logger.info("Starting Terminal 3: Simple Parameter Service (DIRECT PLC ACCESS)")
+        logger.info("Starting Component Service (DIRECT PLC ACCESS)")
         logger.info("="*60)
-        logger.info("Simple Parameter Service Configuration:")
+        logger.info("Component Service Configuration:")
         logger.info(f"  - Machine ID: {MACHINE_ID}")
         logger.info(f"  - Max Retries: {state.max_retries}")
         logger.info(f"  - Retry Base Delay: {state.retry_delay_base}s")
@@ -1009,17 +1015,17 @@ async def main():
         logger.info("Creating async Supabase client...")
         state.async_supabase = await create_async_supabase()
 
-        # Load parameter metadata cache
-        logger.info("Loading parameter metadata cache...")
-        await initialize_parameter_metadata_cache(state)
-        logger.info("✅ Parameter metadata cache initialized")
+        # Load component metadata cache
+        logger.info("Loading component metadata cache...")
+        await initialize_component_metadata_cache(state)
+        logger.info("✅ Component metadata cache initialized")
 
-        # Start parameter control listener
-        logger.info("Starting parameter control listener...")
+        # Start component control listener
+        logger.info("Starting component control listener...")
         state.is_running = True
-        await setup_parameter_control_listener()
+        await setup_component_control_listener()
 
-        logger.info("Simple parameter service running and ready to process commands")
+        logger.info("Component service running and ready to process commands")
         logger.info("="*60)
         logger.info("System Status:")
         logger.info(
@@ -1029,7 +1035,7 @@ async def main():
         logger.info(f"  - PLC Connection: {'✅ Connected' if plc_manager.is_connected() else '⚠️ Disconnected'}")
         logger.info(f"  - Machine ID: {MACHINE_ID}")
         logger.info("="*60)
-        logger.info("Simple parameter service is ready to receive commands")
+        logger.info("Component service is ready to receive commands")
 
         # Keep the application running indefinitely
         while state.is_running:
@@ -1050,14 +1056,14 @@ async def main():
                                  f"{validation_stats['failure_details']}")
 
     except Exception as e:
-        logger.error(f"Error in parameter service main loop: {str(e)}", exc_info=True)
+        logger.error(f"Error in component service main loop: {str(e)}", exc_info=True)
         await cleanup_handler()
         raise
 
 
 def parse_args():
     """Parse command line arguments"""
-    parser = argparse.ArgumentParser(description="Terminal 3: Simple Parameter Service (Direct PLC Access)")
+    parser = argparse.ArgumentParser(description="Component Service (Direct PLC Access)")
     parser.add_argument("--log-level", choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
                         help="Logging level (default from LOG_LEVEL env or INFO)")
     parser.add_argument("--max-retries", type=int, default=3, help="Maximum retry attempts for failed commands")

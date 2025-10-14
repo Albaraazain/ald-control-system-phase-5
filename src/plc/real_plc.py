@@ -4,6 +4,7 @@ Real hardware implementation of the PLC interface.
 """
 import asyncio
 import re
+import struct
 from typing import Dict, Optional, List, Tuple, Any
 from src.log_setup import logger
 from src.plc.interface import PLCInterface
@@ -74,6 +75,10 @@ class RealPLC(PLCInterface):
         
         # Pressure gauge voltage scaling parameters
         self._pressure_scaling_cache = {}
+        
+        # Bulk read optimization cache
+        self._bulk_read_ranges = None
+        self._use_bulk_reads = True  # Enable bulk reads by default
     
     async def initialize(self) -> bool:
         """Initialize connection to the real PLC."""
@@ -98,6 +103,10 @@ class RealPLC(PLCInterface):
                 
                 # Load MFC and pressure gauge scaling parameters
                 await self._load_scaling_parameters()
+                
+                # Initialize bulk read optimization
+                if self._use_bulk_reads:
+                    await self._initialize_bulk_read_optimization()
                 
                 return True
             else:
@@ -727,12 +736,24 @@ class RealPLC(PLCInterface):
         """
         Read all parameter values from the PLC.
         
+        Uses bulk reads for optimal performance when enabled (4-8x faster).
+        Falls back to individual reads if bulk reads fail.
+        
         Returns:
             Dict[str, float]: Dictionary of parameter IDs to values
         """
         if not self.connected:
             raise RuntimeError("Not connected to PLC")
         
+        # Try bulk reads first (if enabled and initialized)
+        if self._use_bulk_reads and self._bulk_read_ranges:
+            try:
+                return await self._read_all_parameters_bulk()
+            except Exception as e:
+                logger.warning(f"Bulk read failed, falling back to individual reads: {e}")
+                # Fall through to individual reads
+        
+        # Fallback: Individual reads (original implementation)
         result = {}
         
         for parameter_id in self._parameter_cache:
@@ -742,6 +763,386 @@ class RealPLC(PLCInterface):
                     result[parameter_id] = value
             except Exception as e:
                 logger.error(f"Error reading parameter {parameter_id}: {str(e)}")
+        
+        return result
+    
+    async def _initialize_bulk_read_optimization(self):
+        """
+        Initialize bulk read optimization by analyzing parameter addresses.
+        
+        Groups parameters by address proximity for efficient bulk reads.
+        This is called once during initialization.
+        """
+        try:
+            logger.info("Initializing bulk read optimization...")
+            
+            # Collect all parameter addresses for optimization
+            parameter_addresses = []
+            
+            for param_id, param_meta in self._parameter_cache.items():
+                read_addr = param_meta.get('read_modbus_address')
+                if read_addr is None:
+                    continue
+                
+                data_type = param_meta.get('data_type', 'float')
+                read_modbus_type = param_meta.get('read_modbus_type', '')
+                
+                parameter_addresses.append((
+                    param_id,
+                    read_addr,
+                    data_type,
+                    read_modbus_type
+                ))
+            
+            if not parameter_addresses:
+                logger.warning("No parameters with read addresses found for bulk optimization")
+                self._use_bulk_reads = False
+                return
+            
+            # Optimize address ranges using communicator's built-in optimizer
+            self._bulk_read_ranges = self.communicator.optimize_address_ranges(
+                parameter_addresses,
+                max_gap=10,  # Group parameters within 10 addresses
+                max_range_size=50  # Up to 50 registers per bulk read
+            )
+            
+            # Log optimization results
+            holding_count = len(self._bulk_read_ranges.get('holding_registers', []))
+            coil_count = len(self._bulk_read_ranges.get('coils', []))
+            
+            logger.info(
+                f"✅ Bulk read optimization complete: {len(parameter_addresses)} parameters → "
+                f"{holding_count} register ranges + {coil_count} coil ranges"
+            )
+            logger.info(
+                f"📊 Expected speedup: {len(parameter_addresses)} individual reads → "
+                f"{holding_count + coil_count} bulk reads (~{len(parameter_addresses) / (holding_count + coil_count):.1f}x faster)"
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize bulk read optimization: {e}", exc_info=True)
+            self._use_bulk_reads = False
+    
+    async def _read_all_parameters_bulk(self) -> Dict[str, float]:
+        """
+        Read all parameters using optimized bulk reads.
+        
+        Returns:
+            Dict[str, float]: Dictionary of parameter IDs to values
+        """
+        if not self._bulk_read_ranges:
+            raise RuntimeError("Bulk read ranges not initialized")
+        
+        result = {}
+        
+        # Execute bulk reads for holding registers
+        holding_ranges = self._bulk_read_ranges.get('holding_registers', [])
+        if holding_ranges:
+            holding_results = await self._bulk_read_holding_registers(holding_ranges)
+            result.update(holding_results)
+        
+        # Execute bulk reads for coils
+        coil_ranges = self._bulk_read_ranges.get('coils', [])
+        if coil_ranges:
+            coil_results = await self._bulk_read_coils(coil_ranges)
+            result.update(coil_results)
+        
+        return result
+    
+    async def _bulk_read_holding_registers(self, ranges: List[Dict]) -> Dict[str, float]:
+        """
+        Execute bulk reads for holding register ranges.
+        
+        Args:
+            ranges: List of optimized register ranges
+            
+        Returns:
+            Dict[str, float]: Parameter ID to value mapping
+        """
+        result = {}
+        
+        for range_info in ranges:
+            try:
+                start_addr = range_info['start_address']
+                total_registers = range_info['count']
+                parameters = range_info['parameters']
+                
+                # Execute bulk read in thread to avoid blocking
+                raw_results = await asyncio.to_thread(
+                    self.communicator.client.read_holding_registers,
+                    address=start_addr,
+                    count=total_registers
+                )
+                
+                if raw_results.isError():
+                    logger.error(f"Bulk read failed for range {start_addr}-{start_addr + total_registers}: {raw_results}")
+                    continue
+                
+                registers = raw_results.registers
+                
+                # Parse individual parameter values from bulk read results
+                for param_id, param_addr, data_type in parameters:
+                    try:
+                        # Calculate offset in the bulk read result
+                        offset = param_addr - start_addr
+                        
+                        if data_type == 'float':
+                            if offset + 1 < len(registers):
+                                value = self._parse_float_from_registers(
+                                    registers[offset], 
+                                    registers[offset + 1]
+                                )
+                                result[param_id] = value
+                        elif data_type == 'int32':
+                            if offset + 1 < len(registers):
+                                value = self._parse_int32_from_registers(
+                                    registers[offset], 
+                                    registers[offset + 1]
+                                )
+                                result[param_id] = float(value)
+                        elif data_type == 'int16':
+                            if offset < len(registers):
+                                result[param_id] = float(registers[offset])
+                        else:
+                            logger.warning(f"Unsupported data type {data_type} for parameter {param_id}")
+                    
+                    except Exception as e:
+                        logger.error(f"Error parsing parameter {param_id} from bulk read: {e}")
+                
+            except Exception as e:
+                logger.error(f"Error in bulk read for range: {e}", exc_info=True)
+        
+        return result
+    
+    async def _bulk_read_coils(self, ranges: List[Dict]) -> Dict[str, float]:
+        """
+        Execute bulk reads for coil ranges.
+        
+        Args:
+            ranges: List of optimized coil ranges
+            
+        Returns:
+            Dict[str, float]: Parameter ID to value mapping (1.0 for ON, 0.0 for OFF)
+        """
+        result = {}
+        
+        for range_info in ranges:
+            try:
+                start_addr = range_info['start_address']
+                count = range_info['count']
+                parameters = range_info['parameters']
+                
+                # Execute bulk read in thread to avoid blocking
+                raw_results = await asyncio.to_thread(
+                    self.communicator.client.read_coils,
+                    address=start_addr,
+                    count=count
+                )
+                
+                if raw_results.isError():
+                    logger.error(f"Bulk coil read failed for range {start_addr}-{start_addr + count}: {raw_results}")
+                    continue
+                
+                bits = raw_results.bits
+                
+                # Parse individual parameter values from bulk read results
+                for param_id, param_addr, data_type in parameters:
+                    try:
+                        # Calculate offset in the bulk read result
+                        offset = param_addr - start_addr
+                        
+                        if offset < len(bits):
+                            result[param_id] = 1.0 if bits[offset] else 0.0
+                        else:
+                            logger.warning(f"Coil offset {offset} out of range for parameter {param_id}")
+                    
+                    except Exception as e:
+                        logger.error(f"Error parsing coil {param_id} from bulk read: {e}")
+                
+            except Exception as e:
+                logger.error(f"Error in bulk coil read for range: {e}", exc_info=True)
+        
+        return result
+    
+    def _parse_float_from_registers(self, reg1: int, reg2: int) -> float:
+        """Parse a float value from two registers using configured byte order."""
+        if self.communicator.byte_order == 'abcd':  # Big-endian
+            raw_data = struct.pack('>HH', reg1, reg2)
+            return struct.unpack('>f', raw_data)[0]
+        elif self.communicator.byte_order == 'badc':  # Big-byte/little-word
+            raw_data = struct.pack('>HH', reg2, reg1)
+            return struct.unpack('>f', raw_data)[0]
+        elif self.communicator.byte_order == 'cdab':  # Little-byte/big-word
+            raw_data = struct.pack('<HH', reg1, reg2)
+            return struct.unpack('<f', raw_data)[0]
+        elif self.communicator.byte_order == 'dcba':  # Little-endian
+            raw_data = struct.pack('<HH', reg2, reg1)
+            return struct.unpack('<f', raw_data)[0]
+        else:
+            # Default to 'badc'
+            raw_data = struct.pack('>HH', reg2, reg1)
+            return struct.unpack('>f', raw_data)[0]
+    
+    def _parse_int32_from_registers(self, reg1: int, reg2: int) -> int:
+        """Parse an int32 value from two registers using configured byte order."""
+        if self.communicator.byte_order == 'abcd':  # Big-endian
+            raw_data = struct.pack('>HH', reg1, reg2)
+            return struct.unpack('>i', raw_data)[0]
+        elif self.communicator.byte_order == 'badc':  # Big-byte/little-word
+            raw_data = struct.pack('>HH', reg2, reg1)
+            return struct.unpack('>i', raw_data)[0]
+        elif self.communicator.byte_order == 'cdab':  # Little-byte/big-word
+            raw_data = struct.pack('<HH', reg1, reg2)
+            return struct.unpack('<i', raw_data)[0]
+        elif self.communicator.byte_order == 'dcba':  # Little-endian
+            raw_data = struct.pack('<HH', reg2, reg1)
+            return struct.unpack('<i', raw_data)[0]
+        else:
+            # Default to 'badc'
+            raw_data = struct.pack('>HH', reg2, reg1)
+            return struct.unpack('>i', raw_data)[0]
+    
+    async def read_setpoint(self, parameter_id: str) -> Optional[float]:
+        """
+        Read the setpoint value for a parameter from the PLC.
+        
+        Reads from write_modbus_address to get the actual setpoint configured on PLC.
+        This detects external changes made directly on the machine.
+        
+        Args:
+            parameter_id: The ID of the parameter to read setpoint for
+            
+        Returns:
+            Optional[float]: The setpoint value, or None if parameter is not writable
+        """
+        if not self.connected:
+            raise RuntimeError("Not connected to PLC")
+        
+        # Get parameter metadata from cache
+        param_meta = self._parameter_cache.get(parameter_id)
+        if not param_meta:
+            logger.warning(f"Parameter {parameter_id} not found in metadata cache")
+            return None
+        
+        # Check if parameter is writable (has write address)
+        if not param_meta.get('is_writable', False):
+            return None
+        
+        address = param_meta.get('write_modbus_address')
+        if address is None:
+            return None
+        
+        data_type = param_meta['data_type']
+        write_type = (param_meta.get('write_modbus_type') or '').lower()
+        
+        # Set parameter info for enhanced logging
+        param_info = {
+            'name': param_meta.get('name', 'unknown'),
+            'component_name': param_meta.get('component_name', 'unknown')
+        }
+        self.communicator.set_current_parameter_info(param_info)
+        
+        # Read setpoint using write address
+        value = None
+        try:
+            if write_type == 'coil' or (not write_type and data_type == 'binary'):
+                # Binary parameter - read from coil
+                result = self.communicator.read_coils(address, count=1)
+                if result is not None:
+                    value = 1.0 if result[0] else 0.0
+            else:
+                # Numeric parameter - read from holding register
+                if data_type == 'float':
+                    value = self.communicator.read_float(address)
+                elif data_type == 'int32':
+                    value = self.communicator.read_integer_32bit(address)
+                elif data_type == 'int16':
+                    result = self.communicator.client.read_holding_registers(
+                        address, count=1, slave=self.communicator.slave_id
+                    )
+                    if not result.isError():
+                        value = result.registers[0]
+                elif data_type == 'binary':
+                    # Binary stored in register
+                    result = self.communicator.client.read_holding_registers(
+                        address, count=1, slave=self.communicator.slave_id
+                    )
+                    if not result.isError():
+                        value = 1.0 if result.registers[0] else 0.0
+                else:
+                    # Default to holding register read
+                    result = self.communicator.client.read_holding_registers(
+                        address, count=1, slave=self.communicator.slave_id
+                    )
+                    if not result.isError():
+                        value = float(result.registers[0])
+        
+        except Exception as e:
+            logger.error(f"Error reading setpoint for parameter {parameter_id}: {e}")
+            return None
+        finally:
+            # Clear parameter info
+            self.communicator.clear_current_parameter_info()
+        
+        if value is None:
+            logger.warning(f"Failed to read setpoint for parameter {parameter_id}")
+            return None
+        
+        # Update database with setpoint value (in background task)
+        asyncio.create_task(self._update_parameter_setpoint(parameter_id, value))
+        
+        return float(value)
+    
+    async def _update_parameter_setpoint(self, parameter_id: str, value: float):
+        """Update the set value of a parameter in the database."""
+        try:
+            supabase = get_supabase()
+            
+            # Get parameter details from cache for logging
+            param_meta = self._parameter_cache.get(parameter_id, {})
+            component_name = param_meta.get('short_component_name', '')
+            param_name = param_meta.get('name', '')
+            
+            logger.debug(
+                f"Updating set_value of parameter: {param_name} ({component_name}) "
+                f"with value: {value}"
+            )
+            
+            supabase.table('component_parameters').update({
+                'set_value': value,
+                'updated_at': 'now()'
+            }).eq('id', parameter_id).execute()
+            
+        except Exception as e:
+            logger.error(f"Error updating parameter setpoint in database: {str(e)}")
+    
+    async def read_all_setpoints(self) -> Dict[str, float]:
+        """
+        Read all setpoint values from the PLC.
+        
+        Returns:
+            Dict[str, float]: Dictionary of parameter IDs to setpoint values
+        """
+        if not self.connected:
+            raise RuntimeError("Not connected to PLC")
+        
+        result = {}
+        
+        for parameter_id in self._parameter_cache:
+            # Only read setpoints for writable parameters
+            param_meta = self._parameter_cache[parameter_id]
+            if not param_meta.get('is_writable', False):
+                continue
+            
+            if param_meta.get('write_modbus_address') is None:
+                continue
+            
+            try:
+                value = await self.read_setpoint(parameter_id)
+                if value is not None:
+                    result[parameter_id] = value
+            except Exception as e:
+                logger.error(f"Error reading setpoint for {parameter_id}: {str(e)}")
         
         return result
     

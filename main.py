@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Simple ALD Control System - 3 Terminal Design
-Main launcher that offers choice between 3 independent terminals.
+Simple ALD Control System - 4 Terminal Design
+Main launcher that offers choice between 4 independent terminals.
 
 SIMPLE ARCHITECTURE:
 - Terminal 1: PLC Read Service (plc_data_service.py)
 - Terminal 2: Recipe Service (simple_recipe_service.py)
 - Terminal 3: Parameter Service (parameter_service.py)
+- Terminal 4: Component Service (component_service.py)
 
 Each terminal has direct PLC access - NO coordination complexity!
 
@@ -14,11 +15,13 @@ Usage:
   python main.py --terminal 1    # Launch Terminal 1 (PLC Read)
   python main.py --terminal 2    # Launch Terminal 2 (Recipe)
   python main.py --terminal 3    # Launch Terminal 3 (Parameter)
+  python main.py --terminal 4    # Launch Terminal 4 (Component)
 
   # OR use dedicated launchers directly:
   python terminal1_launcher.py --demo
   python terminal2_launcher.py --demo
   python terminal3_launcher.py --demo
+  python terminal4_launcher.py --demo
 """
 
 import sys
@@ -35,7 +38,7 @@ sys.path.insert(0, str(project_root))
 def print_banner():
     """Print simple system banner"""
     print("=" * 60)
-    print("🤖 ALD CONTROL SYSTEM - SIMPLE 3-TERMINAL DESIGN")
+    print("🤖 ALD CONTROL SYSTEM - SIMPLE 4-TERMINAL DESIGN")
     print("=" * 60)
     print("✅ ARCHITECTURE: Direct PLC access, no coordination complexity")
     print("✅ DEBUGGING: Easy - each terminal independent")
@@ -46,29 +49,32 @@ def print_banner():
 def parse_args():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="ALD Control System - Simple 3-Terminal Launcher",
+        description="ALD Control System - Simple 4-Terminal Launcher",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 TERMINAL OPTIONS:
   --terminal 1    PLC Read Service - Continuous PLC data collection
   --terminal 2    Recipe Service - Recipe command execution
   --terminal 3    Parameter Service - Parameter control commands
+  --terminal 4    Component Service - Component control commands
 
 EXAMPLES:
   python main.py --terminal 1 --demo          # Terminal 1 in simulation mode
   python main.py --terminal 2 --plc real      # Terminal 2 with real PLC
   python main.py --terminal 3 --ip 192.168.1.50  # Terminal 3 with specific PLC IP
+  python main.py --terminal 4 --demo          # Terminal 4 in simulation mode
 
 DIRECT LAUNCHER ALTERNATIVES:
   python terminal1_launcher.py --demo         # Same as --terminal 1 --demo
   python terminal2_launcher.py --demo         # Same as --terminal 2 --demo
   python terminal3_launcher.py --demo         # Same as --terminal 3 --demo
+  python terminal4_launcher.py --demo         # Same as --terminal 4 --demo
         """
     )
 
     # Terminal selection
-    parser.add_argument("--terminal", type=int, choices=[1, 2, 3],
-                       help="Terminal to launch (1=PLC Read, 2=Recipe, 3=Parameter)")
+    parser.add_argument("--terminal", type=int, choices=[1, 2, 3, 4],
+                       help="Terminal to launch (1=PLC Read, 2=Recipe, 3=Parameter, 4=Component)")
 
     # Common PLC options (passed through to terminal launchers)
     parser.add_argument("--plc", choices=["simulation", "real"], help="PLC backend type")
@@ -168,6 +174,26 @@ def launch_terminal_3():
         sys.exit(1)
 
 
+def launch_terminal_4():
+    """Launch Terminal 4 - Component Service"""
+    print("🔧 Launching Terminal 4 - Component Service")
+    print("   Service: component_service.py")
+    print("   Function: Listen for component commands and control via direct PLC access")
+    print("   Database: Monitors component_control_commands table")
+    print("-" * 60)
+
+    try:
+        from component_service import main as component_service_main
+        asyncio.run(component_service_main())
+    except ImportError as e:
+        print(f"❌ Error importing component_service: {e}")
+        print("   Make sure component_service.py exists in the project root")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Error running Terminal 4: {e}")
+        sys.exit(1)
+
+
 def show_help():
     """Show interactive help for terminal selection"""
     print_banner()
@@ -187,6 +213,11 @@ def show_help():
     print("   • Listens for parameter control commands")
     print("   • Writes parameters directly to PLC")
     print("   • Run: python main.py --terminal 3 --demo")
+    print()
+    print("🔧 TERMINAL 4 - Component Service")
+    print("   • Listens for component control commands")
+    print("   • Controls components directly via PLC")
+    print("   • Run: python main.py --terminal 4 --demo")
     print()
     print("💡 TIP: Use --demo for simulation mode, or --plc real for hardware")
     print("💡 TIP: Each terminal can run independently in separate processes")
@@ -233,6 +264,8 @@ def main():
         launch_terminal_2()
     elif args.terminal == 3:
         launch_terminal_3()
+    elif args.terminal == 4:
+        launch_terminal_4()
 
 
 if __name__ == "__main__":

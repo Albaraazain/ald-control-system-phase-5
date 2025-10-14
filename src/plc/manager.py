@@ -180,6 +180,40 @@ class PLCManager:
         parameter_values = await self._plc.read_all_parameters()
         logger.debug(f"PLC read all parameters: {len(parameter_values)} values retrieved")
         return parameter_values
+    
+    async def read_setpoint(self, parameter_id: str) -> Optional[float]:
+        """
+        Read the setpoint value for a parameter from the PLC.
+        
+        This reads from write_modbus_address to detect external changes.
+        
+        Args:
+            parameter_id: The ID of the parameter to read setpoint for
+            
+        Returns:
+            Optional[float]: The setpoint value, or None if not writable
+        """
+        if self._plc is None:
+            raise RuntimeError("Not connected to PLC")
+        
+        setpoint = await self._plc.read_setpoint(parameter_id)
+        if setpoint is not None:
+            logger.debug(f"PLC read setpoint {parameter_id}: {setpoint}")
+        return setpoint
+    
+    async def read_all_setpoints(self) -> Dict[str, float]:
+        """
+        Read all setpoint values from the PLC.
+        
+        Returns:
+            Dict[str, float]: Dictionary of parameter IDs to setpoint values
+        """
+        if self._plc is None:
+            raise RuntimeError("Not connected to PLC")
+        
+        setpoint_values = await self._plc.read_all_setpoints()
+        logger.debug(f"PLC read all setpoints: {len(setpoint_values)} values retrieved")
+        return setpoint_values
         
     async def control_valve(self, valve_number: int, state: bool, duration_ms: Optional[int] = None) -> bool:
         """

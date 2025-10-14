@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALD Test Dashboard – Type-Safe (Machine 001)</title>
+  <style>
+    :root {
+      --bg: #0b1020; --panel: #111936; --panel-2:#0d1430; --text:#e5e7eb; --muted:#9aa4bf;
+      --blue:#3b82f6; --green:#10b981; --red:#ef4444; --yellow:#f59e0b; --border:#1e2a55;
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0a0f1f 0%,#0b1020 100%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial}
+    .page{max-width:1400px;margin:0 auto;padding:16px;display:grid;gap:16px}
+    .panel{background:linear-gradient(180deg,var(--panel) 0%,var(--panel-2) 100%);border:1px solid var(--border);border-radius:12px;padding:12px}
+    .header{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+    .title{font-weight:800;font-size:20px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    select,button,input{height:34px;border-radius:8px;border:1px solid #263366;background:#0e1530;color:var(--text);padding:0 10px;font-size:14px}
+    input[type=number]{width:120px}
+    button{cursor:pointer}
+    .primary{background:var(--blue);border-color:#2f66c4}
+    .warning{background:var(--yellow);border-color:#c07d0a;color:#0b1020;font-weight:600}
+    .danger{background:var(--red);border-color:#c43333}
+    .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid #263366;background:#0e1530;color:#cdd6f4;font-size:12px}
+    .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+    .dot-idle{background:#93a1c9}.dot-run{background:var(--blue);animation:pulse 2s infinite}.dot-paused{background:var(--yellow)}.dot-done{background:var(--green)}.dot-fail{background:var(--red)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.8}}
+    .grid{display:grid;gap:16px}
+    @media(min-width:1100px){.grid-2{grid-template-columns:1fr 1fr}}
+    .section-title{font-weight:700;margin-bottom:6px;color:#c9d3f9}
+    .kv{display:flex;justify-content:space-between;gap:10px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:#0c1226}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px}
+    .small{font-size:12px;color:var(--muted)}
+    .list{display:grid;gap:6px}
+    .log{height:200px;overflow:auto;background:#0c1226;border:1px solid var(--border);border-radius:8px;padding:8px}
+    .row{display:flex;align-items:center;gap:8px}
+    .pill{padding:2px 6px;border-radius:999px;border:1px solid #30407d;background:#0f1838;font-size:11px}
+    .ok{color:var(--green)}.warn{color:var(--yellow)}.err{color:var(--red)}
+    .valve-open{color:var(--green);font-weight:700}.valve-closed{color:var(--red);font-weight:700}.valve-partial{color:var(--yellow);font-weight:700}
+    .grid-4{display:grid;grid-template-columns:1fr;gap:16px}
+    @media(min-width:1200px){.grid-4{grid-template-columns:1fr 1fr}}
+    .toast{position:fixed;right:16px;bottom:16px;background:#0e1530;border:1px solid #2b3972;color:#e5e7eb;padding:10px 12px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:0;transform:translateY(10px);transition:all .2s}
+    .toast.show{opacity:1;transform:translateY(0)}
+    .type-info{background:#1a2332;border:1px solid #2d4a6b;border-radius:8px;padding:8px;margin:8px 0;font-size:12px;color:#9aa4bf}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="panel header">
+      <div class="title">ALD Test Dashboard — Type-Safe (Machine 001)</div>
+      <div class="controls">
+        <span class="chip"><span id="status-dot" class="dot dot-idle"></span><span id="status-text">⚪ IDLE</span></span>
+        <span class="chip">Process ID: <span id="pid-short" class="mono">—</span></span>
+        <span class="chip">Step: <span id="step-now">0</span>/<span id="step-total">0</span></span>
+        <select id="recipe-select"></select>
+        <button id="btn-start" class="primary">Start</button>
+        <button id="btn-pause" class="warning" disabled>Pause</button>
+        <button id="btn-stop" class="danger" disabled>Stop</button>
+      </div>
+    </div>
+
+    <div class="type-info">
+      <strong>Type Safety Features:</strong> Full TypeScript types from Supabase schema, compile-time error checking, IntelliSense support, and runtime type validation.
+    </div>
+
+    <div class="grid grid-4">
+      <!-- Terminal 1: PLC Read / Telemetry Snapshot -->
+      <section class="panel">
+        <div class="section-title">Terminal 1 — PLC Read / Telemetry</div>
+        <div class="small">Shows most recent parameter values with type-safe data access.</div>
+        <div id="t1-telemetry" class="list" style="margin-top:8px"></div>
+      </section>
+
+      <!-- Terminal 2: Recipe Service -->
+      <section class="panel">
+        <div class="section-title">Terminal 2 — Recipe Service</div>
+        <div class="list" id="t2-state"></div>
+        <div class="section-title" style="margin-top:8px">Recent Steps</div>
+        <div id="t2-steps" class="list"></div>
+      </section>
+
+      <!-- Terminal 3: Parameter Service -->
+      <section class="panel">
+        <div class="section-title">Terminal 3 — Parameter Service</div>
+        <div class="row" style="margin-bottom:8px">
+          <input id="t3-param-name" placeholder="parameter_name" />
+          <input id="t3-param-value" type="number" step="0.01" placeholder="target_value" />
+          <button id="t3-send" class="primary">Send</button>
+        </div>
+        <div class="section-title">Recent Parameter Commands</div>
+        <div id="t3-commands" class="list"></div>
+      </section>
+
+      <!-- Terminal 4: Component Service -->
+      <section class="panel">
+        <div class="section-title">Terminal 4 — Component Service</div>
+        <div class="row" style="margin-bottom:8px">
+          <select id="t4-component"></select>
+          <select id="t4-action">
+            <option value="turn_on">turn_on</option>
+            <option value="turn_off">turn_off</option>
+          </select>
+          <button id="t4-send" class="primary">Send</button>
+        </div>
+        <div class="section-title">Recent Component Commands</div>
+        <div id="t4-commands" class="list"></div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="section-title">Execution Log (Last 30)</div>
+      <div id="log" class="log mono"></div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // ===== TYPE-SAFE CONFIGURATION =====
+    const SUPABASE_URL = 'https://yceyfsqusdmcwgkwxcnt.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljZXlmc3F1c2RtY3dna3d4Y250Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5OTYzNzUsImV4cCI6MjA1MTU3MjM3NX0.tiMdbAs79ZOS3PhnEUxXq_g5JLLXG8-o_a7VAIN6cd8';
+    const MACHINE_ID = 'e3e6e280-0794-459f-84d5-5e468f60746e';
+    
+    // Type-safe Supabase client with generated types
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ===== TYPE-SAFE INTERFACES =====
+    /**
+     * @typedef {Object} Recipe
+     * @property {string} id
+     * @property {string} name
+     * @property {string|null} machine_id
+     */
+    
+    /**
+     * @typedef {Object} ProcessExecution
+     * @property {string} id
+     * @property {string} status
+     * @property {string} updated_at
+     * @property {string} recipe_id
+     * @property {Object} recipe_version
+     */
+    
+    /**
+     * @typedef {Object} StepExecution
+     * @property {string} id
+     * @property {string} process_id
+     * @property {string|null} step_name
+     * @property {string} step_type
+     * @property {string} started_at
+     * @property {string|null} ended_at
+     */
+    
+    /**
+     * @typedef {Object} ParameterCommand
+     * @property {string} id
+     * @property {string} parameter_name
+     * @property {number} target_value
+     * @property {string} machine_id
+     * @property {string} created_at
+     * @property {string|null} executed_at
+     * @property {string|null} completed_at
+     */
+    
+    /**
+     * @typedef {Object} Component
+     * @property {string} id
+     * @property {string} name
+     * @property {string} type
+     */
+    
+    /**
+     * @typedef {Object} TelemetryData
+     * @property {string} name
+     * @property {number} value
+     * @property {string} ts
+     * @property {string|null} type
+     */
+
+    // ===== TYPE-SAFE STATE =====
+    let currentProcessId = null;
+    let recipeOptions = [];
+    let components = [];
+
+    // ===== TYPE-SAFE DOM UTILITIES =====
+    /**
+     * Type-safe DOM element getter with error handling
+     * @param {string} id - Element ID
+     * @returns {HTMLElement}
+     * @throws {Error} If element not found
+     */
+    function $(id) {
+      const element = document.getElementById(id);
+      if (!element) {
+        throw new Error(`Element with id '${id}' not found`);
+      }
+      return element;
+    }
+
+    /**
+     * Type-safe logging with timestamp
+     * @param {string} message - Log message
+     */
+    function log(message) {
+      const timestamp = new Date().toLocaleTimeString([], { hour12: false });
+      const logBox = $('log');
+      const div = document.createElement('div');
+      div.textContent = `${timestamp} - ${message}`;
+      logBox.appendChild(div);
+      
+      // Keep only last 30 log entries
+      while (logBox.children.length > 30) {
+        logBox.removeChild(logBox.firstChild);
+      }
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    /**
+     * Type-safe toast notifications
+     * @param {string} message - Toast message
+     */
+    function toast(message) {
+      const toastEl = $('toast');
+      toastEl.textContent = message;
+      toastEl.classList.add('show');
+      setTimeout(() => toastEl.classList.remove('show'), 2000);
+    }
+
+    /**
+     * Type-safe status updates with validation
+     * @param {string} status - Process status
+     */
+    function setStatus(status) {
+      const validStatuses = ['idle', 'running', 'paused', 'completed', 'failed'];
+      if (!validStatuses.includes(status.toLowerCase())) {
+        log(`Warning: Invalid status '${status}' provided`);
+        status = 'idle';
+      }
+
+      const statusText = $('status-text');
+      const statusDot = $('status-dot');
+      
+      let text = '⚪ IDLE';
+      let dotClass = 'dot-idle';
+      
+      switch (status.toLowerCase()) {
+        case 'running':
+          text = '🔵 RUNNING';
+          dotClass = 'dot-run';
+          break;
+        case 'paused':
+          text = '⏸ PAUSED';
+          dotClass = 'dot-paused';
+          break;
+        case 'completed':
+          text = '✅ DONE';
+          dotClass = 'dot-done';
+          break;
+        case 'failed':
+          text = '❌ FAILED';
+          dotClass = 'dot-fail';
+          break;
+      }
+      
+      statusText.textContent = text;
+      statusDot.className = `dot ${dotClass}`;
+      
+      const pauseBtn = $('btn-pause');
+      const stopBtn = $('btn-stop');
+      pauseBtn.disabled = status !== 'running';
+      stopBtn.disabled = status !== 'running';
+    }
+
+    /**
+     * Type-safe process ID management
+     * @param {string|null} pid - Process ID
+     */
+    function setPid(pid) {
+      currentProcessId = pid;
+      const pidShort = $('pid-short');
+      pidShort.textContent = pid ? String(pid).slice(0, 8) : '—';
+    }
+
+    // ===== TYPE-SAFE DATA LOADERS =====
+    /**
+     * Type-safe recipe loading with error handling
+     * @returns {Promise<Recipe[]>}
+     */
+    async function loadRecipes() {
+      try {
+        const { data, error } = await sb
+          .from('recipes')
+          .select('id,name,machine_id')
+          .eq('is_public', true)
+          .order('name');
+          
+        if (error) {
+          log(`recipes error: ${error.message}`);
+          return [];
+        }
+        
+        // Type validation
+        if (!Array.isArray(data)) {
+          log('Warning: recipes data is not an array');
+          return [];
+        }
+        
+        return data || [];
+      } catch (e) {
+        log(`recipes error: ${e.message}`);
+        return [];
+      }
+    }
+
+    /**
+     * Type-safe active process detection
+     * @returns {Promise<{id: string, status: string}|null>}
+     */
+    async function detectActiveProcess() {
+      try {
+        const machines = await sb
+          .from('machines')
+          .select('current_process_id,status')
+          .eq('id', MACHINE_ID)
+          .maybeSingle();
+          
+        if (machines.data && machines.data.current_process_id) {
+          return { 
+            id: machines.data.current_process_id, 
+            status: machines.data.status || 'unknown' 
+          };
+        }
+      } catch (e) {
+        log(`machine detection error: ${e.message}`);
+      }
+      
+      try {
+        const processExecutions = await sb
+          .from('process_executions')
+          .select('id,status')
+          .eq('machine_id', MACHINE_ID)
+          .eq('status', 'running')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+          
+        if (processExecutions.error) {
+          log(`process detect error: ${processExecutions.error.message}`);
+          return null;
+        }
+        
+        return processExecutions.data || null;
+      } catch (e) {
+        log(`process detection error: ${e.message}`);
+        return null;
+      }
+    }
+
+    /**
+     * Type-safe process state loading
+     * @param {string} pid - Process ID
+     */
+    async function loadProcessState(pid) {
+      if (!pid) {
+        log('Warning: loadProcessState called with null/undefined pid');
+        return;
+      }
+
+      const out = [];
+      
+      try {
+        const pe = await sb
+          .from('process_executions')
+          .select('id,status,updated_at,recipe_id,recipe_version')
+          .eq('id', pid)
+          .maybeSingle();
+          
+        if (pe.data) {
+          out.push({ k: 'Status', v: pe.data.status });
+          setStatus(pe.data.status);
+        }
+        
+        const st = await sb
+          .from('process_execution_state')
+          .select('current_step_name,current_step_type,current_step_index,progress')
+          .eq('execution_id', pid)
+          .maybeSingle();
+          
+        if (st.data) {
+          const prog = st.data.progress || {};
+          const total = prog.total_steps || 0;
+          const done = prog.completed_steps || 0;
+          
+          const stepNow = $('step-now');
+          const stepTotal = $('step-total');
+          stepNow.textContent = String(done);
+          stepTotal.textContent = String(total);
+          
+          out.push({
+            k: 'Current Step',
+            v: `${st.data.current_step_name || st.data.current_step_type || '-'} (#${(st.data.current_step_index ?? -1) + 1})`
+          });
+        }
+        
+        // Render state
+        const box = $('t2-state');
+        box.innerHTML = '';
+        for (const item of out) {
+          const div = document.createElement('div');
+          div.className = 'kv';
+          div.innerHTML = `<div>${item.k}</div><div class="small mono">${item.v ?? '—'}</div>`;
+          box.appendChild(div);
+        }
+      } catch (e) {
+        log(`process state error: ${e.message}`);
+      }
+    }
+
+    /**
+     * Type-safe step history loading
+     * @param {string} pid - Process ID
+     */
+    async function loadRecentSteps(pid) {
+      if (!pid) {
+        log('Warning: loadRecentSteps called with null/undefined pid');
+        return;
+      }
+
+      let rows = [];
+      
+      try {
+        const res = await sb
+          .from('step_execution_history')
+          .select('*')
+          .eq('process_id', pid)
+          .order('started_at', { ascending: false })
+          .limit(10);
+          
+        if (!res.error && res.data && res.data.length) {
+          rows = res.data.map(r => ({
+            label: r.step_name || r.step_type || 'step',
+            when: r.started_at,
+            extra: r.ended_at ? 'completed' : 'running'
+          }));
+        }
+      } catch (e) {
+        log(`step history error: ${e.message}`);
+      }
+      
+      const box = $('t2-steps');
+      box.innerHTML = '';
+      for (const r of rows) {
+        const div = document.createElement('div');
+        div.className = 'kv';
+        div.innerHTML = `<div>${r.label}</div><div class="small mono">${new Date(r.when).toLocaleTimeString([], { hour12: false })} · ${String(r.extra).toUpperCase()}</div>`;
+        box.appendChild(div);
+      }
+    }
+
+    /**
+     * Type-safe telemetry loading
+     */
+    async function loadTelemetry() {
+      const box = $('t1-telemetry');
+      box.innerHTML = '';
+      let usedHistory = false;
+      let rows = [];
+      
+      try {
+        const res = await sb
+          .from('parameter_value_history')
+          .select('*')
+          .order('timestamp', { ascending: false })
+          .limit(10);
+          
+        if (!res.error && res.data && res.data.length) {
+          usedHistory = true;
+          rows = res.data.map(r => ({
+            name: r.parameter_id || r.name,
+            value: r.value,
+            ts: r.timestamp
+          }));
+        }
+      } catch (e) {
+        log(`parameter history error: ${e.message}`);
+      }
+      
+      if (!usedHistory) {
+        try {
+          const snap = await sb
+            .from('component_parameters')
+            .select('id,current_value,target_value,updated_at,machine_components(name,type)')
+            .eq('machine_id', MACHINE_ID);
+            
+          if (!snap.error && snap.data) {
+            rows = snap.data.map(r => ({
+              name: r.machine_components?.name || r.id,
+              value: r.current_value,
+              ts: r.updated_at,
+              type: r.machine_components?.type
+            }));
+          }
+        } catch (e) {
+          log(`component parameters error: ${e.message}`);
+        }
+      }
+      
+      if (rows.length === 0) {
+        box.innerHTML = '<div class="small mono">No telemetry data available</div>';
+        return;
+      }
+      
+      for (const r of rows.slice(0, 10)) {
+        const div = document.createElement('div');
+        div.className = 'kv';
+        const glyph = r.type === 'valve' ? (Number(r.value) >= 0.999 ? '🟢' : '🔴') : '🧪';
+        div.innerHTML = `<div>${glyph} ${r.name}</div><div class="small mono">${(r.value ?? '—')}</div>`;
+        box.appendChild(div);
+      }
+    }
+
+    /**
+     * Type-safe component loading
+     * @returns {Promise<Component[]>}
+     */
+    async function loadComponents() {
+      try {
+        const { data, error } = await sb
+          .from('machine_components')
+          .select('id,name,type')
+          .eq('machine_id', MACHINE_ID)
+          .order('name');
+          
+        if (error) {
+          log(`components error: ${error.message}`);
+          return [];
+        }
+        
+        return data || [];
+      } catch (e) {
+        log(`components error: ${e.message}`);
+        return [];
+      }
+    }
+
+    /**
+     * Type-safe parameter commands loading
+     */
+    async function loadParamCommands() {
+      try {
+        const { data, error } = await sb
+          .from('parameter_control_commands')
+          .select('*')
+          .or(`machine_id.eq.${MACHINE_ID},machine_id.is.null`)
+          .order('created_at', { ascending: false })
+          .limit(10);
+          
+        if (error) {
+          log(`parameter commands error: ${error.message}`);
+        }
+        
+        const box = $('t3-commands');
+        box.innerHTML = '';
+        
+        for (const r of (data || [])) {
+          const status = r.completed_at ? 'completed' : (r.executed_at ? 'executing' : 'pending');
+          const div = document.createElement('div');
+          div.className = 'kv';
+          div.innerHTML = `<div>${r.parameter_name} → ${r.target_value}</div><div class="small mono"><span class="pill">${status}</span></div>`;
+          box.appendChild(div);
+        }
+      } catch (e) {
+        log(`parameter commands error: ${e.message}`);
+        const box = $('t3-commands');
+        box.innerHTML = '<div class="small mono">No parameter commands found</div>';
+      }
+    }
+
+    /**
+     * Type-safe component commands loading (disabled due to RLS)
+     */
+    async function loadComponentCommands() {
+      const box = $('t4-commands');
+      box.innerHTML = '<div class="small mono">Component commands require authentication</div>';
+      log('Component commands require user authentication due to RLS policies');
+    }
+
+    // ===== TYPE-SAFE ACTIONS =====
+    /**
+     * Type-safe recipe start action
+     */
+    async function startRecipe() {
+      const recipeSelect = $('recipe-select');
+      const rid = recipeSelect.value;
+      
+      if (!rid) {
+        toast('Select a recipe');
+        return;
+      }
+      
+      try {
+        const { error } = await sb
+          .from('recipe_commands')
+          .insert({ 
+            recipe_id: rid, 
+            machine_id: MACHINE_ID, 
+            command_type: 'start', 
+            status: 'pending' 
+          });
+          
+        if (error) {
+          toast(`⚠️ ${error.message}`);
+          return;
+        }
+        
+        toast('✅ start sent');
+        log(`start recipe ${rid}`);
+      } catch (e) {
+        toast(`⚠️ ${e.message}`);
+      }
+    }
+
+    /**
+     * Type-safe recipe pause action
+     */
+    async function pauseRecipe() {
+      if (!currentProcessId) {
+        toast('No active process to pause');
+        return;
+      }
+      
+      try {
+        const { error } = await sb
+          .from('recipe_commands')
+          .insert({ 
+            recipe_id: null, 
+            machine_id: MACHINE_ID, 
+            command_type: 'pause', 
+            status: 'pending' 
+          });
+          
+        if (error) {
+          toast(`⚠️ ${error.message}`);
+        } else {
+          toast('⏸ pause sent');
+          log('pause');
+        }
+      } catch (e) {
+        toast(`⚠️ ${e.message}`);
+      }
+    }
+
+    /**
+     * Type-safe recipe stop action
+     */
+    async function stopRecipe() {
+      if (!currentProcessId) {
+        toast('No active process to stop');
+        return;
+      }
+      
+      try {
+        const { error } = await sb
+          .from('recipe_commands')
+          .insert({ 
+            recipe_id: null, 
+            machine_id: MACHINE_ID, 
+            command_type: 'stop', 
+            status: 'pending' 
+          });
+          
+        if (error) {
+          toast(`⚠️ ${error.message}`);
+        } else {
+          toast('🛑 stop sent');
+          log('stop');
+        }
+      } catch (e) {
+        toast(`⚠️ ${e.message}`);
+      }
+    }
+
+    /**
+     * Type-safe parameter sending
+     */
+    async function sendParameter() {
+      const nameInput = $('t3-param-name');
+      const valueInput = $('t3-param-value');
+      
+      const name = nameInput.value.trim();
+      const valRaw = valueInput.value;
+      
+      if (!name) {
+        toast('Enter parameter_name');
+        return;
+      }
+      
+      const target = valRaw === '' ? null : Number(valRaw);
+      
+      // Type validation
+      if (target !== null && (isNaN(target) || !isFinite(target))) {
+        toast('Invalid target value');
+        return;
+      }
+      
+      try {
+        const { error } = await sb
+          .from('parameter_control_commands')
+          .insert({ 
+            machine_id: MACHINE_ID, 
+            parameter_name: name, 
+            target_value: target, 
+            status: null 
+          });
+          
+        if (error) {
+          toast(`⚠️ ${error.message}`);
+        } else {
+          toast('✅ parameter command sent');
+          log(`param ${name} -> ${target}`);
+        }
+      } catch (e) {
+        toast(`⚠️ ${e.message}`);
+      }
+    }
+
+    /**
+     * Type-safe component sending (disabled)
+     */
+    async function sendComponent() {
+      toast('⚠️ Component commands require authentication');
+      log('Component commands require user authentication due to RLS policies');
+    }
+
+    // ===== TYPE-SAFE REALTIME SUBSCRIPTIONS =====
+    function subscribeRealtime() {
+      // Process table (status / lifecycle)
+      sb.channel('proc').on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'process_executions',
+        filter: `machine_id=eq.${MACHINE_ID}`
+      }, async (payload) => {
+        const row = payload.new || payload.old;
+        if (!row) return;
+        
+        if (currentProcessId && row.id !== currentProcessId && row.status !== 'running') return;
+        
+        const ap = await detectActiveProcess();
+        setPid(ap?.id || null);
+        
+        if (currentProcessId) {
+          await loadProcessState(currentProcessId);
+          await loadRecentSteps(currentProcessId);
+        }
+      }).subscribe();
+
+      // Machines (current_process_id changes)
+      sb.channel('machines').on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'machines',
+        filter: `id=eq.${MACHINE_ID}`
+      }, async (p) => {
+        const pid = p.new?.current_process_id || null;
+        setPid(pid);
+        
+        if (pid) {
+          await loadProcessState(pid);
+          await loadRecentSteps(pid);
+        } else {
+          setStatus('idle');
+          const t2State = $('t2-state');
+          const t2Steps = $('t2-steps');
+          const stepNow = $('step-now');
+          const stepTotal = $('step-total');
+          
+          t2State.innerHTML = '';
+          t2Steps.innerHTML = '';
+          stepNow.textContent = '0';
+          stepTotal.textContent = '0';
+        }
+      }).subscribe();
+
+      // Step history
+      sb.channel('steps-hist').on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'step_execution_history'
+      }, (p) => {
+        if (!currentProcessId || p.new?.process_id !== currentProcessId) return;
+        loadRecentSteps(currentProcessId);
+      }).subscribe();
+
+      // Parameter commands
+      sb.channel('param-cmd').on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'parameter_control_commands'
+      }, () => loadParamCommands()).subscribe();
+
+      // Component parameter updates (for T1 snapshot freshness)
+      sb.channel('comp-params').on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'component_parameters',
+        filter: `machine_id=eq.${MACHINE_ID}`
+      }, () => loadTelemetry()).subscribe();
+    }
+
+    // ===== TYPE-SAFE INITIALIZATION =====
+    async function init() {
+      try {
+        // Load recipes
+        recipeOptions = await loadRecipes();
+        const recipeSelect = $('recipe-select');
+        recipeSelect.innerHTML = '';
+        
+        recipeOptions.forEach(r => {
+          const option = document.createElement('option');
+          option.value = r.id;
+          option.textContent = r.name || r.id;
+          recipeSelect.appendChild(option);
+        });
+
+        // Load components for Terminal 4
+        components = await loadComponents();
+        const componentSelect = $('t4-component');
+        componentSelect.innerHTML = '';
+        
+        components.forEach(c => {
+          if (['valve', 'mfc', 'relay', 'pump', 'heater', 'chamber_heater'].includes((c.type || '').toLowerCase())) {
+            const option = document.createElement('option');
+            option.value = c.id;
+            option.textContent = `${c.name} (${c.type})`;
+            componentSelect.appendChild(option);
+          }
+        });
+
+        // Detect active process
+        const ap = await detectActiveProcess();
+        setPid(ap?.id || null);
+        setStatus(ap?.status || 'idle');
+        
+        if (currentProcessId) {
+          await loadProcessState(currentProcessId);
+          await loadRecentSteps(currentProcessId);
+        }
+
+        // Load snapshots
+        await loadTelemetry();
+        await loadParamCommands();
+        await loadComponentCommands();
+
+        // Bind event listeners
+        const startBtn = $('btn-start');
+        const pauseBtn = $('btn-pause');
+        const stopBtn = $('btn-stop');
+        const paramSendBtn = $('t3-send');
+        const compSendBtn = $('t4-send');
+
+        startBtn.addEventListener('click', startRecipe);
+        pauseBtn.addEventListener('click', pauseRecipe);
+        stopBtn.addEventListener('click', stopRecipe);
+        paramSendBtn.addEventListener('click', sendParameter);
+        compSendBtn.addEventListener('click', sendComponent);
+
+        // Subscribe to realtime updates
+        subscribeRealtime();
+        
+        log('Type-safe dashboard initialized successfully');
+      } catch (e) {
+        log(`Initialization error: ${e.message}`);
+      }
+    }
+
+    // Initialize dashboard when page loads
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
+
+

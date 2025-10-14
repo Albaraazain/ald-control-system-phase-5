@@ -44,6 +44,65 @@ logger = get_recipe_flow_logger()
 def ensure_single_instance():
     """Ensure only one simple_recipe_service instance runs"""
     lock_file = "/tmp/simple_recipe_service.lock"
+    
+    # Check if lock file exists and if the process is still running
+    if os.path.exists(lock_file):
+        try:
+            with open(lock_file, 'r') as f:
+                old_pid = f.read().strip()
+                if old_pid and old_pid.isdigit():
+                    # Check if the process is still running
+                    try:
+                        os.kill(int(old_pid), 0)  # This will raise OSError if process doesn't exist
+                        logger.error("❌ Another simple_recipe_service is already running")
+                        logger.error(f"   Existing process PID: {old_pid}")
+                        
+                        # Ask user if they want to kill the existing instance
+                        while True:
+                            response = input("🤔 Do you want to kill the existing instance and continue? (y/n): ").strip().lower()
+                            if response in ['y', 'yes']:
+                                try:
+                                    logger.info(f"🔪 Killing existing process {old_pid}...")
+                                    os.kill(int(old_pid), signal.SIGTERM)
+                                    
+                                    # Wait a moment for graceful shutdown
+                                    import time
+                                    time.sleep(1)
+                                    
+                                    # Check if it's still running, force kill if necessary
+                                    try:
+                                        os.kill(int(old_pid), 0)
+                                        logger.info("⚠️ Process still running, force killing...")
+                                        os.kill(int(old_pid), signal.SIGKILL)
+                                        time.sleep(0.5)
+                                    except OSError:
+                                        pass  # Process already dead
+                                    
+                                    # Remove the lock file
+                                    if os.path.exists(lock_file):
+                                        os.unlink(lock_file)
+                                    
+                                    logger.info("✅ Existing instance killed, proceeding...")
+                                    break
+                                except OSError as e:
+                                    logger.error(f"❌ Failed to kill process {old_pid}: {e}")
+                                    logger.error("💡 Please kill the process manually and try again")
+                                    exit(1)
+                            elif response in ['n', 'no']:
+                                logger.info("👋 Exiting as requested")
+                                exit(0)
+                            else:
+                                print("Please enter 'y' for yes or 'n' for no")
+                    except OSError:
+                        # Process doesn't exist, remove stale lock file
+                        logger.info("🧹 Removing stale lock file from previous run")
+                        os.unlink(lock_file)
+        except Exception as e:
+            logger.debug(f"Error checking existing lock file: {e}")
+            # Remove corrupted lock file
+            if os.path.exists(lock_file):
+                os.unlink(lock_file)
+    
     try:
         fd = os.open(lock_file, os.O_CREAT | os.O_WRONLY | os.O_TRUNC)
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -56,9 +115,10 @@ def ensure_single_instance():
         atexit.register(lambda: os.unlink(lock_file) if os.path.exists(lock_file) else None)
 
         return fd
-    except (OSError, IOError):
-        logger.error("❌ Another simple_recipe_service is already running")
-        logger.error("💡 Kill existing instances or wait for them to finish")
+    except (OSError, IOError) as e:
+        logger.error("❌ Failed to acquire lock file")
+        logger.error(f"💡 Error: {e}")
+        logger.error("💡 Another process may have started in the meantime")
         exit(1)
 
 
@@ -387,6 +447,7 @@ def parse_args():
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
                        default="INFO", help="Logging level")
     parser.add_argument("--machine-id", help="Override machine ID")
+    parser.add_argument("--demo", action="store_true", help="Run in demo mode")
     return parser.parse_args()
 
 

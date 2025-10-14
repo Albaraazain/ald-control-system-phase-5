@@ -616,13 +616,31 @@
             "$ref": "#/parameters/rowFilter.operator_sessions.machine_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.operator_sessions.start_time"
+            "$ref": "#/parameters/rowFilter.operator_sessions.session_start_time"
           },
           {
-            "$ref": "#/parameters/rowFilter.operator_sessions.end_time"
+            "$ref": "#/parameters/rowFilter.operator_sessions.session_end_time"
           },
           {
-            "$ref": "#/parameters/rowFilter.operator_sessions.status"
+            "$ref": "#/parameters/rowFilter.operator_sessions.session_status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.reservation_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.process_execution_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.last_heartbeat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.grace_period_used_minutes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.is_extended"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.extension_granted_until"
           },
           {
             "$ref": "#/parameters/rowFilter.operator_sessions.created_at"
@@ -703,13 +721,31 @@
             "$ref": "#/parameters/rowFilter.operator_sessions.machine_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.operator_sessions.start_time"
+            "$ref": "#/parameters/rowFilter.operator_sessions.session_start_time"
           },
           {
-            "$ref": "#/parameters/rowFilter.operator_sessions.end_time"
+            "$ref": "#/parameters/rowFilter.operator_sessions.session_end_time"
           },
           {
-            "$ref": "#/parameters/rowFilter.operator_sessions.status"
+            "$ref": "#/parameters/rowFilter.operator_sessions.session_status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.reservation_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.process_execution_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.last_heartbeat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.grace_period_used_minutes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.is_extended"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.extension_granted_until"
           },
           {
             "$ref": "#/parameters/rowFilter.operator_sessions.created_at"
@@ -742,13 +778,31 @@
             "$ref": "#/parameters/rowFilter.operator_sessions.machine_id"
           },
           {
-            "$ref": "#/parameters/rowFilter.operator_sessions.start_time"
+            "$ref": "#/parameters/rowFilter.operator_sessions.session_start_time"
           },
           {
-            "$ref": "#/parameters/rowFilter.operator_sessions.end_time"
+            "$ref": "#/parameters/rowFilter.operator_sessions.session_end_time"
           },
           {
-            "$ref": "#/parameters/rowFilter.operator_sessions.status"
+            "$ref": "#/parameters/rowFilter.operator_sessions.session_status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.reservation_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.process_execution_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.last_heartbeat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.grace_period_used_minutes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.is_extended"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.operator_sessions.extension_granted_until"
           },
           {
             "$ref": "#/parameters/rowFilter.operator_sessions.created_at"
@@ -8592,8 +8646,8 @@
         "id",
         "operator_id",
         "machine_id",
-        "start_time",
-        "status",
+        "session_start_time",
+        "session_status",
         "created_at",
         "updated_at"
       ],
@@ -8601,6 +8655,11 @@
         "id": {
           "default": "extensions.uuid_generate_v4()",
           "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "reservation_id": {
+          "description": "Note:\nThis is a Foreign Key to `slot_reservations.id`.<fk table='slot_reservations' column='id'/>",
           "format": "uuid",
           "type": "string"
         },
@@ -8613,18 +8672,41 @@
           "format": "uuid",
           "type": "string"
         },
-        "start_time": {
+        "process_execution_id": {
+          "description": "Note:\nThis is a Foreign Key to `process_executions.id`.<fk table='process_executions' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "session_start_time": {
           "default": "now()",
           "format": "timestamp with time zone",
           "type": "string"
         },
-        "end_time": {
+        "session_end_time": {
           "format": "timestamp with time zone",
           "type": "string"
         },
-        "status": {
+        "session_status": {
           "default": "active",
           "format": "text",
+          "type": "string"
+        },
+        "last_heartbeat": {
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "grace_period_used_minutes": {
+          "default": "0",
+          "format": "integer",
+          "type": "integer"
+        },
+        "is_extended": {
+          "default": "false",
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "extension_granted_until": {
+          "format": "timestamp with time zone",
           "type": "string"
         },
         "created_at": {
@@ -11023,20 +11105,56 @@
       "in": "query",
       "type": "string"
     },
-    "rowFilter.operator_sessions.start_time": {
-      "name": "start_time",
+    "rowFilter.operator_sessions.session_start_time": {
+      "name": "session_start_time",
       "required": false,
       "in": "query",
       "type": "string"
     },
-    "rowFilter.operator_sessions.end_time": {
-      "name": "end_time",
+    "rowFilter.operator_sessions.session_end_time": {
+      "name": "session_end_time",
       "required": false,
       "in": "query",
       "type": "string"
     },
-    "rowFilter.operator_sessions.status": {
-      "name": "status",
+    "rowFilter.operator_sessions.session_status": {
+      "name": "session_status",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.operator_sessions.reservation_id": {
+      "name": "reservation_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.operator_sessions.process_execution_id": {
+      "name": "process_execution_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.operator_sessions.last_heartbeat": {
+      "name": "last_heartbeat",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.operator_sessions.grace_period_used_minutes": {
+      "name": "grace_period_used_minutes",
+      "required": false,
+      "in": "query",
+      "type": "integer"
+    },
+    "rowFilter.operator_sessions.is_extended": {
+      "name": "is_extended",
+      "required": false,
+      "in": "query",
+      "type": "boolean"
+    },
+    "rowFilter.operator_sessions.extension_granted_until": {
+      "name": "extension_granted_until",
       "required": false,
       "in": "query",
       "type": "string"

@@ -212,12 +212,18 @@
   ],
   "operator_sessions": [
     "created_at",
-    "end_time",
+    "extension_granted_until",
+    "grace_period_used_minutes",
     "id",
+    "is_extended",
+    "last_heartbeat",
     "machine_id",
     "operator_id",
-    "start_time",
-    "status",
+    "process_execution_id",
+    "reservation_id",
+    "session_end_time",
+    "session_start_time",
+    "session_status",
     "updated_at"
   ],
   "parameter_control_commands": [

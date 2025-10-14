@@ -82,8 +82,10 @@ This summarizes key tables and columns relevant to the ALD control system. Sourc
  - created_at, updated_at
 
 ### operator_sessions
-- id, machine_id, operator_id, status
-- start_time, end_time
+- id, machine_id, operator_id, session_status
+- reservation_id (FK to slot_reservations), process_execution_id (FK to process_executions)
+- session_start_time, session_end_time, last_heartbeat
+- grace_period_used_minutes, is_extended, extension_granted_until
 - created_at, updated_at
 
 ## Notable Mismatches vs. Common App Expectations

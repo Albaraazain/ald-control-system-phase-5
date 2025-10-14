@@ -113,12 +113,13 @@ class SimulationPLC(PLCInterface):
 
             # Get valve parameters by looking for component names starting with 'valve'
             # and parameter names containing 'valve_state'
-            params_result = supabase.table('component_parameters').select('*').execute()
+            # Use component_parameters_full view which includes component_name via JOIN
+            params_result = supabase.table('component_parameters_full').select('*').execute()
 
             valve_params = []
             for param in params_result.data:
                 component_name = param.get('component_name', '').lower()
-                param_name = param.get('name', '').lower()
+                param_name = param.get('parameter_name', '').lower()
 
                 if (component_name.startswith('valve') and
                     'valve_state' in param_name):
@@ -237,6 +238,9 @@ class SimulationPLC(PLCInterface):
         # Update the current value in our cache
         self.current_values[parameter_id] = new_value
         
+        # Update database with current value (in background task to match real PLC behavior)
+        asyncio.create_task(self._update_parameter_current_value(parameter_id, new_value))
+        
         return new_value
     
     async def _load_parameter(self, parameter_id: str):
@@ -268,7 +272,20 @@ class SimulationPLC(PLCInterface):
             self.non_fluctuating_params.add(parameter_id)
     
     async def write_parameter(self, parameter_id: str, value: float) -> bool:
-        """Write a parameter value to the simulation."""
+        """Write a parameter value to the simulation.
+        
+        This simulates a PLC write operation by:
+        1. Immediately updating the set_value (target)
+        2. Immediately updating the current_value (simulating instant response)
+        3. Persisting both values to the database
+        
+        Args:
+            parameter_id: The parameter ID to write
+            value: The new value to set
+            
+        Returns:
+            bool: True if successful
+        """
         if not self.connected:
             raise RuntimeError("Not connected to simulation PLC")
 
@@ -277,13 +294,43 @@ class SimulationPLC(PLCInterface):
             await self._load_parameter(parameter_id)
 
         # Update both current and set values in simulation cache
+        # In simulation, we assume instant response (current_value = set_value)
         self.set_values[parameter_id] = value
         self.current_values[parameter_id] = value
 
-        # Update database with set value (in background task to match real PLC pattern)
-        asyncio.create_task(self._update_parameter_set_value(parameter_id, value))
+        # Update database with both set_value AND current_value (in background task)
+        asyncio.create_task(self._update_parameter_both_values(parameter_id, value))
+
+        logger.debug(f"Simulation write: parameter {parameter_id} set to {value}")
 
         return True
+
+    async def _update_parameter_current_value(self, parameter_id: str, value: float):
+        """Update the current value of a parameter in the database.
+        
+        This matches the behavior of the real PLC which updates current_value
+        on every read operation.
+        """
+        try:
+            supabase = get_supabase()
+            
+            # Get parameter details from cache for logging
+            param_meta = self.param_metadata.get(parameter_id, {})
+            param_name = param_meta.get('name', f'param_{parameter_id}')
+                
+            # Log parameter update
+            logger.debug(
+                f"Simulation: Updating current_value of parameter: {param_name} "
+                f"with value: {value}"
+            )
+            
+            supabase.table('component_parameters').update({
+                'current_value': value,
+                'updated_at': 'now()'
+            }).eq('id', parameter_id).execute()
+            
+        except Exception as e:
+            logger.error(f"Error updating parameter current value in simulation: {str(e)}")
 
     async def _update_parameter_set_value(self, parameter_id: str, value: float):
         """Update the set value of a parameter in the database."""
@@ -296,6 +343,33 @@ class SimulationPLC(PLCInterface):
 
         except Exception as e:
             logger.error(f"Error updating parameter set value in simulation: {str(e)}")
+
+    async def _update_parameter_both_values(self, parameter_id: str, value: float):
+        """Update both current_value and set_value in the database.
+        
+        Used when writing to a parameter - in simulation we assume instant response,
+        so both current and set values are updated to the same value.
+        """
+        try:
+            supabase = get_supabase()
+            
+            # Get parameter details from cache for logging
+            param_meta = self.param_metadata.get(parameter_id, {})
+            param_name = param_meta.get('name', f'param_{parameter_id}')
+                
+            logger.debug(
+                f"Simulation: Updating both current_value and set_value for {param_name} "
+                f"to {value}"
+            )
+            
+            supabase.table('component_parameters').update({
+                'current_value': value,
+                'set_value': value,
+                'updated_at': 'now()'
+            }).eq('id', parameter_id).execute()
+            
+        except Exception as e:
+            logger.error(f"Error updating parameter values in simulation: {str(e)}")
 
     async def read_all_parameters(self) -> Dict[str, float]:
         """Read all parameters from the simulation with realistic fluctuations."""
@@ -312,25 +386,116 @@ class SimulationPLC(PLCInterface):
         
         return result
     
+    async def read_setpoint(self, parameter_id: str) -> Optional[float]:
+        """
+        Read the setpoint value for a parameter from the simulation.
+        
+        Returns the cached set_value for the parameter.
+        
+        Args:
+            parameter_id: The ID of the parameter to read setpoint for
+            
+        Returns:
+            Optional[float]: The setpoint value, or None if parameter is not writable
+        """
+        if not self.connected:
+            raise RuntimeError("Not connected to simulation PLC")
+        
+        # If parameter isn't in our cache, try to load from database
+        if parameter_id not in self.set_values:
+            await self._load_parameter(parameter_id)
+        
+        # Check if parameter is writable
+        param_meta = self.param_metadata.get(parameter_id, {})
+        if not param_meta.get('is_writable', False):
+            return None
+        
+        # Return cached setpoint
+        setpoint = self.set_values.get(parameter_id)
+        
+        if setpoint is not None:
+            # Update database with setpoint value (in background task)
+            asyncio.create_task(self._update_parameter_setpoint(parameter_id, setpoint))
+        
+        return setpoint
+    
+    async def _update_parameter_setpoint(self, parameter_id: str, value: float):
+        """Update the set value of a parameter in the database."""
+        try:
+            supabase = get_supabase()
+            
+            # Get parameter details from cache for logging
+            param_meta = self.param_metadata.get(parameter_id, {})
+            param_name = param_meta.get('name', f'param_{parameter_id}')
+            
+            logger.debug(
+                f"Simulation: Updating set_value of parameter: {param_name} "
+                f"with value: {value}"
+            )
+            
+            supabase.table('component_parameters').update({
+                'set_value': value,
+                'updated_at': 'now()'
+            }).eq('id', parameter_id).execute()
+            
+        except Exception as e:
+            logger.error(f"Error updating parameter setpoint in simulation: {str(e)}")
+    
+    async def read_all_setpoints(self) -> Dict[str, float]:
+        """
+        Read all setpoint values from the simulation.
+        
+        Returns:
+            Dict[str, float]: Dictionary of parameter IDs to setpoint values
+        """
+        if not self.connected:
+            raise RuntimeError("Not connected to simulation PLC")
+        
+        # Make sure we have all parameters loaded
+        await self._load_parameters()
+        
+        result = {}
+        
+        for param_id in self.set_values:
+            # Check if parameter is writable
+            param_meta = self.param_metadata.get(param_id, {})
+            if not param_meta.get('is_writable', False):
+                continue
+            
+            setpoint = self.set_values.get(param_id)
+            if setpoint is not None:
+                result[param_id] = setpoint
+        
+        return result
+    
     async def control_valve(
         self,
         valve_number: int,
         state: bool,
         duration_ms: Optional[int] = None,
     ) -> bool:
-        """Control a valve in the simulation."""
+        """Control a valve in the simulation.
+        
+        Updates both memory cache and database to properly reflect valve state.
+        """
         if not self.connected:
             raise RuntimeError("Not connected to simulation PLC")
             
         logger.info(f"Simulation: {'Opening' if state else 'Closing'} valve {valve_number}")
         self.valves[valve_number] = state
 
-        # Update database with new set value for valve parameter
+        # Update database with new current_value and set_value for valve parameter
         valve_meta = self._valve_cache.get(valve_number)
         if valve_meta:
             parameter_id = valve_meta['parameter_id']
-            valve_set_value = 1.0 if state else 0.0
-            asyncio.create_task(self._update_parameter_set_value(parameter_id, valve_set_value))
+            valve_value = 1.0 if state else 0.0
+            
+            # Update memory cache
+            self.current_values[parameter_id] = valve_value
+            self.set_values[parameter_id] = valve_value
+            
+            # Update database with both values
+            asyncio.create_task(self._update_parameter_both_values(parameter_id, valve_value))
 
         # If duration specified, close after duration
         if state and duration_ms is not None:
@@ -338,9 +503,14 @@ class SimulationPLC(PLCInterface):
             self.valves[valve_number] = False
             logger.info(f"Simulation: Auto-closing valve {valve_number} after {duration_ms}ms")
 
-            # Update set value for auto-close operation
+            # Update for auto-close operation
             if valve_meta:
-                asyncio.create_task(self._update_parameter_set_value(parameter_id, 0.0))
+                parameter_id = valve_meta['parameter_id']
+                # Update memory cache
+                self.current_values[parameter_id] = 0.0
+                self.set_values[parameter_id] = 0.0
+                # Update database
+                asyncio.create_task(self._update_parameter_both_values(parameter_id, 0.0))
 
         return True
     
@@ -361,11 +531,13 @@ class SimulationPLC(PLCInterface):
     # NOTE: These helpers intentionally operate by address only and make no attempt to
     #       interpret any legacy 'modbus_type'. This mirrors the real PLC behavior shift
     #       to the dual-address model where 'binary' data_type => coils and others =>
-    #       holding registers. TODO: Consider mapping addresses to parameter IDs if
-    #       richer simulation becomes necessary.
+    #       holding registers.
     async def write_holding_register(self, address: int, value: float) -> bool:
-        """Simulate writing a holding register by address."""
-        # Store in a simple map; in a richer sim we could map addresses to params
+        """Simulate writing a holding register by address.
+        
+        Updates both memory cache and database to match real PLC behavior.
+        """
+        # Store in a simple map
         if not hasattr(self, "_holding_registers"):
             self._holding_registers = {}
         self._holding_registers[address] = float(value)
@@ -375,16 +547,25 @@ class SimulationPLC(PLCInterface):
             param_id = self._address_to_param_id[address]
             self.current_values[param_id] = value
             self.set_values[param_id] = value
+            
+            # Update database with both values (in background task)
+            asyncio.create_task(self._update_parameter_both_values(param_id, value))
+            
             logger.debug(f"Synchronized write: address {address} → parameter {param_id} = {value}")
 
         return True
 
     async def read_holding_register(self, address: int) -> Optional[float]:
+        """Read a holding register by address."""
         if hasattr(self, "_holding_registers") and address in self._holding_registers:
             return self._holding_registers[address]
         return 0.0
 
     async def write_coil(self, address: int, value: bool) -> bool:
+        """Simulate writing a coil by address.
+        
+        Updates both memory cache and database to match real PLC behavior.
+        """
         if not hasattr(self, "_coils"):
             self._coils = {}
         self._coils[address] = bool(value)
@@ -396,11 +577,16 @@ class SimulationPLC(PLCInterface):
             float_value = 1.0 if value else 0.0
             self.current_values[param_id] = float_value
             self.set_values[param_id] = float_value
+            
+            # Update database with both values (in background task)
+            asyncio.create_task(self._update_parameter_both_values(param_id, float_value))
+            
             logger.debug(f"Synchronized coil write: address {address} → parameter {param_id} = {float_value} (bool={value})")
 
         return True
 
     async def read_coils(self, address: int, count: int = 1):
+        """Read coils by address."""
         # Return a simple list of bools of length count
         vals = []
         for i in range(count):

@@ -118,9 +118,9 @@ def main_cli():
         asyncio.run(run_connection_test())
         return
 
-    # Import and run Terminal 3 service
-    from parameter_service import main as parameter_service_main
-    asyncio.run(parameter_service_main())
+    # Import and run Terminal 3 clean service
+    from terminal3_clean import main as terminal3_main
+    asyncio.run(terminal3_main())
 
 
 if __name__ == "__main__":

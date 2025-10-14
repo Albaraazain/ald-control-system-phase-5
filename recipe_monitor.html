@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Machine 001 - Recipe Execution Monitor</title>
+  <!--
+    Machine 001 - Recipe Execution Monitor
+    Self-contained dashboard for monitoring Terminal 2 (Recipe Service) execution.
+
+    How to use:
+      1) Open this file in a browser.
+      2) Set SUPABASE_URL and SUPABASE_ANON_KEY below.
+      3) Ensure MACHINE_ID matches your DB (default: 'machine-001-id').
+      4) Run Terminal 2 (e.g., `python main.py --terminal 2 --demo`).
+
+    Notes:
+      - Purge step is a wait-only no-op; no PLC actuation is assumed.
+      - Realtime subscriptions keep the UI in sync without refresh.
+      - Queries follow the schema outlined in the request; adjust filters if your schema differs.
+  -->
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a33;
+      --panel-2: #0f1630;
+      --text: #e5e7eb;
+      --muted: #9aa4bf;
+      --blue: #3b82f6;
+      --green: #10b981;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --gray: #374151;
+      --accent: #6473c1;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #0a0f1f 0%, #0b1020 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 16px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+      border: 1px solid #1e2a55;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    /* Top: Control Panel */
+    .control {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+    }
+    .control-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    select, button {
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid #263366;
+      background: #0e1530;
+      color: var(--text);
+      padding: 0 10px;
+      font-size: 14px;
+    }
+    button { cursor: pointer; }
+    button.primary { background: var(--blue); border-color: #2f66c4; }
+    button.warning { background: var(--yellow); border-color: #c07d0a; color: #0b1020; font-weight: 600; }
+    button.danger { background: var(--red); border-color: #c43333; }
+    button[disabled] { opacity: 0.6; cursor: not-allowed; }
+
+    .status-row {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      align-items: center;
+    }
+    .status-item { color: var(--muted); font-size: 14px; }
+    .progress-bar { height: 14px; background: #1b2447; border-radius: 7px; overflow: hidden; border: 1px solid #233064; }
+    .progress-fill { height: 100%; background: var(--blue); width: 0%; transition: width 0.4s ease; }
+
+    /* Grid: Steps (main) + Components/Logs (bottom) */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    @media (min-width: 1024px) {
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+    }
+
+    /* Steps panel */
+    .steps-header { font-weight: 700; margin-bottom: 8px; letter-spacing: 0.2px; }
+    .steps-list { display: grid; gap: 8px; }
+    .step {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      background: #0c1226;
+      border: 1px solid #1e2a55;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .step .icon { text-align: center; width: 28px; }
+    .step .title { font-weight: 600; }
+    .step .meta { color: var(--muted); font-size: 12px; }
+
+    /* Step states */
+    .step-pending { background: #0c1226; }
+    .step-running { background: #1a2a55; animation: pulse 2s infinite; color: #eaf1ff; }
+    .step-completed { background: #0f1f1b; border-color: #1d3f34; }
+    .step-failed { background: #2a1414; border-color: #5a2222; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+
+    /* Components panel */
+    .components {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .comp-group { border: 1px solid #1e2a55; border-radius: 10px; padding: 10px; background: #0c1226; }
+    .comp-title { font-weight: 700; margin-bottom: 8px; color: #c9d3f9; }
+    .comp-list { display: grid; gap: 6px; font-size: 14px; }
+    .valve-open { color: var(--green); font-weight: 700; }
+    .valve-closed { color: var(--red); font-weight: 700; }
+    .valve-partial { color: var(--yellow); font-weight: 700; }
+
+    .kv-row { display: flex; justify-content: space-between; gap: 10px; }
+    .kv-name { color: #c6d0f5; }
+    .kv-value { color: var(--muted); }
+
+    /* Logs */
+    .log-box { background: #0c1226; border: 1px solid #1e2a55; border-radius: 10px; padding: 10px; height: 260px; overflow: auto; }
+    .log-title { font-weight: 700; margin-bottom: 8px; color: #c9d3f9; }
+    .log-entry { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; color: #cbd5e1; padding: 2px 0; border-bottom: 1px dotted #1c2752; }
+    .log-entry:last-child { border-bottom: none; }
+
+    /* Status chips */
+    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; font-size: 12px; border: 1px solid #263366; background: #0e1530; color: #cdd6f4; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .dot-idle { background: #93a1c9; }
+    .dot-running { background: var(--blue); animation: pulse 2s infinite; }
+    .dot-paused { background: var(--yellow); }
+    .dot-completed { background: var(--green); }
+    .dot-failed { background: var(--red); }
+
+    /* Notifications */
+    .toast { position: fixed; right: 16px; bottom: 16px; background: #0e1530; border: 1px solid #2b3972; color: #e5e7eb; padding: 10px 12px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); opacity: 0; transform: translateY(10px); transition: all 0.2s ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Section 1: Control Panel -->
+    <section class="panel control" aria-label="Recipe Control Panel">
+      <div class="control-title">Machine 001 - Recipe Execution Monitor</div>
+      <div class="controls">
+        <select id="recipe-select" aria-label="Recipe Dropdown"></select>
+        <button class="primary" id="btn-start">Start</button>
+        <button class="warning" id="btn-pause" disabled>Pause</button>
+        <button class="danger" id="btn-stop" disabled>Stop</button>
+      </div>
+
+      <div class="status-row">
+        <div class="status-item">
+          <span id="status-chip" class="chip"><span id="status-dot" class="dot dot-idle"></span><span id="status-text">⚪ IDLE</span></span>
+        </div>
+        <div class="status-item">Current Step: <span id="current-step">0</span> / <span id="total-steps">0</span></div>
+        <div class="status-item">
+          <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <div class="small muted" id="progress-percent">0%</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Steps (Main Focus) -->
+    <section class="panel" aria-label="Recipe Steps Execution">
+      <div class="steps-header">Recipe Steps Execution</div>
+      <div id="steps-list" class="steps-list"></div>
+    </section>
+
+    <!-- Section 3 & 4: Components + Log -->
+    <section class="grid-2">
+      <div class="panel" aria-label="Component Status">
+        <div class="components">
+          <div class="comp-group">
+            <div class="comp-title">Valve States (Real-time)</div>
+            <div id="valves-list" class="comp-list"></div>
+          </div>
+          <div class="comp-group">
+            <div class="comp-title">MFC States</div>
+            <div id="mfcs-list" class="comp-list"></div>
+          </div>
+          <div class="comp-group">
+            <div class="comp-title">Temperature</div>
+            <div id="temps-list" class="comp-list"></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel" aria-label="Execution Log">
+        <div class="log-title">Execution Log (Last 20)</div>
+        <div id="log-box" class="log-box"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // ======== CONFIG ========
+    // TODO: Replace with your project values
+    const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+    // Machine target
+    const MACHINE_ID = 'machine-001-id';
+
+    // ======== STATE ========
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentProcess = null;        // { id, recipe_id, status, current_step_index, ... }
+    let steps = [];                   // [{ id, step_order, action, duration, step_type, ... }]
+    let stepExecutions = new Map();   // step_order -> latest status { status, started_at, completed_at }
+    let componentsIndex = new Map();  // component_id -> { id, name, type, current_value, target_value }
+    let recipes = [];                 // available recipes for dropdown
+
+    // ======== DOM HELPERS ========
+    const el = (id) => document.getElementById(id);
+    const stepsListEl = el('steps-list');
+    const valvesListEl = el('valves-list');
+    const mfcsListEl = el('mfcs-list');
+    const tempsListEl = el('temps-list');
+    const logBoxEl = el('log-box');
+    const statusDotEl = el('status-dot');
+    const statusTextEl = el('status-text');
+    const statusChipEl = el('status-chip');
+    const progressFillEl = el('progress-fill');
+    const progressPercentEl = el('progress-percent');
+    const currentStepEl = el('current-step');
+    const totalStepsEl = el('total-steps');
+
+    function showToast(msg) {
+      const t = el('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function fmtTime(ts) {
+      try {
+        const d = ts instanceof Date ? ts : new Date(ts);
+        return d.toLocaleTimeString([], { hour12: false });
+      } catch (_) { return '--:--:--'; }
+    }
+
+    function addLogEntry(message) {
+      // keep last 100 in memory; render last 20
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      const t = fmtTime(new Date());
+      entry.textContent = `${t} - ${message}`;
+      logBoxEl.appendChild(entry);
+      while (logBoxEl.children.length > 20) logBoxEl.removeChild(logBoxEl.firstChild);
+      logBoxEl.scrollTop = logBoxEl.scrollHeight;
+    }
+
+    function setButtonsEnabled({ running }) {
+      el('btn-start').disabled = false; // allow start any time (command queue decides)
+      el('btn-pause').disabled = !running;
+      el('btn-stop').disabled = !running;
+    }
+
+    function setStatus(status) {
+      // status: idle|running|paused|completed|failed
+      let text = '⚪ IDLE';
+      let dotClass = 'dot-idle';
+      switch ((status || 'idle').toLowerCase()) {
+        case 'running': text = '🔵 RUNNING'; dotClass = 'dot-running'; break;
+        case 'paused': text = '⏸ PAUSED'; dotClass = 'dot-paused'; break;
+        case 'completed': text = '✅ DONE'; dotClass = 'dot-completed'; break;
+        case 'failed': text = '❌ FAILED'; dotClass = 'dot-failed'; break;
+        default: text = '⚪ IDLE'; dotClass = 'dot-idle';
+      }
+      statusTextEl.textContent = text;
+      statusDotEl.className = `dot ${dotClass}`;
+      setButtonsEnabled({ running: status === 'running' });
+    }
+
+    function setProgress(percent) {
+      const p = Math.max(0, Math.min(100, Math.round(percent)));
+      progressFillEl.style.width = `${p}%`;
+      progressFillEl.parentElement.setAttribute('aria-valuenow', String(p));
+      progressPercentEl.textContent = `${p}%`;
+    }
+
+    function computeProgress() {
+      const total = steps.length || 0;
+      if (total === 0) return 0;
+      let completed = 0;
+      for (const s of steps) {
+        const exec = stepExecutions.get(s.step_order);
+        if (exec && exec.status === 'completed') completed += 1;
+      }
+      // add 0.5 for a running step to visualize partial progress
+      const running = steps.find((s) => {
+        const ex = stepExecutions.get(s.step_order); return ex && ex.status === 'running';
+      });
+      const partial = running ? 0.5 : 0;
+      return ((completed + partial) / total) * 100;
+    }
+
+    function renderSteps() {
+      stepsListEl.innerHTML = '';
+      for (const s of steps) {
+        const exec = stepExecutions.get(s.step_order) || { status: 'pending' };
+        const div = document.createElement('div');
+        div.id = `step-${s.step_order}`;
+        div.className = `step step-${exec.status}`;
+        const icon = document.createElement('div'); icon.className = 'icon';
+        const title = document.createElement('div'); title.className = 'title';
+        const meta = document.createElement('div'); meta.className = 'meta'; meta.style.textAlign = 'right';
+
+        let iconTxt = '⏸';
+        if (exec.status === 'completed') iconTxt = '✅';
+        else if (exec.status === 'running') iconTxt = '🔵';
+        else if (exec.status === 'failed') iconTxt = '❌';
+        else iconTxt = '⏸';
+        icon.textContent = iconTxt;
+
+        const label = s.action ? `${s.action}` : `${s.step_type || 'Step'} ${s.step_order}`;
+        title.textContent = `Step ${s.step_order}: ${label}`;
+
+        const dur = s.duration != null ? `${Number(s.duration).toFixed(1)}s` : '';
+        const statusText = exec.status ? exec.status.toUpperCase() : 'PENDING';
+        meta.textContent = `${dur} ${statusText}`.trim();
+
+        div.appendChild(icon); div.appendChild(title); div.appendChild(meta);
+        stepsListEl.appendChild(div);
+      }
+      const idx = currentProcess?.current_step_index ?? 0;
+      currentStepEl.textContent = String(Math.min(Math.max(idx, 0), steps.length));
+      totalStepsEl.textContent = String(steps.length);
+      setProgress(computeProgress());
+    }
+
+    function upsertComponentRow(container, comp, valueText, cssClass) {
+      const id = `comp-${comp.id}`;
+      let row = document.getElementById(id);
+      if (!row) {
+        row = document.createElement('div');
+        row.id = id; row.className = 'kv-row';
+        const name = document.createElement('div'); name.className = 'kv-name'; name.textContent = comp.name;
+        const value = document.createElement('div'); value.className = 'kv-value'; value.id = `${id}-value`;
+        row.appendChild(name); row.appendChild(value);
+        container.appendChild(row);
+      }
+      const v = document.getElementById(`${id}-value`);
+      v.className = `kv-value ${cssClass || ''}`;
+      v.textContent = valueText;
+    }
+
+    function renderComponents() {
+      valvesListEl.innerHTML = '';
+      mfcsListEl.innerHTML = '';
+      tempsListEl.innerHTML = '';
+      const comps = Array.from(componentsIndex.values())
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      for (const c of comps) {
+        if (c.type === 'valve') {
+          const val = Number(c.current_value ?? 0);
+          let label = 'CLOSED'; let cls = 'valve-closed'; let glyph = '🔴';
+          if (val >= 0.999) { label = 'OPEN'; cls = 'valve-open'; glyph = '🟢'; }
+          else if (val > 0 && val < 1) { label = 'PARTIAL'; cls = 'valve-partial'; glyph = '🟡'; }
+          upsertComponentRow(valvesListEl, c, `${glyph} ${label} (${val.toFixed(1)})`, cls);
+        } else if (c.type === 'mfc') {
+          const val = Number(c.current_value ?? 0);
+          upsertComponentRow(mfcsListEl, c, `🟢 ${val.toFixed(0)} sccm`);
+        } else if (c.type === 'chamber_heater') {
+          const cur = Number(c.current_value ?? 0);
+          const tgt = c.target_value != null ? Number(c.target_value) : undefined;
+          const text = tgt != null ? `🌡 ${cur.toFixed(0)}°C / ${tgt.toFixed(0)}°C` : `🌡 ${cur.toFixed(0)}°C`;
+          upsertComponentRow(tempsListEl, c, text);
+        }
+      }
+    }
+
+    // ======== DATA LOADERS ========
+    async function loadRecipes() {
+      // Adjust filter if your schema differs. Fallback to all recipes when none match.
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('id, name, machine_id')
+        .or(`machine_id.eq.${MACHINE_ID},machine_id.is.null`)
+        .order('name', { ascending: true });
+      if (error) { console.warn('recipes error', error); return []; }
+      return data || [];
+    }
+
+    async function loadActiveProcess() {
+      const { data, error } = await supabase
+        .from('process_executions')
+        .select(`id, recipe_id, status, current_step_index, started_at, completed_at, recipes(name, total_steps)`) // left join
+        .eq('machine_id', MACHINE_ID)
+        .eq('status', 'running')
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) { console.warn('process error', error); return null; }
+      return data;
+    }
+
+    async function loadRecipeSteps(recipeId) {
+      const { data, error } = await supabase
+        .from('recipe_steps')
+        .select('*')
+        .eq('recipe_id', recipeId)
+        .order('step_order', { ascending: true });
+      if (error) { console.warn('steps error', error); return []; }
+      return data || [];
+    }
+
+    async function loadComponents() {
+      // Preload name/type from joined machine_components; use in updates via index
+      const { data, error } = await supabase
+        .from('component_parameters')
+        .select(`id, current_value, target_value, updated_at, machine_components ( name, type )`)
+        .eq('machine_id', MACHINE_ID)
+        .in('machine_components.type', ['valve', 'mfc', 'chamber_heater']);
+      if (error) { console.warn('components error', error); return []; }
+      return (data || []).map((row) => ({
+        id: row.id,
+        current_value: row.current_value,
+        target_value: row.target_value,
+        updated_at: row.updated_at,
+        name: row.machine_components?.name,
+        type: row.machine_components?.type,
+      }));
+    }
+
+    async function loadStepHistory(processId) {
+      const { data, error } = await supabase
+        .from('recipe_step_executions')
+        .select('*')
+        .eq('process_execution_id', processId)
+        .order('started_at', { ascending: false })
+        .limit(20);
+      if (error) { console.warn('history error', error); return []; }
+      return data || [];
+    }
+
+    // ======== REALTIME SUBSCRIPTIONS ========
+    function subscribeRealtime() {
+      // Process updates for Machine 001
+      supabase
+        .channel('process-updates')
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'process_executions', filter: `machine_id=eq.${MACHINE_ID}`
+        }, handleProcessUpdate)
+        .subscribe();
+
+      // Component parameter updates for Machine 001
+      supabase
+        .channel('component-updates')
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'component_parameters', filter: `machine_id=eq.${MACHINE_ID}`
+        }, handleComponentUpdate)
+        .subscribe();
+
+      // Step execution updates (we filter inside the handler to current process)
+      supabase
+        .channel('step-updates')
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'recipe_step_executions'
+        }, handleStepUpdate)
+        .subscribe();
+    }
+
+    // ======== HANDLERS ========
+    async function handleProcessUpdate(payload) {
+      const row = payload.new || payload.old;
+      if (!row) return;
+      // Only reflect the latest process relevant to MACHINE_ID
+      if (!currentProcess || row.id === currentProcess.id || row.status === 'running') {
+        // reload process context
+        const previousStatus = currentProcess?.status;
+        currentProcess = await loadActiveProcess();
+        const st = currentProcess?.status || 'idle';
+        setStatus(st);
+        if (!currentProcess) {
+          // process ended
+          steps = [];
+          stepExecutions.clear();
+          renderSteps();
+          addLogEntry(`Process ${row.id} ${row.status}`);
+          return;
+        }
+        // Status change log
+        if (previousStatus && previousStatus !== st) addLogEntry(`Process is now ${st.toUpperCase()}`);
+        // Reload steps for new or updated process
+        steps = await loadRecipeSteps(currentProcess.recipe_id);
+        renderSteps();
+      }
+    }
+
+    function handleComponentUpdate(payload) {
+      const comp = payload.new;
+      if (!comp) return;
+      const existing = componentsIndex.get(comp.id) || { id: comp.id };
+      // preserve name/type (from initial join) if payload lacks nested join
+      const merged = {
+        ...existing,
+        id: comp.id,
+        current_value: comp.current_value,
+        target_value: comp.target_value,
+        updated_at: comp.updated_at,
+      };
+      componentsIndex.set(comp.id, merged);
+
+      // Derive human-readable message using cached name if available
+      const name = merged.name || `Component ${comp.id}`;
+      const val = Number(merged.current_value ?? 0);
+      if (merged.type === 'valve') {
+        const state = (val >= 0.999) ? 'OPENED' : (val <= 0.001 ? 'CLOSED' : 'PARTIAL');
+        addLogEntry(`${name}: ${state}`);
+      } else if (merged.type === 'mfc') {
+        addLogEntry(`${name}: ${val.toFixed(0)} sccm`);
+      } else if (merged.type === 'chamber_heater') {
+        const tgt = merged.target_value != null ? Number(merged.target_value).toFixed(0) : '--';
+        addLogEntry(`${name}: ${val.toFixed(0)}°C / ${tgt}°C`);
+      }
+
+      renderComponents();
+    }
+
+    function handleStepUpdate(payload) {
+      const s = payload.new;
+      if (!s) return;
+      // Only reflect for the active process
+      if (currentProcess && s.process_execution_id !== currentProcess.id) return;
+
+      // Update execution state map
+      const status = s.status || 'pending';
+      stepExecutions.set(s.step_order, { status, started_at: s.started_at, completed_at: s.completed_at });
+
+      // UI changes for the specific row
+      const stepEl = document.getElementById(`step-${s.step_order}`);
+      if (stepEl) {
+        stepEl.className = `step step-${status}`;
+        const iconEl = stepEl.querySelector('.icon');
+        const metaEl = stepEl.querySelector('.meta');
+        let iconTxt = '⏸';
+        if (status === 'completed') iconTxt = '✅';
+        else if (status === 'running') iconTxt = '🔵';
+        else if (status === 'failed') iconTxt = '❌';
+        iconEl.textContent = iconTxt;
+        const step = steps.find(x => x.step_order === s.step_order);
+        const dur = step?.duration != null ? `${Number(step.duration).toFixed(1)}s` : '';
+        metaEl.textContent = `${dur} ${status.toUpperCase()}`.trim();
+      }
+
+      // Adjust progress + current step display
+      setProgress(computeProgress());
+      if (typeof s.step_order === 'number') currentStepEl.textContent = `${Math.min(s.step_order, steps.length)}`;
+
+      // Log entry
+      const stepLabel = (s.action || s.step_type || 'step');
+      addLogEntry(`Step ${s.step_order}: ${status.toUpperCase()} (${stepLabel})`);
+    }
+
+    // ======== ACTIONS ========
+    async function startRecipe() {
+      const select = document.getElementById('recipe-select');
+      const recipeId = select.value;
+      if (!recipeId) { showToast('Select a recipe first'); return; }
+
+      const { data, error } = await supabase
+        .from('recipe_commands')
+        .insert({
+          recipe_id: recipeId,
+          machine_id: MACHINE_ID,
+          command_type: 'start',
+          status: 'pending'
+        })
+        .select();
+
+      if (error) { showToast(`⚠️ ${error.message}`); return; }
+      showToast('✅ Recipe command sent! Watch Terminal 2 process it.');
+      addLogEntry(`Command: start recipe ${recipeId}`);
+    }
+
+    async function pauseRecipe() {
+      if (!currentProcess) return;
+      const { error } = await supabase
+        .from('recipe_commands')
+        .insert({
+          recipe_id: currentProcess.recipe_id,
+          machine_id: MACHINE_ID,
+          command_type: 'pause',
+          status: 'pending'
+        });
+      if (error) { showToast(`⚠️ ${error.message}`); return; }
+      showToast('⏸ Pause requested');
+      addLogEntry('Command: pause');
+    }
+
+    async function stopRecipe() {
+      if (!currentProcess) return;
+      const { error } = await supabase
+        .from('recipe_commands')
+        .insert({
+          recipe_id: currentProcess.recipe_id,
+          machine_id: MACHINE_ID,
+          command_type: 'stop',
+          status: 'pending'
+        });
+      if (error) { showToast(`⚠️ ${error.message}`); return; }
+      showToast('🛑 Stop requested');
+      addLogEntry('Command: stop');
+    }
+
+    // ======== INIT ========
+    async function init() {
+      // Populate recipes dropdown
+      recipes = await loadRecipes();
+      const sel = document.getElementById('recipe-select');
+      sel.innerHTML = '';
+      for (const r of recipes) {
+        const opt = document.createElement('option');
+        opt.value = r.id; opt.textContent = r.name || r.id;
+        sel.appendChild(opt);
+      }
+
+      // Load active process (if any)
+      currentProcess = await loadActiveProcess();
+      setStatus(currentProcess?.status || 'idle');
+
+      // Load steps for current recipe if running
+      if (currentProcess) {
+        steps = await loadRecipeSteps(currentProcess.recipe_id);
+        // Preload latest statuses from history for display (best-effort)
+        const history = await loadStepHistory(currentProcess.id);
+        for (const h of history) {
+          if (!stepExecutions.has(h.step_order)) {
+            stepExecutions.set(h.step_order, { status: h.status, started_at: h.started_at, completed_at: h.completed_at });
+          }
+        }
+      } else {
+        steps = [];
+        stepExecutions.clear();
+      }
+      renderSteps();
+
+      // Load components snapshot
+      const comps = await loadComponents();
+      for (const c of comps) componentsIndex.set(c.id, c);
+      renderComponents();
+
+      // Load initial log from step history (most recent first)
+      if (currentProcess) {
+        const history = await loadStepHistory(currentProcess.id);
+        for (let i = history.length - 1; i >= 0; i--) {
+          const h = history[i];
+          addLogEntry(`Step ${h.step_order}: ${String(h.status || '').toUpperCase()} (${h.action || h.step_type || 'step'})`);
+        }
+      }
+
+      // Bind actions
+      el('btn-start').addEventListener('click', startRecipe);
+      el('btn-pause').addEventListener('click', pauseRecipe);
+      el('btn-stop').addEventListener('click', stopRecipe);
+
+      // Start realtime
+      subscribeRealtime();
+    }
+
+    // Run
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
+
+
+

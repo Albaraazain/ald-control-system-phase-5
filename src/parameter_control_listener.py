@@ -432,6 +432,50 @@ async def process_parameter_command(command: Dict[str, Any]):
                 else:
                     logger.warning(f"PLC doesn't support direct address writing")
                     success = False
+            
+            # Read-after-write verification for override address writes
+            if success:
+                try:
+                    # Read back from the SAME address we wrote to (setpoint address)
+                    read_back_value = None
+                    if hasattr(plc_manager.plc, 'communicator'):
+                        # RealPLC with communicator - use read_float/read_integer_32bit
+                        if data_type == 'binary' and hasattr(plc_manager.plc.communicator, 'read_coils'):
+                            coils = plc_manager.plc.communicator.read_coils(command_write_addr, 1)
+                            read_back_value = float(coils[0]) if coils else 0.0
+                        elif hasattr(plc_manager.plc.communicator, 'read_float'):
+                            # Try float first for most parameters
+                            read_back_value = plc_manager.plc.communicator.read_float(command_write_addr)
+                    else:
+                        # SimulationPLC with direct methods
+                        if data_type == 'binary' and hasattr(plc_manager.plc, 'read_coil'):
+                            read_back_value = float(await plc_manager.plc.read_coil(command_write_addr))
+                        elif hasattr(plc_manager.plc, 'read_holding_register'):
+                            read_back_value = await plc_manager.plc.read_holding_register(command_write_addr)
+                    
+                    if read_back_value is not None:
+                        # Verify with tolerance
+                        tolerance = 0.01
+                        abs_diff = abs(read_back_value - target_value)
+                        rel_diff = abs_diff / max(abs(target_value), 0.001)
+                        
+                        if abs_diff > tolerance and rel_diff > tolerance:
+                            logger.warning(
+                                f"⚠️ [SETPOINT WRITE VERIFICATION FAILED] Address {command_write_addr}: "
+                                f"Wrote {target_value}, Read back {read_back_value}, "
+                                f"Diff: {abs_diff:.4f} ({rel_diff*100:.2f}%)"
+                            )
+                        else:
+                            logger.info(
+                                f"✅ [SETPOINT WRITE VERIFIED] Address {command_write_addr}: "
+                                f"Wrote {target_value}, Read back {read_back_value} - SETPOINT CONFIRMED"
+                            )
+                            logger.info(
+                                f"ℹ️  NOTE: This is the SETPOINT (write addr {command_write_addr}). "
+                                f"The CURRENT/FEEDBACK value may be different and updated by hardware."
+                            )
+                except Exception as verify_err:
+                    logger.debug(f"Could not verify setpoint write for address {command_write_addr}: {verify_err}")
         else:
             # No override address - use parameter lookup with component_parameter_id preference
             param_row = None
@@ -494,14 +538,37 @@ async def process_parameter_command(command: Dict[str, Any]):
             )
             success = await plc_manager.write_parameter(parameter_id, target_value)
             if success:
-                # Confirmation read when available
+                # Confirmation read with tolerance check
                 try:
                     # Read with skip_noise=True for confirmation - need exact value for tolerance check
                     # SIMULATION NOTE: Without skip_noise, simulation adds ±0.5-1.0 noise, causing
                     # confirmation read to fail tolerance check (noise is 500-1000x larger than tolerance)
                     current_value = await plc_manager.read_parameter(parameter_id, skip_noise=True)
+                    
+                    # Verify the write was successful with tolerance check
+                    tolerance = 0.01  # Allow 1% difference or 0.01 absolute for small values
+                    abs_diff = abs(current_value - target_value)
+                    rel_diff = abs_diff / max(abs(target_value), 0.001)  # Avoid div by zero
+                    
+                    if abs_diff > tolerance and rel_diff > tolerance:
+                        logger.warning(
+                            f"⚠️ [WRITE VERIFICATION FAILED] Parameter '{parameter_name}' "
+                            f"(ID: {parameter_id}): "
+                            f"Wrote {target_value}, Read back {current_value}, "
+                            f"Diff: {abs_diff:.4f} ({rel_diff*100:.2f}%)"
+                        )
+                    else:
+                        logger.info(
+                            f"✅ [WRITE VERIFIED] Parameter '{parameter_name}' "
+                            f"(ID: {parameter_id}): "
+                            f"Wrote {target_value}, Read back {current_value}, "
+                            f"Diff: {abs_diff:.4f} ({rel_diff*100:.2f}%) - WITHIN TOLERANCE"
+                        )
                 except Exception as read_err:
-                    logger.debug(f"Confirmation read failed for '{parameter_name}': {read_err}")
+                    logger.warning(
+                        f"⚠️ [READ-AFTER-WRITE FAILED] Could not verify write for "
+                        f"'{parameter_name}': {read_err}"
+                    )
             else:
                 # Fallback by address when write fails and helpers exist
                 addr = param_row.get('write_modbus_address')
