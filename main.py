@@ -163,11 +163,11 @@ def launch_terminal_3():
     print("-" * 60)
 
     try:
-        from parameter_service import main as parameter_service_main
+        from terminal3_clean import main as parameter_service_main
         asyncio.run(parameter_service_main())
     except ImportError as e:
-        print(f"❌ Error importing parameter_service: {e}")
-        print("   Make sure parameter_service.py exists in the project root")
+        print(f"❌ Error importing terminal3_clean: {e}")
+        print("   Make sure terminal3_clean.py exists in the project root")
         sys.exit(1)
     except Exception as e:
         print(f"❌ Error running Terminal 3: {e}")

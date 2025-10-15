@@ -1518,3 +1518,97 @@ class RealPLC(PLCInterface):
             
         except Exception as e:
             logger.error(f"Error in complete purge task: {str(e)}")
+
+    async def write_coil(self, address: int, value: bool) -> bool:
+        """
+        Write a boolean value to a coil (digital output) at the specified Modbus address.
+
+        Args:
+            address: The Modbus address of the coil
+            value: True to set the coil, False to reset it
+
+        Returns:
+            bool: True if write successful, False otherwise
+        """
+        if not self.connected:
+            raise RuntimeError("Not connected to PLC")
+
+        return await asyncio.to_thread(self.communicator.write_coil, address, value)
+
+    async def read_coils(self, address: int, count: int) -> List[bool]:
+        """
+        Read multiple coils (digital inputs/outputs) starting from the specified address.
+
+        Args:
+            address: The starting Modbus address
+            count: Number of coils to read
+
+        Returns:
+            List[bool]: List of coil values (True/False)
+        """
+        if not self.connected:
+            raise RuntimeError("Not connected to PLC")
+
+        return await asyncio.to_thread(self.communicator.read_coils, address, count)
+
+    async def write_float(self, address: int, value: float) -> bool:
+        """
+        Write a 32-bit floating point value to the specified Modbus address.
+
+        Args:
+            address: The Modbus address (holding register start address)
+            value: The float value to write
+
+        Returns:
+            bool: True if write successful, False otherwise
+        """
+        if not self.connected:
+            raise RuntimeError("Not connected to PLC")
+
+        return await asyncio.to_thread(self.communicator.write_float, address, value)
+
+    async def read_float(self, address: int) -> float:
+        """
+        Read a 32-bit floating point value from the specified Modbus address.
+
+        Args:
+            address: The Modbus address (holding register start address)
+
+        Returns:
+            float: The float value read from the address
+        """
+        if not self.connected:
+            raise RuntimeError("Not connected to PLC")
+
+        return await asyncio.to_thread(self.communicator.read_float, address)
+
+    async def write_integer_32bit(self, address: int, value: int) -> bool:
+        """
+        Write a 32-bit signed integer value to the specified Modbus address.
+
+        Args:
+            address: The Modbus address (holding register start address)
+            value: The integer value to write
+
+        Returns:
+            bool: True if write successful, False otherwise
+        """
+        if not self.connected:
+            raise RuntimeError("Not connected to PLC")
+
+        return await asyncio.to_thread(self.communicator.write_integer_32bit, address, value)
+
+    async def read_integer_32bit(self, address: int) -> int:
+        """
+        Read a 32-bit signed integer value from the specified Modbus address.
+
+        Args:
+            address: The Modbus address (holding register start address)
+
+        Returns:
+            int: The integer value read from the address
+        """
+        if not self.connected:
+            raise RuntimeError("Not connected to PLC")
+
+        return await asyncio.to_thread(self.communicator.read_integer_32bit, address)

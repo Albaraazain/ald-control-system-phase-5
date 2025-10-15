@@ -279,12 +279,18 @@ class PLCCommunicator:
             try:
                 # Ensure we have a healthy connection before each attempt
                 if not self._ensure_connection():
-                    self.log("ERROR", f"Cannot establish connection for {operation_name} (attempt {attempt})")
+                    self.log("ERROR", f"Cannot establish connection for {operation_name} (attempt {attempt}/{self._operation_retries})")
                     if attempt < self._operation_retries:
                         time.sleep(self._operation_retry_delay * attempt)  # Exponential backoff
                         continue
                     else:
-                        raise RuntimeError("Failed to establish PLC connection after retries")
+                        # CRITICAL FIX: Raise exception instead of proceeding with no connection
+                        raise RuntimeError(f"Failed to establish PLC connection for {operation_name} after {self._operation_retries} attempts")
+
+                # VALIDATION: Double-check client is connected before operation
+                if not self.client or not self.client.is_socket_open():
+                    self.log("ERROR", f"Client validation failed for {operation_name}: client={'exists' if self.client else 'None'}, socket={'open' if self.client and self.client.is_socket_open() else 'closed'}")
+                    raise RuntimeError(f"PLC client not properly connected for {operation_name}")
 
                 # Execute the operation
                 result = operation_func(*args, **kwargs)
@@ -622,46 +628,41 @@ class PLCCommunicator:
         results = {}
 
         for start_addr, count, data_type in address_ranges:
-            try:
-                # Calculate total registers needed based on data type
-                if data_type in ['float', 'int32']:
-                    total_registers = count * 2  # 2 registers per 32-bit value
-                elif data_type == 'int16':
-                    total_registers = count  # 1 register per 16-bit value
-                else:
-                    self.log("WARNING", f"Unsupported data type '{data_type}' for bulk read")
-                    continue
-
-                # Limit bulk reads to prevent timeout (max 100 registers per read)
-                if total_registers > 100:
-                    self.log("WARNING", f"Bulk read too large ({total_registers} registers), splitting")
-                    # Split into smaller chunks
-                    chunk_size = 50 if data_type in ['float', 'int32'] else 100
-
-                    chunk_results = []
-                    for i in range(0, count, chunk_size):
-                        chunk_count = min(chunk_size, count - i)
-                        chunk_addr = start_addr + (i * (2 if data_type in ['float', 'int32'] else 1))
-                        chunk_total_regs = chunk_count * (2 if data_type in ['float', 'int32'] else 1)
-
-                        chunk_result = self._read_register_chunk(chunk_addr, chunk_total_regs, data_type, chunk_count)
-                        if chunk_result is not None:
-                            chunk_results.extend(chunk_result)
-                        else:
-                            self.log("ERROR", f"Failed to read chunk at address {chunk_addr}")
-                            break
-
-                    if len(chunk_results) == count:
-                        results[start_addr] = chunk_results
-                else:
-                    # Single bulk read
-                    chunk_result = self._read_register_chunk(start_addr, total_registers, data_type, count)
-                    if chunk_result is not None:
-                        results[start_addr] = chunk_result
-
-            except Exception as e:
-                self.log("ERROR", f"Error in bulk read for address {start_addr}: {e}")
+            # Calculate total registers needed based on data type
+            if data_type in ['float', 'int32']:
+                total_registers = count * 2  # 2 registers per 32-bit value
+            elif data_type == 'int16':
+                total_registers = count  # 1 register per 16-bit value
+            else:
+                self.log("WARNING", f"Unsupported data type '{data_type}' for bulk read")
                 continue
+
+            # Limit bulk reads to prevent timeout (max 100 registers per read)
+            if total_registers > 100:
+                self.log("WARNING", f"Bulk read too large ({total_registers} registers), splitting")
+                # Split into smaller chunks
+                chunk_size = 50 if data_type in ['float', 'int32'] else 100
+
+                chunk_results = []
+                for i in range(0, count, chunk_size):
+                    chunk_count = min(chunk_size, count - i)
+                    chunk_addr = start_addr + (i * (2 if data_type in ['float', 'int32'] else 1))
+                    chunk_total_regs = chunk_count * (2 if data_type in ['float', 'int32'] else 1)
+
+                    chunk_result = self._read_register_chunk(chunk_addr, chunk_total_regs, data_type, chunk_count)
+                    if chunk_result is not None:
+                        chunk_results.extend(chunk_result)
+                    else:
+                        self.log("ERROR", f"Failed to read chunk at address {chunk_addr}")
+                        break
+
+                if len(chunk_results) == count:
+                    results[start_addr] = chunk_results
+            else:
+                # Single bulk read
+                chunk_result = self._read_register_chunk(start_addr, total_registers, data_type, count)
+                if chunk_result is not None:
+                    results[start_addr] = chunk_result
 
         self.log("INFO", f"Bulk read completed: {len(results)}/{len(address_ranges)} ranges successful")
         return results
@@ -754,36 +755,31 @@ class PLCCommunicator:
         results = {}
 
         for start_addr, count in address_ranges:
-            try:
-                # Limit bulk reads to prevent timeout (max 2000 coils per read)
-                if count > 2000:
-                    self.log("WARNING", f"Bulk coil read too large ({count} coils), splitting")
-                    # Split into smaller chunks
-                    chunk_size = 1000
+            # Limit bulk reads to prevent timeout (max 2000 coils per read)
+            if count > 2000:
+                self.log("WARNING", f"Bulk coil read too large ({count} coils), splitting")
+                # Split into smaller chunks
+                chunk_size = 1000
 
-                    chunk_results = []
-                    for i in range(0, count, chunk_size):
-                        chunk_count = min(chunk_size, count - i)
-                        chunk_addr = start_addr + i
+                chunk_results = []
+                for i in range(0, count, chunk_size):
+                    chunk_count = min(chunk_size, count - i)
+                    chunk_addr = start_addr + i
 
-                        chunk_result = self._read_coil_chunk(chunk_addr, chunk_count)
-                        if chunk_result is not None:
-                            chunk_results.extend(chunk_result)
-                        else:
-                            self.log("ERROR", f"Failed to read coil chunk at address {chunk_addr}")
-                            break
-
-                    if len(chunk_results) == count:
-                        results[start_addr] = chunk_results
-                else:
-                    # Single bulk read
-                    chunk_result = self._read_coil_chunk(start_addr, count)
+                    chunk_result = self._read_coil_chunk(chunk_addr, chunk_count)
                     if chunk_result is not None:
-                        results[start_addr] = chunk_result
+                        chunk_results.extend(chunk_result)
+                    else:
+                        self.log("ERROR", f"Failed to read coil chunk at address {chunk_addr}")
+                        break
 
-            except Exception as e:
-                self.log("ERROR", f"Error in bulk coil read for address {start_addr}: {e}")
-                continue
+                if len(chunk_results) == count:
+                    results[start_addr] = chunk_results
+            else:
+                # Single bulk read
+                chunk_result = self._read_coil_chunk(start_addr, count)
+                if chunk_result is not None:
+                    results[start_addr] = chunk_result
 
         self.log("INFO", f"Bulk coil read completed: {len(results)}/{len(address_ranges)} ranges successful")
         return results

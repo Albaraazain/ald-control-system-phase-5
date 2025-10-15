@@ -404,15 +404,15 @@ async def process_parameter_command(command: Dict[str, Any]):
             # Handle both RealPLC (with communicator) and SimulationPLC (direct methods)
             if hasattr(plc_manager.plc, 'communicator'):
                 # RealPLC with communicator
-                if hasattr(plc_manager.plc.communicator, 'write_coil') and data_type == 'binary':
-                    success = plc_manager.plc.communicator.write_coil(command_write_addr, bool(target_value))
+                if hasattr(plc_manager.plc, 'write_coil') and data_type == 'binary':
+                    success = await plc_manager.plc.write_coil(command_write_addr, bool(target_value))
                     logger.info(f"Wrote binary value {bool(target_value)} to coil {command_write_addr}")
-                elif (hasattr(plc_manager.plc.communicator, 'write_float') and callable(getattr(plc_manager.plc.communicator, 'write_float'))) or (hasattr(plc_manager.plc.communicator, 'write_integer_32bit') and callable(getattr(plc_manager.plc.communicator, 'write_integer_32bit'))):
+                elif (hasattr(plc_manager.plc, 'write_float') and callable(getattr(plc_manager.plc, 'write_float'))) or (hasattr(plc_manager.plc, 'write_integer_32bit') and callable(getattr(plc_manager.plc, 'write_integer_32bit'))):
                     # Use write_float for float values, write_integer_32bit for integer values
-                    if hasattr(plc_manager.plc.communicator, 'write_integer_32bit') and callable(getattr(plc_manager.plc.communicator, 'write_integer_32bit')) and (isinstance(target_value, int) or target_value.is_integer()):
-                        success = plc_manager.plc.communicator.write_integer_32bit(command_write_addr, int(float(target_value)))
-                    elif hasattr(plc_manager.plc.communicator, 'write_float') and callable(getattr(plc_manager.plc.communicator, 'write_float')):
-                        success = plc_manager.plc.communicator.write_float(command_write_addr, float(target_value))
+                    if hasattr(plc_manager.plc, 'write_integer_32bit') and callable(getattr(plc_manager.plc, 'write_integer_32bit')) and (isinstance(target_value, int) or target_value.is_integer()):
+                        success = await plc_manager.plc.write_integer_32bit(command_write_addr, int(float(target_value)))
+                    elif hasattr(plc_manager.plc, 'write_float') and callable(getattr(plc_manager.plc, 'write_float')):
+                        success = await plc_manager.plc.write_float(command_write_addr, float(target_value))
                     else:
                         logger.warning(f"No suitable write method available on communicator")
                         success = False
@@ -440,12 +440,12 @@ async def process_parameter_command(command: Dict[str, Any]):
                     read_back_value = None
                     if hasattr(plc_manager.plc, 'communicator'):
                         # RealPLC with communicator - use read_float/read_integer_32bit
-                        if data_type == 'binary' and hasattr(plc_manager.plc.communicator, 'read_coils'):
-                            coils = plc_manager.plc.communicator.read_coils(command_write_addr, 1)
+                        if data_type == 'binary' and hasattr(plc_manager.plc, 'read_coils'):
+                            coils = await plc_manager.plc.read_coils(command_write_addr, 1)
                             read_back_value = float(coils[0]) if coils else 0.0
-                        elif hasattr(plc_manager.plc.communicator, 'read_float'):
+                        elif hasattr(plc_manager.plc, 'read_float'):
                             # Try float first for most parameters
-                            read_back_value = plc_manager.plc.communicator.read_float(command_write_addr)
+                            read_back_value = await plc_manager.plc.read_float(command_write_addr)
                     else:
                         # SimulationPLC with direct methods
                         if data_type == 'binary' and hasattr(plc_manager.plc, 'read_coil'):
@@ -574,14 +574,14 @@ async def process_parameter_command(command: Dict[str, Any]):
                 addr = param_row.get('write_modbus_address')
                 if addr is not None:
                     logger.info(f"Using parameter table modbus address {addr} for {parameter_name}")
-                    if hasattr(plc_manager.plc.communicator, 'write_coil') and data_type == 'binary':
-                        success = plc_manager.plc.communicator.write_coil(addr, bool(target_value))
-                    elif hasattr(plc_manager.plc.communicator, 'write_float') or hasattr(plc_manager.plc.communicator, 'write_integer_32bit'):
+                    if hasattr(plc_manager.plc, 'write_coil') and data_type == 'binary':
+                        success = await plc_manager.plc.write_coil(addr, bool(target_value))
+                    elif hasattr(plc_manager.plc, 'write_float') or hasattr(plc_manager.plc, 'write_integer_32bit'):
                         # Use write_float for float values, write_integer_32bit for integer values
                         if isinstance(target_value, int) or target_value.is_integer():
-                            success = plc_manager.plc.communicator.write_integer_32bit(addr, int(float(target_value)))
+                            success = await plc_manager.plc.write_integer_32bit(addr, int(float(target_value)))
                         else:
-                            success = plc_manager.plc.communicator.write_float(addr, float(target_value))
+                            success = await plc_manager.plc.write_float(addr, float(target_value))
                 else:
                     logger.error(f"No modbus address available for parameter {parameter_name} (ID: {parameter_id})")
         

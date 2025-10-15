@@ -55,10 +55,10 @@ async def write_and_verify(address: int, value: float, data_type: str = 'float',
         # Write with detailed logging
         if data_type == 'binary':
             logger.info(f"📝 Writing BINARY/COIL: value={bool(value)} to address {address}")
-            success = plc_manager.plc.communicator.write_coil(address, bool(value))
+            success = await plc_manager.plc.write_coil(address, bool(value))
         else:
             logger.info(f"📝 Writing FLOAT/REGISTER: value={float(value)} to address {address} (data_type={data_type})")
-            success = plc_manager.plc.communicator.write_float(address, float(value))
+            success = await plc_manager.plc.write_float(address, float(value))
         
         if not success:
             logger.error(f"❌ Write failed to address {address}")
@@ -71,10 +71,10 @@ async def write_and_verify(address: int, value: float, data_type: str = 'float',
         
         # Read back for verification
         if data_type == 'binary':
-            coils = plc_manager.plc.communicator.read_coils(address, 1)
+            coils = await plc_manager.plc.read_coils(address, 1)
             read_value = float(coils[0]) if coils else None
         else:
-            read_value = plc_manager.plc.communicator.read_float(address)
+            read_value = await plc_manager.plc.read_float(address)
         
         if read_value is None:
             logger.warning(f"⚠️  Read-back returned None for address {address}")
@@ -216,12 +216,15 @@ async def process_command(command: dict):
     
     # Update status to processing
     await update_command_status(command_id, 'processing', None)
-    
+
+    # Convert value to appropriate type for binary operations
+    value = int(target_value) if data_type == 'binary' else target_value
+
     # Write and verify (with database update if parameter_id found)
     start_time = time.time()
     success, read_value = await write_and_verify(
         address=write_address,
-        value=target_value,
+        value=value,
         data_type=data_type,
         parameter_id=parameter_id
     )

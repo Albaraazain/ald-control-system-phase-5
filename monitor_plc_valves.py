@@ -50,10 +50,10 @@ class PLCValveMonitor:
                     return False
 
                 address = valve_meta['address']
-                
+
                 # Read coil state from PLC
                 if hasattr(plc, 'communicator') and plc.communicator:
-                    result = plc.communicator.read_coils(address, count=1)
+                    result = await plc.read_coils(address, count=1)
                     if result and len(result) > 0:
                         return bool(result[0])
                     return False

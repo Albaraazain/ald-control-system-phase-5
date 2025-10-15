@@ -592,3 +592,89 @@ class SimulationPLC(PLCInterface):
         for i in range(count):
             vals.append(bool(getattr(self, "_coils", {}).get(address + i, False)))
         return vals
+
+    async def write_float(self, address: int, value: float) -> bool:
+        """
+        Write a 32-bit floating point value to the specified Modbus address.
+
+        Args:
+            address: The Modbus address (holding register start address)
+            value: The float value to write
+
+        Returns:
+            bool: True if write successful, False otherwise
+        """
+        if not hasattr(self, "_holding_registers"):
+            self._holding_registers = {}
+        self._holding_registers[address] = float(value)
+
+        # Synchronize with parameter-based storage for confirmation reads
+        if hasattr(self, '_address_to_param_id') and address in self._address_to_param_id:
+            param_id = self._address_to_param_id[address]
+            self.current_values[param_id] = value
+            self.set_values[param_id] = value
+
+            # Update database with both values (in background task)
+            asyncio.create_task(self._update_parameter_both_values(param_id, value))
+
+            logger.debug(f"Synchronized float write: address {address} → parameter {param_id} = {value}")
+
+        return True
+
+    async def read_float(self, address: int) -> float:
+        """
+        Read a 32-bit floating point value from the specified Modbus address.
+
+        Args:
+            address: The Modbus address (holding register start address)
+
+        Returns:
+            float: The float value read from the address
+        """
+        if hasattr(self, "_holding_registers") and address in self._holding_registers:
+            return float(self._holding_registers[address])
+        return 0.0
+
+    async def write_integer_32bit(self, address: int, value: int) -> bool:
+        """
+        Write a 32-bit signed integer value to the specified Modbus address.
+
+        Args:
+            address: The Modbus address (holding register start address)
+            value: The integer value to write
+
+        Returns:
+            bool: True if write successful, False otherwise
+        """
+        if not hasattr(self, "_holding_registers"):
+            self._holding_registers = {}
+        self._holding_registers[address] = int(value)
+
+        # Synchronize with parameter-based storage for confirmation reads
+        if hasattr(self, '_address_to_param_id') and address in self._address_to_param_id:
+            param_id = self._address_to_param_id[address]
+            # Convert int to float for storage consistency
+            float_value = float(value)
+            self.current_values[param_id] = float_value
+            self.set_values[param_id] = float_value
+
+            # Update database with both values (in background task)
+            asyncio.create_task(self._update_parameter_both_values(param_id, float_value))
+
+            logger.debug(f"Synchronized integer write: address {address} → parameter {param_id} = {value}")
+
+        return True
+
+    async def read_integer_32bit(self, address: int) -> int:
+        """
+        Read a 32-bit signed integer value from the specified Modbus address.
+
+        Args:
+            address: The Modbus address (holding register start address)
+
+        Returns:
+            int: The integer value read from the address
+        """
+        if hasattr(self, "_holding_registers") and address in self._holding_registers:
+            return int(self._holding_registers[address])
+        return 0

@@ -27,7 +27,7 @@ async def _audit_log_valve_command(valve_number: int, process_id: str = None):
         audit_record = {
             'machine_id': machine_id,
             'parameter_name': f'Valve_{valve_number}',
-            'target_value': 1.0,  # Valve opened
+            'target_value': 1,  # Valve opened (binary coil requires int)
             'executed_at': get_current_timestamp(),
             'completed_at': get_current_timestamp(),
         }
