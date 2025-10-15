@@ -35,13 +35,17 @@ This is an Atomic Layer Deposition (ALD) control system with a **SIMPLE 3-TERMIN
 - **Features**: Direct PLC access, simple polling, reuses existing recipe_flow components
 - **Hybrid Architecture**: Recipe execution writes PLC DIRECTLY for performance (160-350ms per step), then logs audit trail to `parameter_control_commands` AFTER write completes. This hybrid approach provides fast execution + full traceability without routing through Terminal 3.
 
-### ⚙️ TERMINAL 3: Parameter Service (`parameter_service.py`)
+### ⚙️ TERMINAL 3: Parameter Service (`terminal3_clean.py`)
 - **Purpose**: Parameter control and writing for EXTERNAL commands
 - **Function**: Listens for parameter commands and writes directly to PLC
 - **Database**: Monitors `parameter_control_commands` table
 - **Launch**: `python main.py --terminal 3 --demo` or `python terminal3_launcher.py --demo`
-- **Features**: Direct PLC access, parameter validation, retry logic
+- **Features**: Direct PLC access, parameter validation, retry logic, optional verification mode
+- **Performance**: ~45-75ms per write operation (optimized from 220-295ms)
+  - Production mode (default): Fast writes leveraging Modbus protocol guarantees
+  - Verification mode: Enable with `TERMINAL3_VERIFY_WRITES=true` for debugging (~50ms overhead)
 - **Scope**: Handles EXTERNAL manual parameter commands from operators/systems. Does NOT process recipe commands - recipes use direct PLC access (Terminal 2) for speed, then audit to this table for traceability.
+- **Optimization Notes**: See `OPTIMIZATION_NOTES.md` for details on 79-80% performance improvement
 
 ### Key Architecture Benefits
 

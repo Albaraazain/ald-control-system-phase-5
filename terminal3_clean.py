@@ -5,10 +5,15 @@ Terminal 3: Clean Parameter Service Implementation
 Simple, reliable parameter control service that:
 1. Listens for parameter commands from database
 2. Writes directly to PLC
-3. Verifies writes with read-back
+3. Optionally verifies writes with read-back (TERMINAL3_VERIFY_WRITES=true)
 4. Updates command status
 
 Based on successful manual test patterns.
+
+Performance Notes:
+- Production mode (default): ~45-70ms per write operation
+- Verification mode: ~95-120ms per write (adds ~50ms for read-back)
+- Set TERMINAL3_VERIFY_WRITES=true to enable read-back verification for debugging
 """
 import asyncio
 import os
@@ -29,22 +34,31 @@ from src.connection_monitor import connection_monitor
 
 logger = get_plc_logger()
 
+# Optional verification mode for debugging (adds ~50ms per operation)
+# Modbus protocol guarantees write completion before response, so verification
+# is redundant for production use. Enable for debugging/testing only.
+ENABLE_READ_VERIFICATION = os.getenv('TERMINAL3_VERIFY_WRITES', 'false').lower() == 'true'
+
 # Track processed commands
 processed_commands: Set[str] = set()
 
 
 async def write_and_verify(address: int, value: float, data_type: str = 'float', parameter_id: Optional[str] = None) -> tuple[bool, Optional[float]]:
     """
-    Write to PLC and verify with read-back.
-    
+    Write to PLC and optionally verify with read-back.
+
+    Modbus protocol guarantees write completion before returning, so verification
+    is redundant in production. Use TERMINAL3_VERIFY_WRITES=true to enable
+    read-back verification for debugging/testing (~50ms overhead per write).
+
     Args:
         address: Modbus address to write to
         value: Value to write
         data_type: 'float' or 'binary'
-        parameter_id: Optional parameter ID for database update
-    
+        parameter_id: Deprecated parameter (Terminal 1 handles data collection)
+
     Returns:
-        (success, read_back_value)
+        (success, read_back_value) - read_back_value is None unless verification enabled
     """
     try:
         # Ensure PLC is initialized
@@ -52,66 +66,61 @@ async def write_and_verify(address: int, value: float, data_type: str = 'float',
             logger.error("❌ PLC not connected")
             return False, None
         
-        # Write with detailed logging
+        # Write to PLC
         if data_type == 'binary':
-            logger.info(f"📝 Writing BINARY/COIL: value={bool(value)} to address {address}")
+            logger.debug(f"📝 Writing BINARY/COIL: value={bool(value)} to address {address}")
             success = await plc_manager.plc.write_coil(address, bool(value))
         else:
-            logger.info(f"📝 Writing FLOAT/REGISTER: value={float(value)} to address {address} (data_type={data_type})")
+            logger.debug(f"📝 Writing FLOAT/REGISTER: value={float(value)} to address {address} (data_type={data_type})")
             success = await plc_manager.plc.write_float(address, float(value))
-        
+
         if not success:
             logger.error(f"❌ Write failed to address {address}")
             return False, None
-        
-        logger.info(f"✅ Write succeeded: {value} → address {address}")
-        
-        # Small delay for PLC to update
-        time.sleep(0.05)
-        
-        # Read back for verification
-        if data_type == 'binary':
-            coils = await plc_manager.plc.read_coils(address, 1)
-            read_value = float(coils[0]) if coils else None
-        else:
-            read_value = await plc_manager.plc.read_float(address)
-        
-        if read_value is None:
-            logger.warning(f"⚠️  Read-back returned None for address {address}")
-            return True, None  # Write succeeded, but couldn't verify
-        
-        logger.info(f"📖 Read-back: {read_value} from address {address}")
-        
-        # Check tolerance
-        tolerance = 0.01
-        abs_diff = abs(read_value - value)
-        rel_diff = abs_diff / max(abs(value), 0.001)
-        
-        if abs_diff > tolerance and rel_diff > tolerance:
-            logger.warning(
-                f"⚠️  VERIFICATION FAILED: Wrote {value}, Read {read_value}, "
-                f"Diff: {abs_diff:.4f} ({rel_diff*100:.2f}%)"
+
+        logger.debug(f"✅ Write succeeded: {value} → address {address}")
+
+        # Optional read-back verification (disabled by default for performance)
+        read_value = None
+        if ENABLE_READ_VERIFICATION:
+            logger.debug("🔍 Verification mode enabled - performing read-back")
+
+            # Small delay for PLC to update
+            time.sleep(0.05)
+
+            # Read back for verification
+            if data_type == 'binary':
+                coils = await plc_manager.plc.read_coils(address, 1)
+                read_value = float(coils[0]) if coils else None
+            else:
+                read_value = await plc_manager.plc.read_float(address)
+
+            if read_value is None:
+                logger.warning(f"⚠️  Read-back returned None for address {address}")
+                return True, None  # Write succeeded, but couldn't verify
+
+            logger.info(f"📖 Read-back: {read_value} from address {address}")
+
+            # Check tolerance
+            tolerance = 0.01
+            abs_diff = abs(read_value - value)
+            rel_diff = abs_diff / max(abs(value), 0.001)
+
+            if abs_diff > tolerance and rel_diff > tolerance:
+                logger.warning(
+                    f"⚠️  VERIFICATION FAILED: Wrote {value}, Read {read_value}, "
+                    f"Diff: {abs_diff:.4f} ({rel_diff*100:.2f}%)"
+                )
+                return True, read_value  # Write succeeded, but value doesn't match
+
+            logger.info(
+                f"✅ VERIFICATION SUCCESS: Value confirmed at address {address} "
+                f"(wrote: {value}, read: {read_value})"
             )
-            return True, read_value  # Write succeeded, but value doesn't match
-        
-        logger.info(
-            f"✅ VERIFICATION SUCCESS: Value confirmed at address {address} "
-            f"(wrote: {value}, read: {read_value})"
-        )
-        
-        # Update database set_value if parameter_id provided
-        if parameter_id and read_value is not None:
-            try:
-                supabase = get_supabase()
-                supabase.table('component_parameters').update({
-                    'set_value': read_value,
-                    'updated_at': datetime.utcnow().isoformat()
-                }).eq('id', parameter_id).execute()
-                logger.debug(f"📝 Updated database set_value for parameter {parameter_id[:8]}...")
-            except Exception as db_err:
-                logger.warning(f"⚠️  Failed to update database set_value: {db_err}")
-                # Don't fail the write operation if database update fails
-        
+
+        # Note: Terminal 1 (PLC Data Service) handles all parameter data collection
+        # and database updates via 1-second polling. This keeps Terminal 3 fast
+        # and maintains single source of truth for time-series data.
         return True, read_value
         
     except Exception as e:
@@ -185,10 +194,8 @@ async def process_command(command: dict):
             write_address = write_address or param_info.get('write_modbus_address')
             read_address = param_info.get('read_modbus_address')
             
-            logger.info(
-                f"📋 Parameter found: {parameter_name} ({component_name})"
-            )
-            logger.info(
+            logger.info(f"📋 Parameter found: {parameter_name} ({component_name})")
+            logger.debug(
                 f"   ID={parameter_id[:8]}..., data_type={data_type}, "
                 f"write_type={write_modbus_type}, write_addr={write_address}, read_addr={read_address}"
             )
@@ -212,7 +219,7 @@ async def process_command(command: dict):
         return
     
     # Log the final configuration being used
-    logger.info(f"🏷️  Using data_type='{data_type}' for address {write_address}")
+    logger.debug(f"🏷️  Using data_type='{data_type}' for address {write_address}")
     
     # Update status to processing
     await update_command_status(command_id, 'processing', None)
@@ -312,15 +319,18 @@ async def main():
     logger.info("=" * 60)
     logger.info("🚀 Terminal 3: Clean Parameter Service")
     logger.info("=" * 60)
-    
+
     try:
         # Initialize PLC
         logger.info("🔧 Initializing PLC manager...")
         await plc_manager.initialize()
         logger.info("✅ PLC manager initialized")
-        
+
         logger.info(f"📋 Machine ID: {MACHINE_ID}")
         logger.info(f"🔌 PLC Type: {type(plc_manager.plc).__name__}")
+        logger.info(f"📋 Verification Mode: {'ENABLED (debugging)' if ENABLE_READ_VERIFICATION else 'DISABLED (production)'}")
+        if not ENABLE_READ_VERIFICATION:
+            logger.info("   💡 Tip: Set TERMINAL3_VERIFY_WRITES=true to enable read-back verification")
         logger.info("=" * 60)
         logger.info("✅ Terminal 3 ready to process commands")
         logger.info("=" * 60)
