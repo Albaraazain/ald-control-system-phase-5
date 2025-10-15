@@ -337,12 +337,15 @@ class PLCDataService:
             success_count = await self._log_parameters_with_metadata(parameter_values, setpoint_values)
 
             if success_count > 0:
-                self.metrics['successful_readings'] += 1
                 if self.async_writer_enabled:
+                    # Don't claim success yet - data is only queued, not written
+                    # Success metrics will be updated in _db_writer_loop after actual write
                     data_logger.info(
-                        f"✅ PLC data collection enqueued: {success_count}/{len(parameter_values)} parameters"
+                        f"📤 Queued for database write: {success_count}/{len(parameter_values)} parameters"
                     )
                 else:
+                    # Sync mode: write completed, update metrics
+                    self.metrics['successful_readings'] += 1
                     data_logger.info(
                         f"✅ PLC data collection completed: {success_count}/{len(parameter_values)} parameters logged successfully"
                     )
@@ -459,7 +462,8 @@ class PLCDataService:
             data_logger.error(f"Failed to load parameter metadata: {e}", exc_info=True)
             # Continue with empty metadata - service should still work
 
-    async def _batch_insert_with_retry(self, history_records: List[Dict[str, Any]]) -> bool:
+    async def _batch_insert_with_retry(self, history_records: List[Dict[str, Any]],
+                                       log_success: bool = True) -> bool:
         """
         Batch insert using PostgreSQL RPC for optimal performance.
 
@@ -471,6 +475,7 @@ class PLCDataService:
 
         Args:
             history_records: List of parameter records to insert
+            log_success: If False, suppress success logs (used by async writer to avoid duplicate logging)
 
         Returns:
             bool: True if insert succeeded, False if all retries failed
@@ -487,12 +492,14 @@ class PLCDataService:
                     # Log retry success if this wasn't the first attempt
                     if attempt > 0:
                         self.metrics['batch_insert_retries'] += attempt
-                        data_logger.info(
-                            f"✅ RPC insert succeeded on retry attempt {attempt + 1}/{max_attempts}: "
-                            f"{inserted_count} parameter values logged"
-                        )
+                        if log_success:
+                            data_logger.info(
+                                f"✅ RPC insert succeeded on retry attempt {attempt + 1}/{max_attempts}: "
+                                f"{inserted_count} parameter values logged"
+                            )
                     else:
-                        data_logger.info(f"✅ RPC insert: {inserted_count} parameter values logged")
+                        if log_success:
+                            data_logger.info(f"✅ RPC insert: {inserted_count} parameter values logged")
 
                     return True
                 else:
@@ -521,10 +528,11 @@ class PLCDataService:
 
         return False
 
-    async def _insert_wide_record_with_retry(self, timestamp: str, wide_record: Dict[str, float]) -> bool:
+    async def _insert_wide_record_with_retry(self, timestamp: str, wide_record: Dict[str, float],
+                                             log_success: bool = True) -> bool:
         """
         Insert single WIDE-FORMAT row using PostgreSQL RPC for optimal performance.
-        
+
         Much faster than 51 narrow rows - reduces from 51 inserts to 1 insert per second!
 
         Implements 3-attempt retry with delays: 1s, 2s, 4s
@@ -533,6 +541,7 @@ class PLCDataService:
         Args:
             timestamp: ISO format timestamp for the reading
             wide_record: Dictionary of column_name -> value for all parameters
+            log_success: If False, suppress success logs (used by async writer to avoid duplicate logging)
 
         Returns:
             bool: True if insert succeeded, False if all retries failed
@@ -558,12 +567,14 @@ class PLCDataService:
                     # Log retry success if this wasn't the first attempt
                     if attempt > 0:
                         self.metrics['batch_insert_retries'] += attempt
-                        data_logger.info(
-                            f"✅ Wide insert succeeded on retry {attempt + 1}/{max_attempts}: "
-                            f"{inserted_count} parameters"
-                        )
+                        if log_success:
+                            data_logger.info(
+                                f"✅ Wide insert succeeded on retry {attempt + 1}/{max_attempts}: "
+                                f"{inserted_count} parameters"
+                            )
                     else:
-                        data_logger.info(f"✅ Wide insert: {inserted_count} parameters in 1 row")
+                        if log_success:
+                            data_logger.info(f"✅ Wide insert: {inserted_count} parameters in 1 row")
 
                     return True
                 else:
@@ -605,11 +616,24 @@ class PLCDataService:
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
             dlq_file = self.dead_letter_queue_dir / f"failed_batch_{timestamp}.jsonl"
 
-            # Write each record as a JSON line
-            with open(dlq_file, 'w') as f:
-                for record in history_records:
-                    f.write(json.dumps(record) + '\n')
+            # Write each record as a JSON line with fsync for durability
+            try:
+                with open(dlq_file, 'w') as f:
+                    for record in history_records:
+                        f.write(json.dumps(record) + '\n')
 
+                    # CRITICAL: fsync to ensure data is written to disk before claiming success
+                    f.flush()
+                    os.fsync(f.fileno())
+            except (IOError, OSError) as io_err:
+                # Specific handling for file I/O errors
+                data_logger.error(
+                    f"🚨 CRITICAL: File I/O error writing to dead letter queue: {io_err}. "
+                    f"File: {dlq_file}"
+                )
+                raise
+
+            # Only update metrics and log success AFTER fsync completes
             self.metrics['dead_letter_queue_writes'] += 1
             self.metrics['dead_letter_queue_depth'] = len(list(self.dead_letter_queue_dir.glob('*.jsonl')))
 
@@ -640,15 +664,28 @@ class PLCDataService:
             file_timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
             dlq_file = self.dead_letter_queue_dir / f"failed_wide_{file_timestamp}.json"
 
-            # Write wide record as JSON with timestamp
+            # Write wide record as JSON with timestamp and fsync for durability
             dlq_data = {
                 'timestamp': timestamp,
                 'params': wide_record
             }
-            
-            with open(dlq_file, 'w') as f:
-                json.dump(dlq_data, f, indent=2)
 
+            try:
+                with open(dlq_file, 'w') as f:
+                    json.dump(dlq_data, f, indent=2)
+
+                    # CRITICAL: fsync to ensure data is written to disk before claiming success
+                    f.flush()
+                    os.fsync(f.fileno())
+            except (IOError, OSError) as io_err:
+                # Specific handling for file I/O errors
+                data_logger.error(
+                    f"🚨 CRITICAL: File I/O error writing wide record to dead letter queue: {io_err}. "
+                    f"File: {dlq_file}"
+                )
+                raise
+
+            # Only update metrics and log success AFTER fsync completes
             self.metrics['dead_letter_queue_writes'] += 1
             self.metrics['dead_letter_queue_depth'] = len(list(self.dead_letter_queue_dir.glob('*.json'))) + len(list(self.dead_letter_queue_dir.glob('*.jsonl')))
 
@@ -681,6 +718,8 @@ class PLCDataService:
         1. Try to insert the batch
         2. On success, delete the DLQ file
         3. On failure, leave for next attempt
+
+        Supports both narrow format (.jsonl) and wide format (.json) files.
         """
         data_logger.info("🔄 Dead letter queue recovery loop started (60s interval)")
 
@@ -688,8 +727,10 @@ class PLCDataService:
             try:
                 await asyncio.sleep(60.0)  # Check every 60 seconds
 
-                # Get all DLQ files
-                dlq_files = sorted(self.dead_letter_queue_dir.glob('*.jsonl'))
+                # Get all DLQ files (both narrow .jsonl and wide .json formats)
+                narrow_files = list(self.dead_letter_queue_dir.glob('*.jsonl'))
+                wide_files = list(self.dead_letter_queue_dir.glob('*.json'))
+                dlq_files = sorted(narrow_files + wide_files)
 
                 if not dlq_files:
                     continue  # No files to recover
@@ -698,45 +739,107 @@ class PLCDataService:
 
                 for dlq_file in dlq_files:
                     try:
-                        # Read records from file
-                        history_records = []
-                        with open(dlq_file, 'r') as f:
-                            for line in f:
-                                history_records.append(json.loads(line.strip()))
+                        # Detect file format by extension
+                        is_wide_format = dlq_file.suffix == '.json'
 
-                        if not history_records:
-                            # Empty file - delete it
-                            dlq_file.unlink()
-                            continue
+                        if is_wide_format:
+                            # WIDE FORMAT (.json): Single reading with timestamp + params
+                            with open(dlq_file, 'r') as f:
+                                dlq_data = json.load(f)
 
-                        # Attempt single retry using RPC (no exponential backoff for recovery)
-                        try:
-                            # Run recovery RPC in a thread to keep loop responsive
-                            inserted_count = await asyncio.to_thread(self._rpc_bulk_insert_sync, history_records)
-                            
-                            if inserted_count > 0:
-                                # Success! Delete the DLQ file
+                            timestamp = dlq_data.get('timestamp')
+                            wide_record = dlq_data.get('params')
+
+                            if not timestamp or not wide_record:
+                                # Invalid file - delete it
+                                data_logger.warning(f"Invalid wide DLQ file {dlq_file.name} - deleting")
                                 dlq_file.unlink()
-                                self.metrics['dead_letter_queue_replays'] += inserted_count
-                                self.metrics['dead_letter_queue_depth'] = len(list(self.dead_letter_queue_dir.glob('*.jsonl')))
+                                continue
 
-                                data_logger.info(
-                                    f"✅ Dead letter queue recovery: Replayed {inserted_count} records from {dlq_file.name}. "
-                                    f"Remaining queue depth: {self.metrics['dead_letter_queue_depth']}"
-                                )
-                            else:
-                                # No records inserted - leave file for next attempt
+                            # Attempt recovery using wide RPC
+                            try:
+                                response = self.supabase.rpc(
+                                    'insert_parameter_reading_wide',
+                                    params={
+                                        'p_timestamp': timestamp,
+                                        'p_params': wide_record
+                                    }
+                                ).execute()
+
+                                inserted_count = response.data if response.data else 0
+
+                                if inserted_count > 0:
+                                    # Success! Delete the DLQ file
+                                    dlq_file.unlink()
+                                    self.metrics['dead_letter_queue_replays'] += inserted_count
+
+                                    # Recalculate depth (both formats)
+                                    narrow_depth = len(list(self.dead_letter_queue_dir.glob('*.jsonl')))
+                                    wide_depth = len(list(self.dead_letter_queue_dir.glob('*.json')))
+                                    self.metrics['dead_letter_queue_depth'] = narrow_depth + wide_depth
+
+                                    data_logger.info(
+                                        f"✅ Dead letter queue recovery: Replayed wide record ({inserted_count} params) from {dlq_file.name}. "
+                                        f"Remaining queue depth: {self.metrics['dead_letter_queue_depth']} files"
+                                    )
+                                else:
+                                    # No records inserted - leave file for next attempt
+                                    data_logger.warning(
+                                        f"⚠️ Dead letter queue recovery failed for {dlq_file.name}: Wide RPC returned 0 parameters. "
+                                        f"Will retry in 60s."
+                                    )
+
+                            except Exception as e:
+                                # Insert failed - leave file for next attempt
                                 data_logger.warning(
-                                    f"⚠️ Dead letter queue recovery failed for {dlq_file.name}: RPC returned 0 records. "
+                                    f"⚠️ Dead letter queue recovery failed for {dlq_file.name}: {e}. "
                                     f"Will retry in 60s."
                                 )
 
-                        except Exception as e:
-                            # Insert failed - leave file for next attempt
-                            data_logger.warning(
-                                f"⚠️ Dead letter queue recovery failed for {dlq_file.name}: {e}. "
-                                f"Will retry in 60s."
-                            )
+                        else:
+                            # NARROW FORMAT (.jsonl): Multiple records, one per line
+                            history_records = []
+                            with open(dlq_file, 'r') as f:
+                                for line in f:
+                                    history_records.append(json.loads(line.strip()))
+
+                            if not history_records:
+                                # Empty file - delete it
+                                dlq_file.unlink()
+                                continue
+
+                            # Attempt recovery using narrow RPC
+                            try:
+                                # Run recovery RPC in a thread to keep loop responsive
+                                inserted_count = await asyncio.to_thread(self._rpc_bulk_insert_sync, history_records)
+
+                                if inserted_count > 0:
+                                    # Success! Delete the DLQ file
+                                    dlq_file.unlink()
+                                    self.metrics['dead_letter_queue_replays'] += inserted_count
+
+                                    # Recalculate depth (both formats)
+                                    narrow_depth = len(list(self.dead_letter_queue_dir.glob('*.jsonl')))
+                                    wide_depth = len(list(self.dead_letter_queue_dir.glob('*.json')))
+                                    self.metrics['dead_letter_queue_depth'] = narrow_depth + wide_depth
+
+                                    data_logger.info(
+                                        f"✅ Dead letter queue recovery: Replayed {inserted_count} records from {dlq_file.name}. "
+                                        f"Remaining queue depth: {self.metrics['dead_letter_queue_depth']}"
+                                    )
+                                else:
+                                    # No records inserted - leave file for next attempt
+                                    data_logger.warning(
+                                        f"⚠️ Dead letter queue recovery failed for {dlq_file.name}: RPC returned 0 records. "
+                                        f"Will retry in 60s."
+                                    )
+
+                            except Exception as e:
+                                # Insert failed - leave file for next attempt
+                                data_logger.warning(
+                                    f"⚠️ Dead letter queue recovery failed for {dlq_file.name}: {e}. "
+                                    f"Will retry in 60s."
+                                )
 
                     except Exception as e:
                         data_logger.error(f"Error processing DLQ file {dlq_file.name}: {e}", exc_info=True)
@@ -831,19 +934,46 @@ class PLCDataService:
             while self.is_running:
                 try:
                     batch = await self._write_queue.get()
-                    
+
                     # Check if this is a wide record (tuple) or narrow record (list)
                     if isinstance(batch, tuple) and len(batch) == 3 and batch[0] == 'wide':
                         # Wide format: ('wide', timestamp, wide_record)
                         _, timestamp, wide_record = batch
-                        await self._insert_wide_record_with_retry(timestamp, wide_record)
+                        # Suppress internal success logs - we'll log at this level instead
+                        success = await self._insert_wide_record_with_retry(timestamp, wide_record, log_success=False)
+
+                        # Log ACTUAL database write completion (after retry logic completes)
+                        if success:
+                            self.metrics['successful_readings'] += 1
+                            data_logger.info(
+                                f"✅ Database write completed: {len(wide_record)} parameters written successfully"
+                            )
+                        else:
+                            self.metrics['failed_readings'] += 1
+                            data_logger.error(
+                                f"❌ Database write failed: {len(wide_record)} parameters moved to dead letter queue"
+                            )
                     else:
                         # Narrow format (legacy): list of records
-                        await self._batch_insert_with_retry(batch)
-                        
+                        # Suppress internal success logs - we'll log at this level instead
+                        success = await self._batch_insert_with_retry(batch, log_success=False)
+
+                        # Log ACTUAL database write completion
+                        if success:
+                            self.metrics['successful_readings'] += 1
+                            data_logger.info(
+                                f"✅ Database write completed: {len(batch)} records written successfully"
+                            )
+                        else:
+                            self.metrics['failed_readings'] += 1
+                            data_logger.error(
+                                f"❌ Database write failed: {len(batch)} records moved to dead letter queue"
+                            )
+
                 except asyncio.CancelledError:
                     break
                 except Exception as e:
+                    self.metrics['failed_readings'] += 1
                     data_logger.error(f"DB writer error: {e}", exc_info=True)
         finally:
             data_logger.info("🧵 DB writer stopped")
@@ -854,8 +984,17 @@ class PLCDataService:
             self._write_queue.put_nowait(history_records)
         except asyncio.QueueFull:
             try:
-                _ = self._write_queue.get_nowait()  # drop oldest
+                dropped_batch = self._write_queue.get_nowait()  # drop oldest
                 self.metrics['batches_dropped'] += 1
+
+                # CRITICAL: Log queue drop with full context - operators must see this immediately!
+                dropped_count = len(dropped_batch) if isinstance(dropped_batch, list) else 1
+                data_logger.warning(
+                    f"⚠️ QUEUE FULL: Dropped oldest batch ({dropped_count} records) to make room. "
+                    f"Total queue drops: {self.metrics['batches_dropped']}. "
+                    f"DB writer is falling behind data collection!"
+                )
+
                 self._write_queue.put_nowait(history_records)
             except Exception:
                 # As a last resort, fall back to DLQ to avoid data loss
@@ -872,8 +1011,28 @@ class PLCDataService:
             self._write_queue.put_nowait(('wide', timestamp, wide_record))
         except asyncio.QueueFull:
             try:
-                _ = self._write_queue.get_nowait()  # drop oldest
+                dropped_batch = self._write_queue.get_nowait()  # drop oldest
                 self.metrics['batches_dropped'] += 1
+
+                # CRITICAL: Log queue drop with full context - operators must see this immediately!
+                if isinstance(dropped_batch, tuple) and len(dropped_batch) == 3 and dropped_batch[0] == 'wide':
+                    # Wide format dropped
+                    dropped_timestamp, dropped_params = dropped_batch[1], dropped_batch[2]
+                    data_logger.warning(
+                        f"⚠️ QUEUE FULL: Dropped oldest wide-format batch ({len(dropped_params)} parameters, "
+                        f"timestamp={dropped_timestamp}) to make room. "
+                        f"Total queue drops: {self.metrics['batches_dropped']}. "
+                        f"DB writer is falling behind data collection!"
+                    )
+                else:
+                    # Narrow format dropped
+                    dropped_count = len(dropped_batch) if isinstance(dropped_batch, list) else 1
+                    data_logger.warning(
+                        f"⚠️ QUEUE FULL: Dropped oldest narrow-format batch ({dropped_count} records) to make room. "
+                        f"Total queue drops: {self.metrics['batches_dropped']}. "
+                        f"DB writer is falling behind data collection!"
+                    )
+
                 self._write_queue.put_nowait(('wide', timestamp, wide_record))
             except Exception:
                 # As a last resort, fall back to DLQ to avoid data loss
