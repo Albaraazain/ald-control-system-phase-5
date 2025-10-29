@@ -2,14 +2,230 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Raspberry Pi & PLC Connection Setup
+
+### SSH Connection to Raspberry Pi
+The control system runs on a Raspberry Pi that connects to the PLC. SSH access is via Tailscale VPN.
+
+**Connection Details:**
+- **Pi Tailscale IP**: 100.100.138.5
+- **Username**: atomicoat
+- **SSH Key**: Uses ED25519 key authentication (no password)
+- **Connection command**: `ssh atomicoat@100.100.138.5`
+
+**Setting up SSH keys (if needed):**
+```bash
+# Generate SSH key on local machine
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "your-machine-to-pi"
+
+# Display public key to add to Pi
+cat ~/.ssh/id_ed25519.pub
+
+# On the Pi (via local network access), add the public key:
+echo "YOUR_PUBLIC_KEY_HERE" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+### PLC Configuration
+- **PLC IP Address**: 192.168.1.50 (static)
+- **PLC Port**: 502 (Modbus TCP)
+- **PLC Network**: Connected to Superbox router via Ethernet
+- **Pi Connection**: Pi connects to same router via WiFi (192.168.1.x network)
+- **Byte Order**: badc (big-byte/little-word)
+
+**Important**: The PLC must be on the same network as the Pi. Verify connectivity:
+```bash
+ssh atomicoat@100.100.138.5 'ping -c 3 192.168.1.50'
+```
+
+### Environment Configuration (.env file)
+The `.env` file on the Pi must be configured with:
+```bash
+SUPABASE_URL=https://yceyfsqusdmcwgkwxcnt.supabase.co
+SUPABASE_KEY=your_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_key_here
+MACHINE_ID=e3e6e280-0794-459f-84d5-5e468f60746e
+TEST_OPERATOR_ID=1c6748d7-5cb2-444c-8e2e-416c14f5d6dd
+
+# PLC Configuration
+PLC_TYPE=real
+PLC_IP=192.168.1.50
+PLC_PORT=502
+PLC_BYTE_ORDER=badc
+```
+
+### Testing PLC Connection
+```bash
+# From Mac to Pi
+ssh atomicoat@100.100.138.5
+
+# On Pi - test PLC connectivity
+cd ~/ald-control-system-phase-5
+source myenv/bin/activate
+python main.py --doctor --plc real
+```
+
+Expected output: All tests should pass (Supabase, Health_Table, Realtime, PLC)
+
+## 🚨 CRITICAL: Deploying Code Changes to Raspberry Pi
+
+**NEVER FORGET**: After making code changes, you MUST deploy to the Raspberry Pi!
+
+### Deployment Checklist (DO THIS EVERY TIME)
+
+1. **Commit and push changes**:
+   ```bash
+   git add .
+   git commit -m "Description of changes"
+   git push origin main
+   ```
+
+2. **Pull on Raspberry Pi**:
+   ```bash
+   ssh atomicoat@100.100.138.5 'cd ~/ald-control-system-phase-5 && git pull origin main'
+   ```
+
+3. **Restart terminals on Pi** (see commands below)
+
+4. **Verify terminals are running with new code**:
+   ```bash
+   # Check terminal liveness in database
+   # Or check tmux output for version/timestamps
+   ssh atomicoat@100.100.138.5 'tmux capture-pane -t terminal1 -p | head -30'
+   ```
+
+### Why This Matters
+
+- The Pi runs independently from your local machine
+- Terminals won't get updates unless you explicitly pull and restart
+- Running old code causes confusion and debugging nightmares
+- Terminal liveness system helps track what version is actually running
+
+## Running Terminals on Raspberry Pi with tmux
+
+The control system runs as background services using tmux sessions on the Raspberry Pi. This allows terminals to keep running after disconnecting SSH and enables mobile control.
+
+### Starting All Terminals
+
+**⚠️ IMPORTANT: Use the correct commands for each terminal:**
+```bash
+# Connect to Pi
+ssh atomicoat@100.100.138.5
+cd ~/ald-control-system-phase-5
+source myenv/bin/activate
+
+# Start Terminal 1 (PLC Read Service)
+tmux new-session -d -s terminal1
+tmux send-keys -t terminal1 "source myenv/bin/activate" C-m
+tmux send-keys -t terminal1 "python plc_data_service.py --plc real" C-m
+
+# Start Terminal 2 (Recipe Service)
+tmux new-session -d -s terminal2
+tmux send-keys -t terminal2 "source myenv/bin/activate" C-m
+tmux send-keys -t terminal2 "python simple_recipe_service.py" C-m
+
+# Start Terminal 3 (Parameter Service)
+tmux new-session -d -s terminal3
+tmux send-keys -t terminal3 "source myenv/bin/activate" C-m
+tmux send-keys -t terminal3 "python terminal3_clean.py" C-m
+```
+
+**One-liner to restart all terminals:**
+```bash
+ssh atomicoat@100.100.138.5 'cd ~/ald-control-system-phase-5 && tmux kill-session -t terminal1 2>/dev/null; tmux kill-session -t terminal2 2>/dev/null; tmux kill-session -t terminal3 2>/dev/null; sleep 2 && tmux new-session -d -s terminal1 && tmux send-keys -t terminal1 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal1 "python plc_data_service.py --plc real" C-m && tmux new-session -d -s terminal2 && tmux send-keys -t terminal2 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal2 "python simple_recipe_service.py" C-m && tmux new-session -d -s terminal3 && tmux send-keys -t terminal3 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal3 "python terminal3_clean.py" C-m'
+```
+
+### Managing tmux Sessions
+
+**List running sessions:**
+```bash
+ssh atomicoat@100.100.138.5 'tmux list-sessions'
+```
+
+**View terminal output:**
+```bash
+# Attach to a terminal to see live output
+ssh atomicoat@100.100.138.5 -t 'tmux attach-session -t terminal1'
+# Press Ctrl+B then D to detach without stopping
+
+# Capture recent output without attaching
+ssh atomicoat@100.100.138.5 'tmux capture-pane -t terminal1 -p | tail -50'
+```
+
+**Stop a terminal:**
+```bash
+ssh atomicoat@100.100.138.5 'tmux kill-session -t terminal1'
+```
+
+**Stop all terminals:**
+```bash
+ssh atomicoat@100.100.138.5 'tmux kill-session -t terminal1; tmux kill-session -t terminal2; tmux kill-session -t terminal3'
+```
+
+**Restart a terminal:**
+```bash
+# Kill and restart (example for terminal1)
+ssh atomicoat@100.100.138.5 'tmux kill-session -t terminal1 2>/dev/null; cd ~/ald-control-system-phase-5 && tmux new-session -d -s terminal1 && tmux send-keys -t terminal1 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal1 "python plc_data_service.py --plc real" C-m'
+```
+
+### Terminal Liveness System
+
+All terminals now report to the `terminal_instances` table in Supabase with automatic heartbeat tracking.
+
+**Check terminal status via Supabase:**
+```sql
+-- View active terminals on Raspberry Pi
+SELECT terminal_type, hostname, process_id, status, started_at,
+       last_heartbeat, commands_processed, errors_encountered
+FROM terminal_instances
+WHERE machine_id = 'e3e6e280-0794-459f-84d5-5e468f60746e'
+  AND status IN ('starting', 'healthy', 'degraded')
+ORDER BY terminal_type;
+
+-- Check heartbeat freshness (should be < 15 seconds ago)
+SELECT terminal_type,
+       EXTRACT(EPOCH FROM (NOW() - last_heartbeat)) as seconds_since_heartbeat
+FROM terminal_instances
+WHERE machine_id = 'e3e6e280-0794-459f-84d5-5e468f60746e'
+  AND status = 'healthy';
+```
+
+**Features:**
+- Duplicate prevention: Only one instance of each terminal type per machine
+- 10-second heartbeat intervals
+- Automatic crash detection if heartbeats stop
+- Tracks commands processed and errors encountered
+- Web monitoring dashboard available
+
+**Documentation:** See `TERMINAL_LIVENESS_SYSTEM_GUIDE.md` for complete details.
+
+### Monitoring Terminals
+
+**Check system status:**
+```bash
+# View all log files
+ssh atomicoat@100.100.138.5 'tail -30 ~/ald-control-system-phase-5/logs/*.log'
+
+# Monitor live logs
+ssh atomicoat@100.100.138.5 'tail -f ~/ald-control-system-phase-5/logs/machine_control.log'
+```
+
+**Verify terminals are processing:**
+```bash
+# Check if terminals are responding to commands
+ssh atomicoat@100.100.138.5 'cd ~/ald-control-system-phase-5 && source myenv/bin/activate && python main.py --doctor --plc real'
+```
+
 ## Build/Lint/Test Commands
 
 - **Setup Environment**: `python -m venv myenv && source myenv/bin/activate && pip install -r requirements.txt`
-- **Run Terminal 1**: `python main.py --terminal 1 --demo` (PLC Read Service)
-- **Run Terminal 2**: `python main.py --terminal 2 --demo` (Recipe Service)
-- **Run Terminal 3**: `python main.py --terminal 3 --demo` (Parameter Service)
-- **Run All Terminals**: Open 3 separate terminal windows and run each service independently
-- **Run Debug Tests**: `python debug/test_plc_connection.py` (test scripts for PLC operations, Supabase connection, valve control, etc.)
+- **Run Terminal 1 (Local)**: `python main.py --terminal 1 --demo` (PLC Read Service - simulation)
+- **Run Terminal 1 (Real PLC)**: `python main.py --terminal 1 --plc real`
+- **Run Terminal 2 (Local)**: `python main.py --terminal 2 --demo` (Recipe Service - simulation)
+- **Run Terminal 2 (Real PLC)**: `python main.py --terminal 2 --plc real`
+- **Run Terminal 3 (Local)**: `python main.py --terminal 3 --demo` (Parameter Service - simulation)
+- **Run Terminal 3 (Real PLC)**: `python main.py --terminal 3 --plc real`
+- **Test PLC Connection**: `python main.py --doctor --plc real`
 - **Lint Code**: `python -m pylint --disable=C0103,C0111 --max-line-length=100 *.py`
 - **Type Check**: `python -m mypy --ignore-missing-imports .`
 - **View Service Logs**: `tail -f logs/command_flow.log` (replace with specific service: plc, recipe_flow, data_collection, etc.)
