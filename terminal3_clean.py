@@ -31,6 +31,7 @@ from src.config import MACHINE_ID
 from src.db import get_supabase
 from src.plc.manager import plc_manager
 from src.connection_monitor import connection_monitor
+from src.terminal_registry import TerminalRegistry, TerminalAlreadyRunningError
 
 logger = get_plc_logger()
 
@@ -41,6 +42,9 @@ ENABLE_READ_VERIFICATION = os.getenv('TERMINAL3_VERIFY_WRITES', 'false').lower()
 
 # Track processed commands
 processed_commands: Set[str] = set()
+
+# Terminal registry instance
+terminal_registry: Optional[TerminalRegistry] = None
 
 
 async def write_and_verify(address: int, value: float, data_type: str = 'float', parameter_id: Optional[str] = None) -> tuple[bool, Optional[float]]:
@@ -241,9 +245,17 @@ async def process_command(command: dict):
     if success:
         logger.info(f"✅ Command {command_id[:8]}... completed in {duration_ms}ms")
         await update_command_status(command_id, 'completed', None)
+
+        # Track successful command in liveness system
+        if terminal_registry:
+            terminal_registry.increment_commands()
     else:
         logger.error(f"❌ Command {command_id[:8]}... failed after {duration_ms}ms")
         await update_command_status(command_id, 'failed', 'Write operation failed')
+
+        # Record error in liveness system
+        if terminal_registry:
+            terminal_registry.record_error(f"Command {command_id[:8]} write failed")
 
 
 async def update_command_status(command_id: str, status: str, error_message: Optional[str]):
@@ -303,6 +315,10 @@ async def poll_commands():
                 except Exception as e:
                     logger.error(f"Error processing command {command_id}: {e}", exc_info=True)
                     await update_command_status(command_id, 'failed', str(e))
+
+                    # Record error in liveness system
+                    if terminal_registry:
+                        terminal_registry.record_error(f"Command {command_id[:8]} exception: {str(e)}")
             
             # Clean up old processed commands (keep last 1000)
             if len(processed_commands) > 1000:
@@ -316,11 +332,30 @@ async def poll_commands():
 
 async def main():
     """Main entry point."""
+    global terminal_registry
+
     logger.info("=" * 60)
     logger.info("🚀 Terminal 3: Clean Parameter Service")
     logger.info("=" * 60)
 
     try:
+        # Register this terminal instance in liveness system
+        log_file_path = "/tmp/terminal3_parameter_service.log"
+        terminal_registry = TerminalRegistry(
+            terminal_type='terminal3',
+            machine_id=MACHINE_ID,
+            environment='production',
+            heartbeat_interval=10,
+            log_file_path=log_file_path
+        )
+
+        try:
+            await terminal_registry.register()
+            logger.info("✅ Terminal 3 registered in liveness system")
+        except TerminalAlreadyRunningError as e:
+            logger.error(str(e))
+            raise RuntimeError("Cannot start - Terminal 3 already running")
+
         # Initialize PLC
         logger.info("🔧 Initializing PLC manager...")
         await plc_manager.initialize()
@@ -331,18 +366,32 @@ async def main():
         logger.info(f"📋 Verification Mode: {'ENABLED (debugging)' if ENABLE_READ_VERIFICATION else 'DISABLED (production)'}")
         if not ENABLE_READ_VERIFICATION:
             logger.info("   💡 Tip: Set TERMINAL3_VERIFY_WRITES=true to enable read-back verification")
+        logger.info(f"📋 Terminal Liveness: ENABLED")
         logger.info("=" * 60)
         logger.info("✅ Terminal 3 ready to process commands")
         logger.info("=" * 60)
-        
+
         # Start polling
         await poll_commands()
-        
+
     except KeyboardInterrupt:
         logger.info("🛑 Shutting down Terminal 3...")
+    except RuntimeError as e:
+        # Handle terminal already running error
+        if "already running" in str(e):
+            logger.error(str(e))
+            sys.exit(1)
+        else:
+            logger.error(f"❌ Fatal runtime error: {e}", exc_info=True)
+            raise
     except Exception as e:
         logger.error(f"❌ Fatal error: {e}", exc_info=True)
         raise
+    finally:
+        # Graceful shutdown
+        if terminal_registry:
+            await terminal_registry.shutdown(reason="Service shutdown")
+            logger.info("✅ Terminal liveness shutdown complete")
 
 
 if __name__ == '__main__':

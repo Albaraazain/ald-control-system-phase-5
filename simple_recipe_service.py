@@ -19,8 +19,6 @@ DESIGN PRINCIPLES:
 import sys
 import os
 import asyncio
-import atexit
-import fcntl
 import signal
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -36,90 +34,10 @@ from src.plc.manager import plc_manager
 from src.recipe_flow.executor import execute_recipe
 from src.recipe_flow.continuous_data_recorder import continuous_recorder
 from src.command_flow.listener import setup_command_listener
+from src.terminal_registry import TerminalRegistry, TerminalAlreadyRunningError
 
 
 logger = get_recipe_flow_logger()
-
-
-def ensure_single_instance():
-    """Ensure only one simple_recipe_service instance runs"""
-    lock_file = "/tmp/simple_recipe_service.lock"
-    
-    # Check if lock file exists and if the process is still running
-    if os.path.exists(lock_file):
-        try:
-            with open(lock_file, 'r') as f:
-                old_pid = f.read().strip()
-                if old_pid and old_pid.isdigit():
-                    # Check if the process is still running
-                    try:
-                        os.kill(int(old_pid), 0)  # This will raise OSError if process doesn't exist
-                        logger.error("❌ Another simple_recipe_service is already running")
-                        logger.error(f"   Existing process PID: {old_pid}")
-                        
-                        # Ask user if they want to kill the existing instance
-                        while True:
-                            response = input("🤔 Do you want to kill the existing instance and continue? (y/n): ").strip().lower()
-                            if response in ['y', 'yes']:
-                                try:
-                                    logger.info(f"🔪 Killing existing process {old_pid}...")
-                                    os.kill(int(old_pid), signal.SIGTERM)
-                                    
-                                    # Wait a moment for graceful shutdown
-                                    import time
-                                    time.sleep(1)
-                                    
-                                    # Check if it's still running, force kill if necessary
-                                    try:
-                                        os.kill(int(old_pid), 0)
-                                        logger.info("⚠️ Process still running, force killing...")
-                                        os.kill(int(old_pid), signal.SIGKILL)
-                                        time.sleep(0.5)
-                                    except OSError:
-                                        pass  # Process already dead
-                                    
-                                    # Remove the lock file
-                                    if os.path.exists(lock_file):
-                                        os.unlink(lock_file)
-                                    
-                                    logger.info("✅ Existing instance killed, proceeding...")
-                                    break
-                                except OSError as e:
-                                    logger.error(f"❌ Failed to kill process {old_pid}: {e}")
-                                    logger.error("💡 Please kill the process manually and try again")
-                                    exit(1)
-                            elif response in ['n', 'no']:
-                                logger.info("👋 Exiting as requested")
-                                exit(0)
-                            else:
-                                print("Please enter 'y' for yes or 'n' for no")
-                    except OSError:
-                        # Process doesn't exist, remove stale lock file
-                        logger.info("🧹 Removing stale lock file from previous run")
-                        os.unlink(lock_file)
-        except Exception as e:
-            logger.debug(f"Error checking existing lock file: {e}")
-            # Remove corrupted lock file
-            if os.path.exists(lock_file):
-                os.unlink(lock_file)
-    
-    try:
-        fd = os.open(lock_file, os.O_CREAT | os.O_WRONLY | os.O_TRUNC)
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-        # Write PID to lock file
-        os.write(fd, f"{os.getpid()}\n".encode())
-        os.fsync(fd)
-
-        # Clean up on exit
-        atexit.register(lambda: os.unlink(lock_file) if os.path.exists(lock_file) else None)
-
-        return fd
-    except (OSError, IOError) as e:
-        logger.error("❌ Failed to acquire lock file")
-        logger.error(f"💡 Error: {e}")
-        logger.error("💡 Another process may have started in the meantime")
-        exit(1)
 
 
 class SimpleRecipeService:
@@ -128,10 +46,28 @@ class SimpleRecipeService:
     def __init__(self):
         self.running = False
         self.shutdown_event = asyncio.Event()
+        self.registry: Optional[TerminalRegistry] = None
 
     async def initialize(self):
-        """Initialize PLC connection"""
+        """Initialize PLC connection and terminal registry"""
         logger.info("🔧 Initializing Simple Recipe Service")
+
+        # Register this terminal instance in liveness system
+        log_file_path = "/tmp/terminal2_recipe_service.log"
+        self.registry = TerminalRegistry(
+            terminal_type='terminal2',
+            machine_id=MACHINE_ID,
+            environment='production',
+            heartbeat_interval=10,
+            log_file_path=log_file_path
+        )
+
+        try:
+            await self.registry.register()
+            logger.info("✅ Terminal 2 registered in liveness system")
+        except TerminalAlreadyRunningError as e:
+            logger.error(str(e))
+            raise RuntimeError("Cannot start - Terminal 2 already running")
 
         # Initialize PLC connection
         logger.debug("🔧 Attempting PLC connection initialization...")
@@ -218,6 +154,10 @@ class SimpleRecipeService:
                     'status': 'completed'
                 }).eq('id', command_id).execute()
                 logger.info(f"✅ Recipe command {command_id} completed successfully")
+
+                # Track successful command in liveness system
+                if self.registry:
+                    self.registry.increment_commands()
             else:
                 logger.debug(f"💾 Updating command {command_id} status to 'failed'")
                 supabase.table('recipe_commands').update({
@@ -226,10 +166,18 @@ class SimpleRecipeService:
                 }).eq('id', command_id).execute()
                 logger.error(f"❌ Recipe command {command_id} failed")
 
+                # Record error in liveness system
+                if self.registry:
+                    self.registry.record_error(f"Recipe command {command_id} failed")
+
             return success
 
         except Exception as e:
             logger.error(f"❌ Error executing recipe command {command_id}: {e}", exc_info=True)
+
+            # Record error in liveness system
+            if self.registry:
+                self.registry.record_error(f"Recipe command {command_id} exception: {str(e)}")
 
             # Mark command as failed
             logger.debug(f"💾 Updating command {command_id} status to 'failed' due to exception")
@@ -344,6 +292,11 @@ class SimpleRecipeService:
 
         except Exception as e:
             logger.error(f"❌ Error in recipe execution: {e}", exc_info=True)
+
+            # Record error in liveness system
+            if self.registry:
+                self.registry.record_error(f"Recipe execution error: {str(e)}")
+
             return False
 
     async def _stop_recipe_execution(self, command: Dict[str, Any]) -> bool:
@@ -436,17 +389,16 @@ class SimpleRecipeService:
         self.running = False
         self.shutdown_event.set()
 
+        # Shutdown terminal registry
+        if self.registry:
+            await self.registry.shutdown(reason="Service shutdown")
+            logger.info("✅ Terminal liveness shutdown complete")
+
         # Disconnect PLC
         logger.debug("🔧 Disconnecting from PLC...")
         await plc_manager.disconnect()
         logger.info("✅ PLC disconnected")
         logger.info("🔧 Simple Recipe Service shutdown complete")
-
-
-async def signal_handler(service, sig):
-    """Handle shutdown signals"""
-    logger.info(f"⚠️ Received signal {sig}, shutting down...")
-    await service.shutdown()
 
 
 def parse_args():
@@ -462,9 +414,6 @@ def parse_args():
 
 async def main():
     """Main entry point"""
-    # Ensure only one instance runs
-    ensure_single_instance()
-
     args = parse_args()
 
     # Set log level
@@ -479,13 +428,19 @@ async def main():
     logger.info(f"   Machine ID: {MACHINE_ID}")
     logger.info(f"   Log Level: {args.log_level}")
     logger.info(f"   Direct PLC Access: ENABLED")
+    logger.info(f"   Terminal Liveness: ENABLED")
     logger.info("=" * 60)
 
     service = SimpleRecipeService()
 
-    # Set up signal handlers
-    for sig in [signal.SIGINT, signal.SIGTERM]:
-        signal.signal(sig, lambda s, f: asyncio.create_task(signal_handler(service, s)))
+    # Set up signal handlers - must not create tasks from signal context
+    def signal_handler_sync(signum, frame):
+        """Handle shutdown signals synchronously"""
+        logger.info(f"⚠️ Received signal {signum}, initiating shutdown...")
+        service.shutdown_event.set()
+
+    signal.signal(signal.SIGINT, signal_handler_sync)
+    signal.signal(signal.SIGTERM, signal_handler_sync)
 
     try:
         logger.info("🔧 Initializing Recipe Service...")
@@ -494,6 +449,13 @@ async def main():
         await service.run()
     except KeyboardInterrupt:
         logger.info("⚠️ Received keyboard interrupt")
+    except RuntimeError as e:
+        # Handle terminal already running error
+        if "already running" in str(e):
+            logger.error(str(e))
+            sys.exit(1)
+        else:
+            logger.error(f"❌ Fatal runtime error: {e}", exc_info=True)
     except Exception as e:
         logger.error(f"❌ Fatal error: {e}", exc_info=True)
     finally:

@@ -17,8 +17,6 @@ This terminal provides:
 Simplified architecture focused on reliable data collection with ZERO data loss guarantee.
 """
 import asyncio
-import atexit
-import fcntl
 import os
 import sys
 import signal
@@ -38,32 +36,12 @@ from src.config import MACHINE_ID, PLC_TYPE, PLC_CONFIG
 from src.db import get_supabase
 from src.plc.manager import plc_manager  # Use global singleton for consistent PLC connection
 from src.parameter_wide_table_mapping import PARAMETER_TO_COLUMN_MAP  # Wide table column mapping
+from src.terminal_registry import TerminalRegistry, TerminalAlreadyRunningError
 # Removed broken transactional import - will use direct database logging
 
 # Service-specific loggers
 plc_logger = get_plc_logger()
 data_logger = get_data_collection_logger()
-
-
-def ensure_single_instance():
-    """Ensure only one plc_data_service instance runs"""
-    lock_file = "/tmp/plc_data_service.lock"
-    try:
-        fd = os.open(lock_file, os.O_CREAT | os.O_WRONLY | os.O_TRUNC)
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-        # Write PID to lock file
-        os.write(fd, f"{os.getpid()}\n".encode())
-        os.fsync(fd)
-
-        # Clean up on exit
-        atexit.register(lambda: os.unlink(lock_file) if os.path.exists(lock_file) else None)
-
-        return fd
-    except (OSError, IOError):
-        plc_logger.error("❌ Another plc_data_service is already running")
-        plc_logger.error("💡 Kill existing instances or wait for them to finish")
-        exit(1)
 
 
 
@@ -89,6 +67,7 @@ class PLCDataService:
         self.data_collection_task = None
         self.writer_task = None
         self.recovery_task = None
+        self.registry: Optional[TerminalRegistry] = None
 
         # Timing control for precise 1s intervals
         self.data_collection_interval = 1.0  # 1 second
@@ -151,6 +130,23 @@ class PLCDataService:
         """
         try:
             plc_logger.info("Initializing PLC Data Service for data collection")
+
+            # Register this terminal instance in liveness system
+            log_file_path = "/tmp/terminal1_plc_data_service.log"
+            self.registry = TerminalRegistry(
+                terminal_type='terminal1',
+                machine_id=MACHINE_ID,
+                environment='production',
+                heartbeat_interval=10,
+                log_file_path=log_file_path
+            )
+
+            try:
+                await self.registry.register()
+                plc_logger.info("✅ Terminal 1 registered in liveness system")
+            except TerminalAlreadyRunningError as e:
+                plc_logger.error(str(e))
+                raise RuntimeError("Cannot start - Terminal 1 already running")
 
             # Initialize parameter metadata cache for enhanced logging
             await self._initialize_parameter_metadata()
@@ -223,6 +219,11 @@ class PLCDataService:
                         await task
                     except asyncio.CancelledError:
                         pass
+
+            # Shutdown terminal registry
+            if self.registry:
+                await self.registry.shutdown(reason="Service shutdown")
+                plc_logger.info("✅ Terminal liveness shutdown complete")
 
             # Disconnect PLC
             await self.plc_manager.disconnect()
@@ -349,13 +350,26 @@ class PLCDataService:
                     data_logger.info(
                         f"✅ PLC data collection completed: {success_count}/{len(parameter_values)} parameters logged successfully"
                     )
+
+                # Track successful reading in liveness system
+                if self.registry:
+                    self.registry.increment_commands()
             else:
                 self.metrics['failed_readings'] += 1
                 data_logger.error(f"❌ PLC data collection failed for all {len(parameter_values)} parameters")
 
+                # Record error in liveness system
+                if self.registry:
+                    self.registry.record_error("PLC data collection failed for all parameters")
+
         except Exception as e:
             self.metrics['failed_readings'] += 1
             data_logger.error(f"Failed to collect and log PLC data: {e}", exc_info=True)
+
+            # Record error in liveness system
+            if self.registry:
+                self.registry.record_error(f"PLC data collection exception: {str(e)}")
+
             raise
 
 
@@ -1177,9 +1191,6 @@ async def signal_handler(plc_service):
 
 async def main():
     """Main entry point for PLC Data Service."""
-    # Ensure only one instance runs
-    ensure_single_instance()
-
     # Parse command line arguments
     args = parse_args()
     apply_env_overrides(args)
@@ -1194,6 +1205,7 @@ async def main():
     main_logger.info(f"Machine ID: {MACHINE_ID}")
     main_logger.info(f"PLC Type: {PLC_TYPE}")
     main_logger.info("PLC DATA COLLECTION SERVICE - Terminal 1")
+    main_logger.info(f"Terminal Liveness: ENABLED")
     main_logger.info("="*60)
 
     # Create and initialize service
@@ -1218,6 +1230,15 @@ async def main():
     except KeyboardInterrupt:
         main_logger.info("Received keyboard interrupt")
         await plc_service.stop()
+    except RuntimeError as e:
+        # Handle terminal already running error
+        if "already running" in str(e):
+            main_logger.error(str(e))
+            return 1
+        else:
+            main_logger.error(f"Fatal runtime error: {e}", exc_info=True)
+            await plc_service.stop()
+            return 1
     except Exception as e:
         main_logger.error(f"Fatal error in PLC Data Service: {e}", exc_info=True)
         await plc_service.stop()
