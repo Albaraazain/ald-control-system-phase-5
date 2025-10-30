@@ -123,15 +123,13 @@ async def execute_loop_step(process_id: str, step: dict, all_steps: list, parent
                 
             elif step_type == 'valve':
                 from src.step_flow.valve_step import execute_valve_step
-                valve_params = child_step['parameters']
-                if 'valve_number' not in valve_params:
-                    raise ValueError(f"Valve step missing valve_number parameter: {child_step['name']}")
-                    
-                valve_number = valve_params['valve_number']
+                # Let execute_valve_step handle loading configuration from valve_step_config table
+                # This supports both new normalized schema (valve_step_config) and old parameters
                 valve_step = {
-                    'type': f'open valve {valve_number}',
+                    'id': child_step.get('id'),
+                    'type': 'valve',  # execute_valve_step will determine valve_number from config
                     'name': child_step['name'],
-                    'parameters': valve_params
+                    'parameters': child_step.get('parameters', {})
                 }
                 await execute_valve_step(process_id, valve_step)
                 

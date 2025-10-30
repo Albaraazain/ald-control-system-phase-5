@@ -49,16 +49,13 @@ async def execute_step(process_id: str, step: dict, all_steps: list, parent_to_c
             await execute_purge_step(process_id, step_data)
             
         elif step_type == 'valve':
-            valve_params = step.get('parameters', {})
-            if 'valve_number' not in valve_params:
-                raise ValueError(f"Valve step missing valve_number parameter: {step_name}")
-            
-            valve_number = valve_params['valve_number']
+            # Let execute_valve_step handle loading configuration from valve_step_config table
+            # This supports both new normalized schema (valve_step_config) and old parameters
             valve_step = {
                 'id': step.get('id'),
-                'type': f'open valve {valve_number}',
+                'type': 'valve',  # execute_valve_step will determine valve_number from config
                 'name': step_name,
-                'parameters': valve_params
+                'parameters': step.get('parameters', {})
             }
             await execute_valve_step(process_id, valve_step)
             
