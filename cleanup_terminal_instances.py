@@ -6,8 +6,13 @@ Use this when terminals were killed but database still shows them as healthy.
 
 import os
 import sys
-from supabase import create_client, Client
 from dotenv import load_dotenv
+
+# Add src to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+
+from src.db import get_supabase
+from src.config import MACHINE_ID
 
 # Load environment variables
 load_dotenv()
@@ -15,26 +20,18 @@ load_dotenv()
 def cleanup_terminal_instances():
     """Mark all terminal instances for this machine as stopped."""
     
-    # Get Supabase credentials
-    url = os.getenv('SUPABASE_URL')
-    key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-    machine_id = os.getenv('MACHINE_ID')
-    
-    if not all([url, key, machine_id]):
-        print("❌ Missing required environment variables:")
-        print(f"   SUPABASE_URL: {'✓' if url else '✗'}")
-        print(f"   SUPABASE_SERVICE_ROLE_KEY: {'✓' if key else '✗'}")
-        print(f"   MACHINE_ID: {'✓' if machine_id else '✗'}")
+    if not MACHINE_ID:
+        print("❌ Missing MACHINE_ID environment variable")
         return False
     
-    # Create Supabase client
-    supabase: Client = create_client(url, key)
+    # Get Supabase client
+    supabase = get_supabase()
     
     try:
         # Get all terminal instances for this machine that are not stopped
         response = supabase.table('terminal_instances')\
             .select('*')\
-            .eq('machine_id', machine_id)\
+            .eq('machine_id', MACHINE_ID)\
             .neq('status', 'stopped')\
             .execute()
         
@@ -49,7 +46,7 @@ def cleanup_terminal_instances():
         # Mark all instances as stopped
         update_response = supabase.table('terminal_instances')\
             .update({'status': 'stopped'})\
-            .eq('machine_id', machine_id)\
+            .eq('machine_id', MACHINE_ID)\
             .neq('status', 'stopped')\
             .execute()
         
