@@ -501,7 +501,8 @@ async def poll_for_component_commands():
     """
     # Use connection_monitor for realtime status instead of global variable
     realtime_connected = connection_monitor.realtime_status["connected"]
-    poll_interval = 1 if not realtime_connected else 10  # Simplified logic
+    # Reduced from 10s to 2s when realtime is working for faster safety check fallback
+    poll_interval = 1 if not realtime_connected else 2  # Faster responsiveness
 
     logger.info(f"Starting component command polling (interval: {poll_interval}s, realtime: {realtime_connected})")
 
@@ -534,8 +535,9 @@ async def poll_for_component_commands():
                 if cleaned_count > 0:
                     logger.debug(f"Cleaned up {cleaned_count} failed commands from cache")
 
-            # Simplified interval: fast when realtime down, slower when working
-            poll_interval = 1 if not realtime_connected else 10
+            # Simplified interval: fast when realtime down, faster safety check when working
+            # Reduced from 10s to 2s for better responsiveness
+            poll_interval = 1 if not realtime_connected else 2
             await asyncio.sleep(poll_interval)
 
         except Exception as e:

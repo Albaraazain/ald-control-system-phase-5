@@ -112,8 +112,9 @@ class PLCDataService:
         self.async_writer_enabled: bool = os.environ.get('ASYNC_WRITER', '1') == '1'
         self._write_queue: asyncio.Queue = asyncio.Queue(maxsize=2)
 
-        # Throttle how often we read setpoints (they rarely change)
-        self.setpoint_refresh_interval: float = float(os.environ.get('SETPOINT_REFRESH_INTERVAL', '10'))
+        # Throttle how often we read setpoints (reduced from 10s to 0.5s for responsiveness)
+        # Lower interval = faster UI feedback when setpoints change
+        self.setpoint_refresh_interval: float = float(os.environ.get('SETPOINT_REFRESH_INTERVAL', '0.5'))
         self._last_setpoint_read_time: float = 0.0
 
         # Verbose per-parameter INFO logs can be noisy; default to INFO summary only
