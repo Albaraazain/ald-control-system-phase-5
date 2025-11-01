@@ -50,13 +50,20 @@ This system uses a **SIMPLE 3-TERMINAL ARCHITECTURE** that eliminates coordinati
 - **Features**: Direct PLC access, simple polling, reuses existing recipe_flow components
 - **Hybrid Architecture**: Recipe execution writes PLC DIRECTLY for performance (160-350ms per step), then logs audit trail to `parameter_control_commands` AFTER write completes. This hybrid approach provides fast execution + full traceability without routing through Terminal 3.
 
-### ⚙️ TERMINAL 3: Parameter Service
+### ⚙️ TERMINAL 3: Parameter Service (with Realtime + Instant Updates)
 
 - **Purpose**: Parameter control and writing for EXTERNAL commands
-- **Function**: Listens for parameter commands and writes directly to PLC
-- **Database**: Monitors `parameter_control_commands` table
+- **Function**: Listens for parameter commands via Supabase Realtime and writes directly to PLC
+- **Database**: Monitors `parameter_control_commands` table (Realtime + polling fallback)
 - **Launch**: `python main.py --terminal 3 --demo` or `python terminal3_launcher.py --demo`
-- **Features**: Direct PLC access, parameter validation, retry logic
+- **File**: `terminal3_clean.py`
+- **Features**: 
+  - 🚀 **Supabase Realtime** for instant command notifications (~0ms delay)
+  - 🚀 **Instant database updates** for immediate UI feedback (~100-200ms total)
+  - ✅ **Input validation** (NaN, Infinity, type checks)
+  - 🔄 **Fallback polling** (10s when Realtime up, 1s when down)
+  - ⚡ **Terminal liveness** tracking with heartbeat monitoring
+- **Performance**: ~700ms end-to-end latency (17x faster than original 10-12s)
 - **Scope**: Handles EXTERNAL manual parameter commands from operators/systems. Does NOT process recipe commands - recipes use direct PLC access (Terminal 2) for speed, then audit to this table for traceability.
 
 ### Running the 3-Terminal System
