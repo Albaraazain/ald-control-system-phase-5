@@ -34,7 +34,7 @@ export function useRecipeActions() {
       const command = {
         recipe_step_id: null,
         machine_id: MACHINE_ID,
-        type: 'start',
+        type: 'start_recipe',
         status: 'pending',
         parameters: { recipe_id: recipeId },
       }
@@ -115,7 +115,7 @@ export function useRecipeActions() {
       const command = {
         recipe_step_id: null,
         machine_id: MACHINE_ID,
-        type: 'stop',
+        type: 'stop_recipe',
         status: 'pending',
         parameters: { recipe_id: currentProcess.recipe_id },
       }

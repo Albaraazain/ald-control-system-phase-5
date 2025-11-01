@@ -105,11 +105,14 @@ async def start_recipe(command_id: int, parameters: dict):
     try:
         state_data = {
             'execution_id': process_id,
-            'progress': {'total_steps': len(recipe_steps), 'completed_steps': 0},
+            'total_overall_steps': total_steps,  # CRITICAL: Set column for UI display
+            'current_overall_step': 0,
+            'current_step_index': 0,
+            'progress': {'total_steps': total_steps, 'completed_steps': 0},
             'last_updated': get_current_timestamp()
         }
         supabase.table('process_execution_state').insert(state_data).execute()
-        logger.info("Created process_execution_state record")
+        logger.info(f"Created process_execution_state record with {total_steps} total steps")
     except Exception as e:
         logger.warning(f"Failed to create process_execution_state (may already exist via trigger): {e}")
     

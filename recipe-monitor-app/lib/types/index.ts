@@ -108,6 +108,42 @@ export type {
 } from './dashboard';
 
 // ========================================
+// TERMINAL LIVENESS TYPES
+// ========================================
+export type {
+  // Enums
+  TerminalType,
+  TerminalStatus,
+  EnvironmentType,
+
+  // Main table types
+  TerminalInstance,
+  TerminalInstanceInsert,
+  TerminalInstanceUpdate,
+
+  // Audit table types
+  TerminalHealthHistory,
+  TerminalHealthHistoryInsert,
+
+  // View types
+  ActiveTerminal,
+  TerminalHealthSummary,
+
+  // Function return types
+  DeadTerminal,
+
+  // UI helper types
+  TerminalStatusConfig,
+
+  // Realtime types
+  TerminalInstanceRealtimePayload,
+  TerminalInstanceRealtimeInsert,
+  TerminalInstanceRealtimeUpdate,
+  TerminalInstanceRealtimeDelete,
+  TerminalHealthHistoryRealtimeInsert,
+} from './terminal';
+
+// ========================================
 // UTILITY FUNCTIONS (RE-EXPORTED)
 // ========================================
 export {
@@ -118,3 +154,15 @@ export {
   getButtonState,
   formatLogEntry,
 } from './dashboard';
+
+export {
+  TERMINAL_STATUS_CONFIG,
+  TERMINAL_TYPE_LABELS,
+  TERMINAL_TYPE_SHORT_LABELS,
+  isTerminalActive,
+  isTerminalDead,
+  calculateUptimeSeconds,
+  formatUptime,
+  getTerminalStatusConfig,
+  getTerminalTypeLabel,
+} from './terminal';

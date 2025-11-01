@@ -3,42 +3,82 @@ Executes valve steps in a recipe.
 """
 import asyncio
 import os
+from datetime import datetime, timezone
 from src.log_setup import logger
 from src.db import get_supabase, get_current_timestamp
 from src.plc.manager import plc_manager
 from src.recipe_flow.cancellation import is_cancelled
 
 
-async def _audit_log_valve_command(valve_number: int, process_id: str = None):
+async def _audit_log_recipe_operation(
+    process_id: str,
+    recipe_id: str,
+    step_id: str,
+    operation_type: str,
+    parameter_name: str,
+    target_value: float,
+    duration_ms: int = None,
+    step_sequence: int = None,
+    plc_write_start: datetime = None,
+    plc_write_end: datetime = None,
+    modbus_address: int = None,
+    error_message: str = None,
+    final_status: str = 'success'
+):
     """
-    Background task to audit log valve commands to parameter_control_commands table.
-    Runs asynchronously and does NOT block recipe execution.
+    Comprehensive audit logging to recipe_execution_audit table.
+
+    Logs ALL recipe operations with full context for traceability, debugging, and compliance.
 
     Args:
-        valve_number: The valve number that was controlled
-        process_id: The process execution ID (optional, for logging only - not stored in audit table)
+        process_id: Process execution ID
+        recipe_id: Recipe ID
+        step_id: Recipe step ID
+        operation_type: Type of operation ('valve', 'parameter', 'purge', etc.)
+        parameter_name: Human-readable name (e.g., 'Valve_1')
+        target_value: Commanded value
+        duration_ms: Duration for valve/purge operations
+        step_sequence: Sequential position in recipe
+        plc_write_start: When PLC write started
+        plc_write_end: When PLC write completed
+        modbus_address: Modbus address written to
+        error_message: Error details if failed
+        final_status: Operation status ('success', 'failed', 'cancelled')
     """
     try:
         supabase = get_supabase()
-        machine_id = os.environ.get('MACHINE_ID', 'unknown')
+        machine_id = os.environ.get('MACHINE_ID')
 
-        # Create audit record showing valve was already executed
-        # Note: parameter_control_commands table does not have process_id column
+        # Build comprehensive audit record
         audit_record = {
+            'process_id': process_id,
+            'recipe_id': recipe_id,
+            'step_id': step_id,
             'machine_id': machine_id,
-            'parameter_name': f'Valve_{valve_number}',
-            'target_value': 1,  # Valve opened (binary coil requires int)
-            'executed_at': get_current_timestamp(),
-            'completed_at': get_current_timestamp(),
+            'operation_type': operation_type,
+            'parameter_name': parameter_name,
+            'target_value': target_value,
+            'duration_ms': duration_ms,
+            'step_sequence': step_sequence if step_sequence is not None else 0,
+            'loop_iteration': 0,  # TODO: Extract from execution context when loops implemented
+            'operation_initiated_at': get_current_timestamp(),
+            'plc_write_start_time': plc_write_start.isoformat() if plc_write_start else None,
+            'plc_write_end_time': plc_write_end.isoformat() if plc_write_end else None,
+            'operation_completed_at': get_current_timestamp(),
+            'verification_attempted': False,  # TODO: Enable when verification implemented
+            'final_status': final_status,
+            'modbus_address': modbus_address,
+            'error_message': error_message,
         }
 
-        # Insert audit record (non-blocking background operation)
-        supabase.table('parameter_control_commands').insert(audit_record).execute()
+        # Insert audit record to recipe_execution_audit table
+        result = supabase.table('recipe_execution_audit').insert(audit_record).execute()
 
-        logger.debug(f"Audit logged valve {valve_number} command for process {process_id}")
+        logger.info(f"✅ Audited {operation_type} operation: {parameter_name} = {target_value} (process: {process_id})")
+
     except Exception as e:
-        # Log error but DO NOT propagate - recipe must continue even if audit fails
-        logger.error(f"Failed to audit log valve {valve_number} command: {e}", exc_info=True)
+        # Log error but DO NOT propagate - recipe execution must continue even if audit fails
+        logger.error(f"❌ Failed to audit {operation_type} operation {parameter_name}: {e}", exc_info=True)
 
 
 async def execute_valve_step(process_id: str, step: dict):
@@ -114,17 +154,77 @@ async def execute_valve_step(process_id: str, step: dict):
     }
     supabase.table('process_execution_state').update(state_update).eq('execution_id', process_id).execute()
     
+    # Get recipe_id and step_sequence for audit trail
+    process_result = supabase.table('process_executions').select('recipe_id').eq('id', process_id).single().execute()
+    recipe_id = process_result.data['recipe_id'] if process_result.data else None
+
+    # Get step sequence from execution state
+    state_result = supabase.table('process_execution_state').select('current_overall_step').eq('execution_id', process_id).single().execute()
+    step_sequence = state_result.data['current_overall_step'] if state_result.data else 0
+
     # Control the valve via PLC
     plc = plc_manager.plc
-    if plc:
-        success = await plc.control_valve(valve_number, True, duration_ms)
-        if not success:
-            raise RuntimeError(f"Failed to control valve {valve_number}")
+    plc_write_start = None
+    plc_write_end = None
+    error_msg = None
+    status = 'success'
 
-        # Audit log the valve command in background (non-blocking)
-        asyncio.create_task(_audit_log_valve_command(valve_number, process_id))
+    if plc:
+        plc_write_start = datetime.now(timezone.utc)
+        success = await plc.control_valve(valve_number, True, duration_ms)
+        plc_write_end = datetime.now(timezone.utc)
+
+        if not success:
+            error_msg = f"Failed to control valve {valve_number}"
+            status = 'failed'
+
+            # Audit the failed operation
+            await _audit_log_recipe_operation(
+                process_id=process_id,
+                recipe_id=recipe_id,
+                step_id=step_id,
+                operation_type='valve',
+                parameter_name=f'Valve_{valve_number}',
+                target_value=1,
+                duration_ms=duration_ms,
+                step_sequence=step_sequence,
+                plc_write_start=plc_write_start,
+                plc_write_end=plc_write_end,
+                error_message=error_msg,
+                final_status=status
+            )
+
+            raise RuntimeError(error_msg)
+
+        # Audit the successful valve operation with full context
+        await _audit_log_recipe_operation(
+            process_id=process_id,
+            recipe_id=recipe_id,
+            step_id=step_id,
+            operation_type='valve',
+            parameter_name=f'Valve_{valve_number}',
+            target_value=1,
+            duration_ms=duration_ms,
+            step_sequence=step_sequence,
+            plc_write_start=plc_write_start,
+            plc_write_end=plc_write_end,
+            final_status=status
+        )
     else:
         # Fallback to simulation behavior if no PLC
         await asyncio.sleep(duration_ms / 1000)
+
+        # Still audit the simulated operation
+        await _audit_log_recipe_operation(
+            process_id=process_id,
+            recipe_id=recipe_id,
+            step_id=step_id,
+            operation_type='valve',
+            parameter_name=f'Valve_{valve_number}',
+            target_value=1,
+            duration_ms=duration_ms,
+            step_sequence=step_sequence,
+            final_status='success'
+        )
 
     logger.info(f"Valve {valve_number} operation completed successfully")

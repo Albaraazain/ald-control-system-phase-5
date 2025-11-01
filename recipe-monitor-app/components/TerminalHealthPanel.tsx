@@ -3,6 +3,9 @@
 import { useTerminalStatus } from '@/hooks/use-terminal-status'
 import TerminalStatusCard from '@/components/TerminalStatusCard'
 
+// Get machine ID from environment at module level (build time)
+const MACHINE_ID = process.env.NEXT_PUBLIC_MACHINE_ID!
+
 /**
  * TerminalHealthPanel Component
  *
@@ -19,11 +22,8 @@ import TerminalStatusCard from '@/components/TerminalStatusCard'
  * - Dark theme matching dashboard style
  */
 export default function TerminalHealthPanel() {
-  // Get machine ID from environment
-  const machineId = process.env.NEXT_PUBLIC_MACHINE_ID || ''
-
   // Fetch terminal status with realtime subscription
-  const { terminals, isLoading, error, refresh } = useTerminalStatus(machineId)
+  const { terminals, isLoading, error, refresh } = useTerminalStatus(MACHINE_ID)
 
   return (
     <section

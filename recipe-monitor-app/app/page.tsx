@@ -2,6 +2,7 @@
 
 import { useDashboardData } from '@/hooks/use-dashboard-data'
 import { useRealtimeSubscriptions } from '@/hooks/use-realtime-subscriptions'
+import TerminalHealthPanel from '@/components/TerminalHealthPanel'
 import ControlPanel from '@/components/ControlPanel'
 import StepsPanel from '@/components/StepsPanel'
 import ComponentsPanel from '@/components/ComponentsPanel'
@@ -70,7 +71,12 @@ export default function DashboardPage() {
 
         {/* Main Dashboard Layout */}
         <div className="space-y-6">
-          {/* Control Panel - Top section (HTML lines 48-96) */}
+          {/* Terminal Health Panel - Top priority system status */}
+          <div className="w-full">
+            <TerminalHealthPanel />
+          </div>
+
+          {/* Control Panel - Recipe control section (HTML lines 48-96) */}
           <div className="w-full">
             <ControlPanel />
           </div>

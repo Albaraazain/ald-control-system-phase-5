@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALD Control System Dashboard</title>
+
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            color: #667eea;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .valve-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .valve-status {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f3f4f6;
+            transition: all 0.3s ease;
+        }
+
+        .valve-status.on {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+        }
+
+        .valve-status.off {
+            background: #f3f4f6;
+            border: 2px solid #9ca3af;
+        }
+
+        .valve-icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .valve-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .valve-state {
+            font-size: 12px;
+            font-weight: 500;
+            padding: 4px 12px;
+            border-radius: 12px;
+        }
+
+        .valve-state.on {
+            background: #10b981;
+            color: white;
+        }
+
+        .valve-state.off {
+            background: #9ca3af;
+            color: white;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+            margin-top: 10px;
+        }
+
+        .process-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .process-table th {
+            background: #f3f4f6;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .process-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.completed {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.running {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-badge.failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 18px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .valve-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .process-table {
+                font-size: 12px;
+            }
+
+            .process-table th,
+            .process-table td {
+                padding: 8px 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ALD Control System Dashboard</h1>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>Live Updates Active</span>
+            </div>
+        </div>
+
+        <div id="error" class="error-message"></div>
+
+        <div id="loading" class="loading">Loading dashboard...</div>
+
+        <div id="dashboard" style="display: none;">
+            <div class="dashboard-grid">
+                <!-- Valve States Card -->
+                <div class="card">
+                    <h2>Valve States</h2>
+                    <div class="valve-grid" id="valveGrid">
+                        <!-- Valves will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Components Card -->
+                <div class="card">
+                    <h2>System Components</h2>
+                    <div class="valve-grid" id="componentsGrid">
+                        <!-- Components will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Temperature Chart -->
+                <div class="card full-width">
+                    <h2>Temperature Monitoring</h2>
+                    <div class="chart-container">
+                        <canvas id="temperatureChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Pressure & Flow Charts -->
+                <div class="card">
+                    <h2>Pressure</h2>
+                    <div class="chart-container">
+                        <canvas id="pressureChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Flow Rate</h2>
+                    <div class="chart-container">
+                        <canvas id="flowChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Process Executions -->
+                <div class="card full-width">
+                    <h2>Recent Process Executions</h2>
+                    <div style="overflow-x: auto;">
+                        <table class="process-table" id="processTable">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Started</th>
+                                    <th>Duration</th>
+                                    <th>Error</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Process rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://yceyfsqusdmcwgkwxcnt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljZXlmc3F1c2RtY3dna3d4Y250Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5OTYzNzUsImV4cCI6MjA1MTU3MjM3NX0.sYfJ9gYa5M4-fzgF9BxYdG8d0pxP17gU4kOgf2JBvOw';
+        const MACHINE_ID = 'e3e6e280-0794-459f-84d5-5e468f60746e';
+
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Component parameter IDs mapping
+        const COMPONENT_IDS = {
+            'valve1': 'c6d493fa-adf3-4784-bb80-3425dd276d49',
+            'valve2': '846bc6d6-04df-4318-affb-b97cf7238793',
+            'valve3': '896208fd-0e1f-49a2-9ef6-46ab0d341bee',
+            'valve4': '5adac7f8-816a-45bb-8f6e-ca45b8b4330f',
+            'nitrogen': '9c53f4ef-5506-4a45-9718-af8a7b233056',
+            'pump': '9917618c-7325-4771-a771-65b42c6d6c73',
+            'exhaust': '5d2cfe0a-151c-4745-9865-cd78125f93d0',
+            'isolation': '264bfd7f-6076-4b37-be09-dce51bd250c7'
+        };
+
+        const PARAMETER_IDS = {
+            'chamber_temp': 'b6433c16-cb13-4e6a-b5b8-1b1519f0b44b',
+            'frontline_temp': '4567ba45-1c86-45d2-bf4d-b1cf306f387a',
+            'pressure': '8fe19753-ebac-47ce-8461-a713b4e42695',
+            'flow': '35969620-6843-4130-8eca-d6b62dc74dbf'
+        };
+
+        // Chart instances
+        let temperatureChart, pressureChart, flowChart;
+
+        // Initialize dashboard
+        async function initDashboard() {
+            try {
+                // Load initial data
+                await Promise.all([
+                    loadValveStates(),
+                    loadProcessExecutions(),
+                    loadParameterHistory()
+                ]);
+
+                // Subscribe to real-time updates
+                subscribeToUpdates();
+
+                // Show dashboard
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+
+            } catch (error) {
+                showError('Failed to load dashboard: ' + error.message);
+            }
+        }
+
+        // Load valve states
+        async function loadValveStates() {
+            const { data, error } = await supabase
+                .from('component_parameters')
+                .select(`
+                    id,
+                    current_value,
+                    machine_components!inner(name, machine_id)
+                `)
+                .eq('machine_components.machine_id', MACHINE_ID)
+                .or('machine_components.name.ilike.%valve%,machine_components.name.ilike.%pump%,machine_components.name.ilike.%nitrogen%');
+
+            if (error) throw error;
+
+            const valveGrid = document.getElementById('valveGrid');
+            const componentsGrid = document.getElementById('componentsGrid');
+            valveGrid.innerHTML = '';
+            componentsGrid.innerHTML = '';
+
+            data.forEach(component => {
+                const name = component.machine_components.name;
+                const isOn = component.current_value === 1;
+                const isValve = name.toLowerCase().includes('valve') && !name.toLowerCase().includes('gate') && !name.toLowerCase().includes('isolation');
+
+                const html = `
+                    <div class="valve-status ${isOn ? 'on' : 'off'}" data-id="${component.id}">
+                        <div class="valve-icon">${isValve ? '🚰' : '⚙️'}</div>
+                        <div class="valve-name">${name}</div>
+                        <div class="valve-state ${isOn ? 'on' : 'off'}">
+                            ${isOn ? 'ON' : 'OFF'}
+                        </div>
+                    </div>
+                `;
+
+                if (isValve) {
+                    valveGrid.innerHTML += html;
+                } else {
+                    componentsGrid.innerHTML += html;
+                }
+            });
+        }
+
+        // Load process executions
+        async function loadProcessExecutions() {
+            const { data, error } = await supabase
+                .from('process_executions')
+                .select('id, status, start_time, end_time, error_message')
+                .eq('machine_id', MACHINE_ID)
+                .order('start_time', { ascending: false })
+                .limit(10);
+
+            if (error) throw error;
+
+            const tbody = document.querySelector('#processTable tbody');
+            tbody.innerHTML = '';
+
+            data.forEach(process => {
+                const duration = process.end_time
+                    ? Math.round((new Date(process.end_time) - new Date(process.start_time)) / 1000) + 's'
+                    : 'Running...';
+
+                const row = `
+                    <tr>
+                        <td><span class="status-badge ${process.status}">${process.status}</span></td>
+                        <td>${new Date(process.start_time).toLocaleString()}</td>
+                        <td>${duration}</td>
+                        <td>${process.error_message || '-'}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // Load parameter history and create charts
+        async function loadParameterHistory() {
+            const { data, error } = await supabase
+                .from('parameter_readings')
+                .select('*')
+                .order('timestamp', { ascending: false })
+                .limit(100);
+
+            if (error) throw error;
+
+            // Reverse to get chronological order
+            data.reverse();
+
+            // Extract timestamps and values
+            const timestamps = data.map(d => new Date(d.timestamp));
+            const chamberTemp = data.map(d => d.param_b6433c16);
+            const frontlineTemp = data.map(d => d.param_4567ba45);
+            const pressure = data.map(d => d.param_8fe19753);
+            const flow = data.map(d => d.param_35969620);
+
+            // Create temperature chart
+            const tempCtx = document.getElementById('temperatureChart').getContext('2d');
+            temperatureChart = new Chart(tempCtx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [
+                        {
+                            label: 'Chamber Temp (°C)',
+                            data: chamberTemp,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Frontline Temp (°C)',
+                            data: frontlineTemp,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute'
+                            }
+                        },
+                        y: {
+                            beginAtZero: false
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+
+            // Create pressure chart
+            const pressureCtx = document.getElementById('pressureChart').getContext('2d');
+            pressureChart = new Chart(pressureCtx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [{
+                        label: 'Pressure (bar)',
+                        data: pressure,
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+
+            // Create flow chart
+            const flowCtx = document.getElementById('flowChart').getContext('2d');
+            flowChart = new Chart(flowCtx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [{
+                        label: 'Flow Rate (sccm)',
+                        data: flow,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Subscribe to real-time updates
+        function subscribeToUpdates() {
+            // Subscribe to component parameter changes
+            supabase
+                .channel('component_updates')
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'component_parameters'
+                }, payload => {
+                    updateValveState(payload.new);
+                })
+                .subscribe();
+
+            // Subscribe to process execution changes
+            supabase
+                .channel('process_updates')
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'process_executions',
+                    filter: `machine_id=eq.${MACHINE_ID}`
+                }, payload => {
+                    loadProcessExecutions();
+                })
+                .subscribe();
+
+            // Subscribe to parameter readings
+            supabase
+                .channel('parameter_readings')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'parameter_readings'
+                }, payload => {
+                    updateCharts(payload.new);
+                })
+                .subscribe();
+        }
+
+        // Update valve state in UI
+        function updateValveState(component) {
+            const element = document.querySelector(`[data-id="${component.id}"]`);
+            if (element) {
+                const isOn = component.current_value === 1;
+                element.className = `valve-status ${isOn ? 'on' : 'off'}`;
+                const stateElement = element.querySelector('.valve-state');
+                stateElement.textContent = isOn ? 'ON' : 'OFF';
+                stateElement.className = `valve-state ${isOn ? 'on' : 'off'}`;
+            }
+        }
+
+        // Update charts with new data
+        function updateCharts(newData) {
+            const timestamp = new Date(newData.timestamp);
+
+            // Keep only last 100 points
+            const maxPoints = 100;
+
+            // Update temperature chart
+            if (temperatureChart) {
+                temperatureChart.data.labels.push(timestamp);
+                temperatureChart.data.datasets[0].data.push(newData.param_b6433c16);
+                temperatureChart.data.datasets[1].data.push(newData.param_4567ba45);
+
+                if (temperatureChart.data.labels.length > maxPoints) {
+                    temperatureChart.data.labels.shift();
+                    temperatureChart.data.datasets[0].data.shift();
+                    temperatureChart.data.datasets[1].data.shift();
+                }
+
+                temperatureChart.update('none');
+            }
+
+            // Update pressure chart
+            if (pressureChart) {
+                pressureChart.data.labels.push(timestamp);
+                pressureChart.data.datasets[0].data.push(newData.param_8fe19753);
+
+                if (pressureChart.data.labels.length > maxPoints) {
+                    pressureChart.data.labels.shift();
+                    pressureChart.data.datasets[0].data.shift();
+                }
+
+                pressureChart.update('none');
+            }
+
+            // Update flow chart
+            if (flowChart) {
+                flowChart.data.labels.push(timestamp);
+                flowChart.data.datasets[0].data.push(newData.param_35969620);
+
+                if (flowChart.data.labels.length > maxPoints) {
+                    flowChart.data.labels.shift();
+                    flowChart.data.datasets[0].data.shift();
+                }
+
+                flowChart.update('none');
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>

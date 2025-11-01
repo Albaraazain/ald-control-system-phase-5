@@ -50,7 +50,7 @@ export function useRealtimeSubscriptions() {
             // Reload active process
             const { data, error } = await supabase
               .from('process_executions')
-              .select(`id, recipe_id, status, current_step_index, started_at, completed_at, recipes(name, total_steps)`)
+              .select(`id, recipe_id, status, current_step_index, started_at, completed_at, recipes(name)`)
               .eq('machine_id', MACHINE_ID)
               .eq('status', 'running')
               .order('started_at', { ascending: false })
@@ -93,7 +93,8 @@ export function useRealtimeSubscriptions() {
       .subscribe()
     channels.push(processChannel)
 
-    // Subscribe to component_parameters for this machine (HTML lines 500-506)
+    // Subscribe to component_parameters (no machine_id filter since it doesn't exist on this table)
+    // Filter by machine in the handler using componentsIndex
     const componentChannel = supabase
       .channel('component-updates')
       .on(
@@ -102,15 +103,17 @@ export function useRealtimeSubscriptions() {
           event: '*',
           schema: 'public',
           table: 'component_parameters',
-          filter: `machine_id=eq.${MACHINE_ID}`,
         },
         (payload: RealtimePostgresChangesPayload<ComponentParameterDB>) => {
           const comp = payload.new as ComponentParameterDB
           if (!comp || !comp.id) return
 
-          // Merge with existing to preserve name/type from initial join (HTML lines 547-561)
-          // Get existing component to access name/type from initial join
+          // Filter to only components we care about (from this machine)
+          // componentsIndex only contains components loaded for this machine
           const existing = componentsIndex.get(comp.id)
+          if (!existing) return // Ignore updates for components not on this machine
+
+          // Update component state
           updateComponent(comp.id, {
             id: comp.id,
             current_value: comp.current_value,
@@ -118,10 +121,7 @@ export function useRealtimeSubscriptions() {
             updated_at: comp.updated_at,
           } as Partial<ComponentParameter>)
 
-          // Derive human-readable log message (HTML lines 563-573)
-          // Use existing component data for name/type
-          if (!existing) return // Skip logging if we don't have existing data
-
+          // Derive human-readable log message
           const val = Number(comp.current_value ?? 0)
           const name = existing.name || `Component ${comp.id}`
           if (existing.type === 'valve') {
@@ -138,8 +138,8 @@ export function useRealtimeSubscriptions() {
       .subscribe()
     channels.push(componentChannel)
 
-    // Subscribe to recipe_step_executions (HTML lines 508-514)
-    // Filter by current process inside handler (HTML line 578)
+    // Subscribe to step_execution_history (actual table name)
+    // Filter by current process inside handler
     const stepChannel = supabase
       .channel('step-updates')
       .on(
@@ -147,21 +147,22 @@ export function useRealtimeSubscriptions() {
         {
           event: '*',
           schema: 'public',
-          table: 'recipe_step_executions',
+          table: 'step_execution_history',
         },
-        (payload: RealtimePostgresChangesPayload<RecipeStepExecution>) => {
-          const s = payload.new as RecipeStepExecution
+        (payload: RealtimePostgresChangesPayload<any>) => {
+          const s = payload.new as any
           if (!s || !s.id) return
 
-          // Only reflect for the active process (HTML line 578)
-          if (currentProcess && s.process_execution_id !== currentProcess.id) return
+          // Only reflect for the active process (process_id is the correct column name)
+          if (currentProcess && s.process_id !== currentProcess.id) return
 
-          // Update execution state (HTML lines 581-582)
-          const status = s.status || 'pending'
-          updateStepExecution(s.step_order, {
+          // Update execution state (step_number is the correct column name)
+          // Derive status from started_at/ended_at since there's no status column
+          const status = s.ended_at ? 'completed' : s.started_at ? 'running' : 'pending'
+          updateStepExecution(s.step_number, {
             status,
             started_at: s.started_at,
-            completed_at: s.completed_at,
+            completed_at: s.ended_at, // ended_at is the correct column name
           })
         }
       )

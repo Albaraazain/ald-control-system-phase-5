@@ -16,6 +16,35 @@ from src.connection_monitor import connection_monitor
 realtime_connected = False
 
 
+def create_task_with_logging(coro, task_name: str):
+    """
+    Create an asyncio task with proper exception handling and logging.
+
+    This wrapper ensures that exceptions in background tasks are properly logged
+    instead of being silently lost. All asyncio.create_task() calls should use
+    this wrapper to prevent silent failures.
+
+    Args:
+        coro: The coroutine to run as a background task
+        task_name: A descriptive name for the task (used in error logs)
+
+    Returns:
+        asyncio.Task: The created task with exception handling
+    """
+    async def wrapped():
+        try:
+            await coro
+        except asyncio.CancelledError:
+            logger.warning(f"Background task '{task_name}' was cancelled")
+            raise  # Re-raise CancelledError for proper cleanup
+        except Exception as e:
+            logger.error(
+                f"Background task '{task_name}' failed with exception: {e}",
+                exc_info=True
+            )
+    return asyncio.create_task(wrapped())
+
+
 async def check_pending_commands():
     """
     Check for existing pending commands and process them.
@@ -89,7 +118,10 @@ async def setup_command_listener(async_supabase):
     def on_insert(payload):
         logger.info("🔔 RECIPE COMMAND RECEIVED [REALTIME] - Processing new recipe command")
         logger.debug(f"Payload: {payload}")
-        asyncio.create_task(handle_command_insert(payload))
+        create_task_with_logging(
+            handle_command_insert(payload),
+            f"handle_command_insert-{payload.get('data', {}).get('record', {}).get('id', 'unknown')}"
+        )
 
     # Direct subscription
     channel = async_supabase.channel(channel_name)
@@ -124,7 +156,7 @@ async def setup_command_listener(async_supabase):
     # Start polling for commands as a fallback
     base_msg = "REALTIME + polling fallback" if realtime_connected else "POLLING ONLY (realtime failed)"
     logger.info(f"Starting recipe command polling; listener ready with {base_msg}")
-    asyncio.create_task(poll_for_commands())
+    create_task_with_logging(poll_for_commands(), "poll_for_commands")
 
 
 async def handle_command_insert(payload):

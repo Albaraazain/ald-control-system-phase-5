@@ -184,7 +184,7 @@ class Terminal2RecipeTest:
                     status = result.data['status']
                     logger.info(f"📋 Command status: {status}")
 
-                    if status == 'executing':
+                    if status == 'processing':
                         self.log_result("Command Pickup", True, f"Command picked up in {time.time() - start_time:.1f}s")
                         return True
 
@@ -214,29 +214,27 @@ class Terminal2RecipeTest:
 
         while time.time() - start_time < timeout:
             try:
-                # Check machine state for current process
-                machine_result = supabase.table('machines').select('current_process_id, status').eq('id', MACHINE_ID).single().execute()
-                if machine_result.data:
-                    current_process_id = machine_result.data['current_process_id']
-                    machine_status = machine_result.data['status']
-
-                    if current_process_id and not process_id:
-                        process_id = current_process_id
-                        logger.info(f"🎬 Recipe execution started - Process ID: {process_id}")
+                # Query process_executions directly by recipe_id
+                if not process_id:
+                    process_result = supabase.table('process_executions').select('id, status').eq('recipe_id', self.test_recipe_id).order('created_at', desc=True).limit(1).execute()
+                    if process_result.data and len(process_result.data) > 0:
+                        process_id = process_result.data[0]['id']
+                        process_status = process_result.data[0]['status']
+                        logger.info(f"🎬 Recipe execution started - Process ID: {process_id}, Status: {process_status}")
                         self.test_process_id = process_id
 
-                    if process_id:
-                        # Get process status
-                        process_result = supabase.table('process_executions').select('status').eq('id', process_id).single().execute()
-                        if process_result.data:
-                            process_status = process_result.data['status']
-                            logger.info(f"📊 Process status: {process_status}, Machine status: {machine_status}")
+                if process_id:
+                    # Get current process status
+                    status_result = supabase.table('process_executions').select('status').eq('id', process_id).single().execute()
+                    if status_result.data:
+                        process_status = status_result.data['status']
+                        logger.info(f"📊 Process status: {process_status}")
 
-                            if process_status in ['completed', 'failed', 'stopped']:
-                                elapsed = time.time() - start_time
-                                self.log_result("Execution Monitoring", process_status == 'completed',
-                                              f"Process {process_status} in {elapsed:.1f}s")
-                                return process_id
+                        if process_status in ['completed', 'failed', 'stopped']:
+                            elapsed = time.time() - start_time
+                            self.log_result("Execution Monitoring", process_status == 'completed',
+                                          f"Process {process_status} in {elapsed:.1f}s")
+                            return process_id
 
                         # Get execution state for detailed progress
                         state_result = supabase.table('process_execution_state').select('*').eq('execution_id', process_id).single().execute()
@@ -310,12 +308,14 @@ class Terminal2RecipeTest:
             ).eq('machine_id', MACHINE_ID).order('created_at', desc=True).limit(10).execute()
 
             if audit_result.data:
+                from datetime import datetime, timezone, timedelta
+                cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+
                 recent_valve_commands = [
                     cmd for cmd in audit_result.data
-                    if cmd.get('executed_at') and time.time() - time.mktime(time.strptime(
-                        cmd['executed_at'].split('.')[0].replace('T', ' ').replace('Z', ''),
-                        '%Y-%m-%d %H:%M:%S'
-                    )) < 300  # Within last 5 minutes
+                    if cmd.get('executed_at') and datetime.fromisoformat(
+                        cmd['executed_at'].replace('Z', '+00:00')
+                    ) > cutoff_time
                 ]
 
                 logger.info(f"📋 Found {len(recent_valve_commands)} recent valve audit records:")

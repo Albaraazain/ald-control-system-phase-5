@@ -13,6 +13,7 @@ from src.config import MACHINE_ID
 from src.db import get_supabase
 from src.plc.manager import plc_manager
 from src.connection_monitor import connection_monitor
+from src.parameter_wide_table_mapping import PARAMETER_TO_COLUMN_MAP  # Wide table column mapping
 
 
 # Track commands that have been processed to avoid duplicates
@@ -590,6 +591,16 @@ async def process_parameter_command(command: Dict[str, Any]):
             processing_time_ms = int((time.time() - start_time) * 1000)
             logger.info(f"✅ PARAMETER COMMAND COMPLETED - ID: {command_id} | Parameter: {parameter_name} | Status: SUCCESS | Duration: {processing_time_ms}ms")
             failed_commands.pop(command_id, None)
+            
+            # OPTIMIZATION: Immediately insert into parameter_readings for synchronous propagation
+            # Pattern: Update setpoint → Immediately insert to parameter_readings → Return success
+            try:
+                await _insert_immediate_parameter_readings(parameter_id if parameter_id else None, target_value)
+                logger.info(f"✅ Immediate parameter_readings insert completed for {parameter_name}")
+            except Exception as insert_err:
+                # Don't fail the command if immediate insert fails - data will be picked up by next polling cycle
+                logger.warning(f"⚠️ Immediate parameter_readings insert failed: {insert_err}. Will be picked up by next polling cycle.")
+            
             await finalize_parameter_command(command_id, success=True)
         else:
             # Track retry count
@@ -642,6 +653,72 @@ async def process_parameter_command(command: Dict[str, Any]):
             processing_time_ms = int((time.time() - start_time) * 1000)
             logger.error(f"❌ PARAMETER COMMAND FAILED - ID: {command_id} | Parameter: {parameter_name} | Status: ERROR | Duration: {processing_time_ms}ms")
             await finalize_parameter_command(command_id, success=False, error_message=f"{error_msg} (after {retry_count} attempts)")
+
+
+async def _insert_immediate_parameter_readings(updated_parameter_id: Optional[str], updated_value: float):
+    """
+    Immediately insert current parameter state into parameter_readings table.
+    
+    This ensures synchronous propagation: Update setpoint → Immediately insert to parameter_readings → Return success.
+    Reads all current parameter values from PLC and inserts them in a single wide-format row.
+    
+    Args:
+        updated_parameter_id: The parameter ID that was just updated (for logging)
+        updated_value: The value that was just written (for verification)
+    
+    Returns:
+        bool: True if insert succeeded, False otherwise
+    """
+    try:
+        # Read all current parameter values from PLC to build complete state
+        parameter_values = await plc_manager.read_all_parameters()
+        
+        if not parameter_values:
+            logger.warning("No parameter values available from PLC for immediate insert")
+            return False
+        
+        # Build wide-format record with column names based on parameter IDs
+        from datetime import datetime
+        timestamp = datetime.utcnow().isoformat()
+        wide_record = {}
+        
+        for param_id, value in parameter_values.items():
+            # Get column name from mapping
+            column_name = PARAMETER_TO_COLUMN_MAP.get(param_id)
+            
+            if column_name is None:
+                # Parameter not in wide table mapping - skip
+                continue
+            
+            # Add to wide record
+            wide_record[column_name] = float(value)
+        
+        if not wide_record:
+            logger.warning("No parameters in wide table mapping - cannot insert")
+            return False
+        
+        # Insert using RPC function for optimal performance (same as plc_data_service)
+        supabase = get_supabase()
+        response = supabase.rpc(
+            'insert_parameter_reading_wide',
+            params={
+                'p_timestamp': timestamp,
+                'p_params': wide_record
+            }
+        ).execute()
+        
+        inserted_count = response.data if response.data else 0
+        
+        if inserted_count > 0:
+            logger.info(f"✅ Immediate parameter_readings insert: {inserted_count} parameters in 1 row")
+            return True
+        else:
+            logger.warning("Immediate parameter_readings insert returned 0 parameters")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error in immediate parameter_readings insert: {e}", exc_info=True)
+        return False
 
 
 async def finalize_parameter_command(
