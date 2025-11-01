@@ -679,6 +679,26 @@ async def _update_setpoint_immediately(parameter_id: str, new_setpoint: float) -
         bool: True if update succeeded, False otherwise
     """
     try:
+        import math
+        
+        # Input validation: Check parameter_id
+        if not parameter_id or parameter_id == "":
+            logger.error("❌ Invalid parameter_id: cannot update setpoint")
+            return False
+        
+        # Input validation: Check value type and validity
+        if not isinstance(new_setpoint, (int, float)):
+            logger.error(f"❌ Invalid setpoint type: {type(new_setpoint).__name__} (expected float)")
+            return False
+        
+        # Input validation: Check for NaN or Infinity
+        if math.isnan(new_setpoint):
+            logger.error(f"❌ Invalid setpoint value: NaN (not a number)")
+            return False
+        if math.isinf(new_setpoint):
+            logger.error(f"❌ Invalid setpoint value: Infinity")
+            return False
+        
         supabase = get_supabase()
         
         # Update set_value field immediately

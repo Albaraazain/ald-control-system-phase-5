@@ -3,5 +3,19 @@
       "supabase": {
         "url": "https://mcp.supabase.com/mcp?project_ref=yceyfsqusdmcwgkwxcnt"
       }
-    }
+    },
+    "claude-orchestrator": {
+        "command": "node",
+        "args": [
+          "/Users/albaraa/Developer/Projects/orchestrator-mcp/dist/index.js"
+        ],
+        "env": {
+          "CLAUDE_ORCHESTRATOR_WORKSPACE": "/Users/albaraa/Developer/Projects/ald-control-system-phase-5-1/.agent-workspace",
+          "CLAUDE_ORCHESTRATOR_BACKEND": "cursor",
+          "CLAUDE_ORCHESTRATOR_MAX_AGENTS": "45",
+          "CLAUDE_ORCHESTRATOR_MAX_CONCURRENT": "20",
+          "CLAUDE_ORCHESTRATOR_MAX_DEPTH": "5",
+          "CURSOR_AGENT_MODEL": "sonnet-4.5"
+        }
+      }
   }
