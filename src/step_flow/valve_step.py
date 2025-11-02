@@ -101,7 +101,7 @@ async def execute_valve_step(process_id: str, step: dict):
         parameters = step.get('parameters', {})
         step_type = step['type']
         
-        # If valve number not in type, try to get it from parameters
+        # Defensive: Try to extract valve number from type
         valve_number = None
         if 'open valve' in step_type.lower():
             # Extract valve number from step type (e.g., "open valve 1" -> 1)
@@ -112,16 +112,42 @@ async def execute_valve_step(process_id: str, step: dict):
         
         # If not found in type, check parameters
         if valve_number is None and 'valve_number' in parameters:
-            valve_number = parameters['valve_number']
+            try:
+                valve_number = int(parameters['valve_number'])
+            except (ValueError, TypeError):
+                pass
         
+        # Defensive: Default to valve 1 if unable to determine
         if valve_number is None:
-            raise ValueError(f"Unable to determine valve number from step: {step}")
+            logger.warning(
+                f"⚠️ Valve step '{step.get('name', 'Unknown')}' unable to determine valve number. "
+                f"Defaulting to valve 1."
+            )
+            valve_number = 1
         
-        # Validate parameters
-        if 'duration_ms' not in parameters:
-            raise ValueError(f"Valve step is missing required parameter: duration_ms")
+        # Defensive: Handle missing or invalid duration_ms
+        duration_ms = None
+        if 'duration_ms' in parameters:
+            try:
+                duration_ms = int(parameters['duration_ms'])
+            except (ValueError, TypeError):
+                logger.warning(
+                    f"⚠️ Valve step '{step.get('name', 'Unknown')}' has non-numeric "
+                    f"duration_ms '{parameters.get('duration_ms')}'. Defaulting to 1000ms."
+                )
         
-        duration_ms = int(parameters['duration_ms'])
+        if duration_ms is None:
+            logger.warning(
+                f"⚠️ Valve step '{step.get('name', 'Unknown')}' missing duration_ms parameter. "
+                f"Defaulting to 1000ms (1 second)."
+            )
+            duration_ms = 1000  # Default to 1 second
+        elif duration_ms < 0:
+            logger.warning(
+                f"⚠️ Valve step '{step.get('name', 'Unknown')}' has negative duration "
+                f"{duration_ms}ms. Defaulting to 1000ms."
+            )
+            duration_ms = 1000
     else:
         # Use new valve_step_config table
         valve_number = valve_config['valve_number']

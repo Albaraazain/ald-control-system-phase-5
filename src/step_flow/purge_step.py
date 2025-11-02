@@ -38,18 +38,40 @@ async def execute_purge_step(process_id: str, step: dict) -> None:
         # Fallback to old method for backwards compatibility
         parameters = step.get('parameters', {})
 
-        # Check for both possible parameter names
+        # Defensive: Check for both possible parameter names
         duration_ms = None
         if 'duration_ms' in parameters:
-            duration_ms = int(parameters['duration_ms'])
+            try:
+                duration_ms = int(parameters['duration_ms'])
+            except (ValueError, TypeError):
+                logger.warning(
+                    f"⚠️ Purge step '{step.get('name', 'Unknown')}' has non-numeric "
+                    f"duration_ms '{parameters.get('duration_ms')}'. Defaulting to 1000ms."
+                )
+                duration_ms = None
         elif 'duration' in parameters:
-            duration_ms = int(parameters['duration'])
+            try:
+                duration_ms = int(parameters['duration'])
+            except (ValueError, TypeError):
+                logger.warning(
+                    f"⚠️ Purge step '{step.get('name', 'Unknown')}' has non-numeric "
+                    f"duration '{parameters.get('duration')}'. Defaulting to 1000ms."
+                )
+                duration_ms = None
 
-        # Validate parameters
+        # Defensive: Use sensible default if missing or invalid
         if duration_ms is None:
-            raise ValueError(
-                "Purging step is missing required parameter: duration_ms or duration"
+            logger.warning(
+                f"⚠️ Purge step '{step.get('name', 'Unknown')}' missing duration parameter. "
+                f"Defaulting to 1000ms (1 second)."
             )
+            duration_ms = 1000  # Default to 1 second
+        elif duration_ms < 0:
+            logger.warning(
+                f"⚠️ Purge step '{step.get('name', 'Unknown')}' has negative duration "
+                f"{duration_ms}ms. Defaulting to 1000ms."
+            )
+            duration_ms = 1000
 
         # Set default values for new fields
         gas_type = parameters.get('gas_type', 'N2')

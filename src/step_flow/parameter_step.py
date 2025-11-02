@@ -19,11 +19,16 @@ async def execute_parameter_step(process_id: str, step: dict):
     """
     parameters = step.get('parameters', {})
     
-    # Validate parameters
+    # Defensive: Validate parameters (skip instead of crashing)
     required_params = ['parameter_id', 'value']
-    for param in required_params:
-        if param not in parameters:
-            raise ValueError(f"Parameter step is missing required parameter: {param}")
+    missing_params = [param for param in required_params if param not in parameters]
+    
+    if missing_params:
+        logger.error(
+            f"❌ Parameter step '{step.get('name', 'Unknown')}' is missing required "
+            f"parameters: {missing_params}. Skipping this step."
+        )
+        return  # Skip this step instead of crashing the entire recipe
     
     parameter_id = parameters['parameter_id']
     parameter_value = parameters['value']
