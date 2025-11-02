@@ -26,11 +26,28 @@ async def execute_loop_step(process_id: str, step: dict, all_steps: list, parent
         # Fallback to old method for backwards compatibility
         parameters = step.get('parameters', {})
         
-        # Validate parameters
+        # Defensive: Handle missing or invalid count parameter
         if 'count' not in parameters:
-            raise ValueError(f"Loop step is missing required parameter: count")
-        
-        loop_count = int(parameters['count'])
+            logger.warning(
+                f"⚠️ Loop step '{step.get('name', 'Unknown')}' missing 'count' parameter. "
+                f"Defaulting to 1 iteration."
+            )
+            loop_count = 1
+        else:
+            try:
+                loop_count = int(parameters['count'])
+                if loop_count < 1:
+                    logger.warning(
+                        f"⚠️ Loop step '{step.get('name', 'Unknown')}' has invalid count "
+                        f"{loop_count}. Defaulting to 1."
+                    )
+                    loop_count = 1
+            except (ValueError, TypeError):
+                logger.warning(
+                    f"⚠️ Loop step '{step.get('name', 'Unknown')}' has non-numeric count "
+                    f"'{parameters.get('count')}'. Defaulting to 1."
+                )
+                loop_count = 1
     else:
         # Use new loop_step_config table
         loop_count = loop_config['iteration_count']

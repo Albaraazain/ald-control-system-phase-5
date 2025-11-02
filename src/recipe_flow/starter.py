@@ -94,7 +94,30 @@ async def start_recipe(command_id: int, parameters: dict):
     total_steps = 0
     for step in recipe_steps:
         if step['type'].lower() == 'loop':
-            loop_count = int(step['parameters']['count'])
+            # Defensive: Handle missing or invalid count parameter
+            step_params = step.get('parameters', {})
+            if 'count' not in step_params:
+                logger.warning(
+                    f"⚠️ Loop step '{step.get('name', 'Unknown')}' missing 'count' parameter. "
+                    f"Defaulting to 1 iteration."
+                )
+                loop_count = 1
+            else:
+                try:
+                    loop_count = int(step_params['count'])
+                    if loop_count < 1:
+                        logger.warning(
+                            f"⚠️ Loop step '{step.get('name', 'Unknown')}' has invalid count "
+                            f"{loop_count}. Defaulting to 1."
+                        )
+                        loop_count = 1
+                except (ValueError, TypeError):
+                    logger.warning(
+                        f"⚠️ Loop step '{step.get('name', 'Unknown')}' has non-numeric count "
+                        f"'{step_params.get('count')}'. Defaulting to 1."
+                    )
+                    loop_count = 1
+            
             child_steps = [s for s in recipe_steps if s.get('parent_step_id') == step['id']]
             total_steps += len(child_steps) * loop_count
         elif not step.get('parent_step_id'):  # Only count non-child steps

@@ -13,6 +13,43 @@ from src.recipe_flow.continuous_data_recorder import continuous_recorder
 from src.recipe_flow.cancellation import is_cancelled, clear as clear_cancel
 from src.utils.atomic_machine_state import atomic_complete_machine_state, atomic_error_machine_state
 
+
+def get_loop_count_safe(step: dict) -> int:
+    """
+    Safely extract loop count from step parameters with defensive fallbacks.
+    
+    Args:
+        step: Recipe step dictionary
+        
+    Returns:
+        Loop count (defaults to 1 if missing/invalid)
+    """
+    step_params = step.get('parameters', {})
+    step_name = step.get('name', 'Unknown')
+    
+    if 'count' not in step_params:
+        logger.warning(
+            f"⚠️ Loop step '{step_name}' missing 'count' parameter. "
+            f"Defaulting to 1 iteration."
+        )
+        return 1
+    
+    try:
+        loop_count = int(step_params['count'])
+        if loop_count < 1:
+            logger.warning(
+                f"⚠️ Loop step '{step_name}' has invalid count {loop_count}. "
+                f"Defaulting to 1."
+            )
+            return 1
+        return loop_count
+    except (ValueError, TypeError):
+        logger.warning(
+            f"⚠️ Loop step '{step_name}' has non-numeric count "
+            f"'{step_params.get('count')}'. Defaulting to 1."
+        )
+        return 1
+
 async def execute_recipe(process_id: str):
     """
     Execute all steps of a recipe process.
@@ -38,7 +75,7 @@ async def execute_recipe(process_id: str):
         total_cycles = 0
         for step in all_steps:
             if step['type'].lower() == 'loop':
-                loop_count = int(step['parameters']['count'])
+                loop_count = get_loop_count_safe(step)  # Defensive: handles missing/invalid count
                 child_steps = [s for s in all_steps if s.get('parent_step_id') == step['id']]
                 total_steps += len(child_steps) * loop_count
                 total_cycles += loop_count
@@ -119,7 +156,7 @@ async def execute_recipe(process_id: str):
             # Update step count based on step type
             if step['type'].lower() == 'loop':
                 # Loop steps handle their own counting
-                loop_count = int(step['parameters']['count'])
+                loop_count = get_loop_count_safe(step)  # Defensive: handles missing/invalid count
                 child_steps = [s for s in all_steps if s.get('parent_step_id') == step['id']]
                 overall_step_count += len(child_steps) * loop_count
             else:
