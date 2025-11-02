@@ -16,24 +16,46 @@ from src.utils.atomic_machine_state import atomic_complete_machine_state, atomic
 
 def get_loop_count_safe(step: dict) -> int:
     """
-    Safely extract loop count from step parameters with defensive fallbacks.
-    
+    Safely extract loop count from step, checking both loop_step_config table (new schema)
+    and parameters.count (old schema) with defensive fallbacks.
+
     Args:
         step: Recipe step dictionary
-        
+
     Returns:
         Loop count (defaults to 1 if missing/invalid)
     """
-    step_params = step.get('parameters', {})
+    step_id = step.get('id')
     step_name = step.get('name', 'Unknown')
-    
+
+    # Try new schema first: loop_step_config table
+    if step_id:
+        try:
+            supabase = get_supabase()
+            result = supabase.table('loop_step_config').select('iteration_count').eq('step_id', step_id).execute()
+            if result.data:
+                loop_count = result.data[0]['iteration_count']
+                if loop_count >= 1:
+                    return loop_count
+                else:
+                    logger.warning(
+                        f"⚠️ Loop step '{step_name}' has invalid iteration_count {loop_count} in loop_step_config. "
+                        f"Defaulting to 1."
+                    )
+                    return 1
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to query loop_step_config for step '{step_name}': {e}")
+
+    # Fallback to old schema: parameters.count
+    step_params = step.get('parameters', {})
+
     if 'count' not in step_params:
         logger.warning(
-            f"⚠️ Loop step '{step_name}' missing 'count' parameter. "
+            f"⚠️ Loop step '{step_name}' missing iteration_count in loop_step_config and 'count' in parameters. "
             f"Defaulting to 1 iteration."
         )
         return 1
-    
+
     try:
         loop_count = int(step_params['count'])
         if loop_count < 1:
