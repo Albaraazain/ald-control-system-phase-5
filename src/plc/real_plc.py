@@ -854,12 +854,14 @@ class RealPLC(PLCInterface):
         # Execute bulk reads for holding registers
         holding_ranges = self._bulk_read_ranges.get('holding_registers', [])
         if holding_ranges:
+            logger.info(f"📊 Executing {len(holding_ranges)} holding register bulk read range(s)")
             holding_results = await self._bulk_read_holding_registers(holding_ranges)
             result.update(holding_results)
         
         # Execute bulk reads for coils
         coil_ranges = self._bulk_read_ranges.get('coils', [])
         if coil_ranges:
+            logger.info(f"📊 Executing {len(coil_ranges)} coil bulk read range(s)")
             coil_results = await self._bulk_read_coils(coil_ranges)
             result.update(coil_results)
         
@@ -869,6 +871,8 @@ class RealPLC(PLCInterface):
         """
         Execute bulk reads for holding register ranges.
         
+        OPTIMIZED: Execute all ranges in parallel using asyncio.gather for maximum speed.
+        
         Args:
             ranges: List of optimized register ranges
             
@@ -877,7 +881,10 @@ class RealPLC(PLCInterface):
         """
         result = {}
         
-        for range_info in ranges:
+        # Execute all bulk reads in parallel for maximum performance
+        async def read_single_range(range_info: Dict) -> Dict[str, float]:
+            """Read a single range and return parameter values."""
+            range_result = {}
             try:
                 start_addr = range_info['start_address']
                 total_registers = range_info['count']
@@ -892,7 +899,7 @@ class RealPLC(PLCInterface):
                 
                 if raw_results.isError():
                     logger.error(f"Bulk read failed for range {start_addr}-{start_addr + total_registers}: {raw_results}")
-                    continue
+                    return range_result
                 
                 registers = raw_results.registers
                 
@@ -908,17 +915,17 @@ class RealPLC(PLCInterface):
                                     registers[offset], 
                                     registers[offset + 1]
                                 )
-                                result[param_id] = value
+                                range_result[param_id] = value
                         elif data_type == 'int32':
                             if offset + 1 < len(registers):
                                 value = self._parse_int32_from_registers(
                                     registers[offset], 
                                     registers[offset + 1]
                                 )
-                                result[param_id] = float(value)
+                                range_result[param_id] = float(value)
                         elif data_type == 'int16':
                             if offset < len(registers):
-                                result[param_id] = float(registers[offset])
+                                range_result[param_id] = float(registers[offset])
                         else:
                             logger.warning(f"Unsupported data type {data_type} for parameter {param_id}")
                     
@@ -927,12 +934,35 @@ class RealPLC(PLCInterface):
                 
             except Exception as e:
                 logger.error(f"Error in bulk read for range: {e}", exc_info=True)
+            
+            return range_result
+        
+        # Execute all ranges in parallel with limited concurrency
+        # Use semaphore to limit concurrent Modbus requests (Modbus TCP typically supports 1-16 concurrent)
+        # Conservative limit: 4 concurrent requests to avoid overwhelming the PLC
+        if ranges:
+            semaphore = asyncio.Semaphore(4)  # Limit to 4 concurrent bulk reads
+            
+            async def read_with_semaphore(range_info):
+                async with semaphore:
+                    return await read_single_range(range_info)
+            
+            range_results = await asyncio.gather(*[read_with_semaphore(r) for r in ranges], return_exceptions=True)
+            
+            # Merge all results
+            for range_result in range_results:
+                if isinstance(range_result, dict):
+                    result.update(range_result)
+                elif isinstance(range_result, Exception):
+                    logger.error(f"Bulk read range failed with exception: {range_result}")
         
         return result
     
     async def _bulk_read_coils(self, ranges: List[Dict]) -> Dict[str, float]:
         """
         Execute bulk reads for coil ranges.
+        
+        OPTIMIZED: Execute all ranges in parallel with limited concurrency.
         
         Args:
             ranges: List of optimized coil ranges
@@ -942,7 +972,10 @@ class RealPLC(PLCInterface):
         """
         result = {}
         
-        for range_info in ranges:
+        # Execute all bulk reads in parallel with limited concurrency
+        async def read_single_coil_range(range_info: Dict) -> Dict[str, float]:
+            """Read a single coil range and return parameter values."""
+            range_result = {}
             try:
                 start_addr = range_info['start_address']
                 count = range_info['count']
@@ -957,7 +990,7 @@ class RealPLC(PLCInterface):
                 
                 if raw_results.isError():
                     logger.error(f"Bulk coil read failed for range {start_addr}-{start_addr + count}: {raw_results}")
-                    continue
+                    return range_result
                 
                 bits = raw_results.bits
                 
@@ -968,7 +1001,7 @@ class RealPLC(PLCInterface):
                         offset = param_addr - start_addr
                         
                         if offset < len(bits):
-                            result[param_id] = 1.0 if bits[offset] else 0.0
+                            range_result[param_id] = 1.0 if bits[offset] else 0.0
                         else:
                             logger.warning(f"Coil offset {offset} out of range for parameter {param_id}")
                     
@@ -977,6 +1010,27 @@ class RealPLC(PLCInterface):
                 
             except Exception as e:
                 logger.error(f"Error in bulk coil read for range: {e}", exc_info=True)
+            
+            return range_result
+        
+        # Execute all ranges in parallel with limited concurrency
+        # Use semaphore to limit concurrent Modbus requests (Modbus TCP typically supports 1-16 concurrent)
+        # Conservative limit: 4 concurrent requests to avoid overwhelming the PLC
+        if ranges:
+            semaphore = asyncio.Semaphore(4)  # Limit to 4 concurrent bulk reads
+            
+            async def read_with_semaphore(range_info):
+                async with semaphore:
+                    return await read_single_coil_range(range_info)
+            
+            range_results = await asyncio.gather(*[read_with_semaphore(r) for r in ranges], return_exceptions=True)
+            
+            # Merge all results
+            for range_result in range_results:
+                if isinstance(range_result, dict):
+                    result.update(range_result)
+                elif isinstance(range_result, Exception):
+                    logger.error(f"Bulk coil read range failed with exception: {range_result}")
         
         return result
     
