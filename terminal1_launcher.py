@@ -119,7 +119,7 @@ def main_cli():
         return
 
     # Import and run Terminal 1 service
-    from plc_data_service import main as plc_service_main
+    from plc_data_service_standalone import main as plc_service_main
     asyncio.run(plc_service_main())
 
 

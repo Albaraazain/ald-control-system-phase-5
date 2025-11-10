@@ -7,7 +7,7 @@ Documentation=file:///home/atomicoat/ald-control-system-phase-5/CLAUDE.md
 [Service]
 Type=simple
 WorkingDirectory=/home/atomicoat/ald-control-system-phase-5
-ExecStart=/home/atomicoat/ald-control-system-phase-5/myenv/bin/python plc_data_service.py --plc real
+ExecStart=/home/atomicoat/ald-control-system-phase-5/myenv/bin/python plc_data_service_standalone.py
 
 # Restart policy
 Restart=on-failure

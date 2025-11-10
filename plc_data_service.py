@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 """
-Terminal 1: PLC Data Service
+⚠️ DEPRECATED: This file is deprecated and should not be used.
 
-**PRIMARY RESPONSIBILITY**: PLC data collection and logging
+Use `plc_data_service_standalone.py` instead, which provides:
+- Direct PLC connections (no singleton pattern)
+- Parallel bulk reads for better performance
+- Simplified architecture
 
-This terminal provides:
-1. PLC hardware connection for data reading
-2. Precise 1-second data collection timing (±100ms precision)
-3. Parameter value logging to database
-4. Enhanced logging with parameter metadata
-5. Performance monitoring and metrics
-6. Batch insert retry logic with exponential backoff
-7. Dead letter queue for failed batches
-8. Background recovery task for replaying failed batches
-
-Simplified architecture focused on reliable data collection with ZERO data loss guarantee.
+This file is kept for reference only and may be removed in a future version.
 """
 import asyncio
 import os

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Standalone Terminal 1: PLC Data Service with Bulk Reads
+Terminal 1: PLC Data Service
 
-Clean implementation from scratch focusing on:
-- Fast bulk reads with parallel connections
+Continuous PLC data collection with optimized bulk reads.
+- Direct PLC connection (no singleton)
+- Parallel bulk reads for fast performance (39-45ms)
 - Simple 1-second collection loop
-- Direct database writes
-- Zero complexity
+- Wide table format database writes
 """
 
 import asyncio
@@ -25,13 +25,14 @@ from src.log_setup import get_plc_logger, get_data_collection_logger
 from src.config import MACHINE_ID, PLC_TYPE, PLC_CONFIG
 from src.db import get_supabase
 from src.plc.real_plc import RealPLC
+from src.parameter_wide_table_mapping import PARAMETER_TO_COLUMN_MAP
 
 logger = get_plc_logger()
 data_logger = get_data_collection_logger()
 
 
-class StandalonePLCDataService:
-    """Simple standalone PLC data collection service."""
+class PLCDataService:
+    """PLC data collection service with direct connection and bulk reads."""
     
     def __init__(self):
         self.plc: Optional[RealPLC] = None
@@ -40,7 +41,7 @@ class StandalonePLCDataService:
         self.shutdown_event = asyncio.Event()
         
         # Timing
-        self.collection_interval = 1.0  # 1 second
+        self.collection_interval = 1.0
         self._next_deadline: Optional[float] = None
         
         # Metrics
@@ -48,14 +49,14 @@ class StandalonePLCDataService:
         self.failed_readings = 0
         self.last_duration = 0.0
         
-        logger.info("Standalone PLC Data Service initialized")
+        logger.info("PLC Data Service initialized")
     
     async def initialize(self) -> bool:
         """Initialize PLC connection."""
         try:
             logger.info("Connecting to PLC...")
             
-            # Create PLC instance directly (no singleton)
+            # Create PLC instance directly
             ip_address = PLC_CONFIG.get('ip_address', '192.168.1.50')
             port = PLC_CONFIG.get('port', 502)
             hostname = PLC_CONFIG.get('hostname')
@@ -94,24 +95,29 @@ class StandalonePLCDataService:
             return {}
     
     async def write_to_database(self, parameter_values: Dict[str, float], timestamp: str):
-        """Write parameter values to database."""
+        """Write parameter values to database using wide table format."""
         if not parameter_values:
             return
         
         try:
-            # Prepare batch insert
-            records = []
-            for param_id, value in parameter_values.items():
-                records.append({
-                    'parameter_id': param_id,
-                    'value': value,
-                    'timestamp': timestamp
-                })
+            # Build WIDE-FORMAT record (single row with all parameters)
+            wide_record = {'timestamp': timestamp}
             
-            # Batch insert
-            if records:
-                self.supabase.table('parameter_value_history').insert(records).execute()
-                data_logger.debug(f"✅ Wrote {len(records)} parameter values to database")
+            for param_id, value in parameter_values.items():
+                # Get column name from mapping
+                column_name = PARAMETER_TO_COLUMN_MAP.get(param_id)
+                
+                if column_name is None:
+                    data_logger.debug(f"Parameter {param_id} not in wide table mapping - skipping")
+                    continue
+                
+                # Add to wide record
+                wide_record[column_name] = float(value)
+            
+            # Insert single wide record
+            if len(wide_record) > 1:
+                self.supabase.table('parameter_readings').insert(wide_record).execute()
+                data_logger.debug(f"✅ Wrote {len(wide_record) - 1} parameter values to database (wide format)")
         
         except Exception as e:
             logger.error(f"Error writing to database: {e}", exc_info=True)
@@ -162,7 +168,7 @@ class StandalonePLCDataService:
             
             # Check timing precision
             elapsed = now - loop_start
-            if abs(elapsed - self.collection_interval) > 0.2:  # ±200ms tolerance
+            if abs(elapsed - self.collection_interval) > 0.2:
                 logger.warning(
                     f"⚠️ Timing violation: {elapsed:.3f}s (target: {self.collection_interval}s)"
                 )
@@ -177,10 +183,8 @@ class StandalonePLCDataService:
                     # Shutdown event was set
                     break
                 except asyncio.TimeoutError:
-                    # Normal timeout, continue loop
                     pass
             else:
-                # Behind schedule, reset deadline
                 if abs(self._next_deadline - now) > 1.0:
                     logger.warning(f"⚠️ Behind schedule, resetting deadline")
                     self._next_deadline = now + self.collection_interval
@@ -193,7 +197,7 @@ class StandalonePLCDataService:
             raise RuntimeError("Failed to initialize service")
         
         self.running = True
-        logger.info("🚀 Standalone PLC Data Service started")
+        logger.info("🚀 PLC Data Service started")
         
         # Run collection loop
         await self.collection_loop()
@@ -212,7 +216,7 @@ class StandalonePLCDataService:
 
 async def main():
     """Main entry point."""
-    service = StandalonePLCDataService()
+    service = PLCDataService()
     
     # Setup signal handlers
     def signal_handler(sig, frame):

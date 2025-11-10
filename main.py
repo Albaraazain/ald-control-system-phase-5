@@ -4,10 +4,9 @@ Simple ALD Control System - 4 Terminal Design
 Main launcher that offers choice between 4 independent terminals.
 
 SIMPLE ARCHITECTURE:
-- Terminal 1: PLC Read Service (plc_data_service.py)
+- Terminal 1: PLC Read Service (plc_data_service_standalone.py)
 - Terminal 2: Recipe Service (simple_recipe_service.py)
-- Terminal 3: Parameter Service (parameter_service.py)
-- Terminal 4: Component Service (component_service.py)
+- Terminal 3: Parameter Service (terminal3_clean.py)
 
 Each terminal has direct PLC access - NO coordination complexity!
 
@@ -117,17 +116,17 @@ def apply_env_overrides(args):
 def launch_terminal_1():
     """Launch Terminal 1 - PLC Read Service"""
     print("🔧 Launching Terminal 1 - PLC Read Service")
-    print("   Service: plc_data_service.py")
+    print("   Service: plc_data_service_standalone.py")
     print("   Function: Continuous PLC data collection every 1 second")
-    print("   Database: Updates parameter_value_history table")
+    print("   Database: Updates parameter_readings table (wide format)")
     print("-" * 60)
 
     try:
-        from plc_data_service import main as plc_service_main
+        from plc_data_service_standalone import main as plc_service_main
         asyncio.run(plc_service_main())
     except ImportError as e:
-        print(f"❌ Error importing plc_data_service: {e}")
-        print("   Make sure plc_data_service.py exists in the project root")
+        print(f"❌ Error importing plc_data_service_standalone: {e}")
+        print("   Make sure plc_data_service_standalone.py exists in the project root")
         sys.exit(1)
     except Exception as e:
         print(f"❌ Error running Terminal 1: {e}")
