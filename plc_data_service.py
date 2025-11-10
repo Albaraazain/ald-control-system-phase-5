@@ -1292,6 +1292,33 @@ async def signal_handler(plc_service):
     main_logger.info("PLC Data Service shutdown complete")
 
 
+# Global references for signal handlers
+_service: Optional[PLCDataService] = None
+_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def setup_signal_handlers(service: PLCDataService, loop: asyncio.AbstractEventLoop):
+    """Setup signal handlers with references to service and event loop."""
+    global _service, _loop
+    _service = service
+    _loop = loop
+
+    def signal_handler(signum, frame):
+        """Handle shutdown signals - called from signal handler thread."""
+        signal_name = signal.Signals(signum).name
+        main_logger.info(f"🛑 Received signal {signal_name}, initiating graceful shutdown...")
+        if _service:
+            # Set flags immediately (thread-safe)
+            _service.is_running = False
+        if _loop and _service:
+            # Schedule event.set() on event loop thread (thread-safe)
+            _loop.call_soon_threadsafe(_service.shutdown_event.set)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    main_logger.info("✅ Signal handlers installed (SIGINT, SIGTERM)")
+
+
 async def main():
     """Main entry point for PLC Data Service."""
     # Parse command line arguments
@@ -1323,24 +1350,10 @@ async def main():
     # Create and initialize service
     plc_service = PLCDataService()
 
-    # Set up signal handlers
-    def shutdown_handler(signum, frame):
-        """Handle shutdown signals synchronously."""
-        signal_name = signal.Signals(signum).name
-        main_logger.info(f"🛑 Received signal {signal_name}, initiating graceful shutdown...")
-        # Set flags immediately (thread-safe primitives)
-        plc_service.is_running = False
-        # Schedule event.set() on the event loop thread (thread-safe)
-        try:
-            loop = asyncio.get_running_loop()
-            loop.call_soon_threadsafe(plc_service.shutdown_event.set)
-        except RuntimeError:
-            # No running loop - just set directly
-            plc_service.shutdown_event.set()
-
-    signal.signal(signal.SIGINT, shutdown_handler)
-    signal.signal(signal.SIGTERM, shutdown_handler)
-    main_logger.info("✅ Signal handlers installed (SIGINT, SIGTERM)")
+    # Setup signal handlers now that we have the service
+    # Note: This must be done inside the async context so we can get the running loop
+    loop = asyncio.get_running_loop()
+    setup_signal_handlers(plc_service, loop)
 
     try:
         # Initialize service

@@ -477,6 +477,33 @@ def parse_args():
     return parser.parse_args()
 
 
+# Global references for signal handlers
+_service: Optional[SimpleRecipeService] = None
+_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def setup_signal_handlers(service: SimpleRecipeService, loop: asyncio.AbstractEventLoop):
+    """Setup signal handlers with references to service and event loop."""
+    global _service, _loop
+    _service = service
+    _loop = loop
+
+    def signal_handler(signum, frame):
+        """Handle shutdown signals - called from signal handler thread."""
+        signal_name = signal.Signals(signum).name
+        logger.info(f"🛑 Received signal {signal_name}, initiating graceful shutdown...")
+        if _service:
+            # No is_running flag in SimpleRecipeService - just use event
+            pass
+        if _loop and _service:
+            # Schedule event.set() on event loop thread (thread-safe)
+            _loop.call_soon_threadsafe(_service.shutdown_event.set)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    logger.info("✅ Signal handlers installed (SIGINT, SIGTERM)")
+
+
 async def main():
     """Main entry point"""
     args = parse_args()
@@ -504,20 +531,9 @@ async def main():
 
     service = SimpleRecipeService()
 
-    # Set up signal handlers - must not create tasks from signal context
-    def signal_handler_sync(signum, frame):
-        """Handle shutdown signals synchronously"""
-        logger.info(f"⚠️ Received signal {signum}, initiating shutdown...")
-        # Schedule event.set() on the event loop thread (thread-safe)
-        try:
-            loop = asyncio.get_running_loop()
-            loop.call_soon_threadsafe(service.shutdown_event.set)
-        except RuntimeError:
-            # No running loop - just set directly
-            service.shutdown_event.set()
-
-    signal.signal(signal.SIGINT, signal_handler_sync)
-    signal.signal(signal.SIGTERM, signal_handler_sync)
+    # Setup signal handlers now that we have the service
+    loop = asyncio.get_running_loop()
+    setup_signal_handlers(service, loop)
 
     try:
         logger.info("🔧 Initializing Recipe Service...")
