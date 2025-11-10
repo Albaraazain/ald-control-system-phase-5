@@ -69,14 +69,18 @@ class SimpleRecipeService:
             logger.error(str(e))
             raise RuntimeError("Cannot start - Terminal 2 already running")
 
-        # Initialize PLC connection
+        # Initialize PLC connection (non-blocking - degraded mode if unavailable)
         logger.debug("🔧 Attempting PLC connection initialization...")
         plc_success = await plc_manager.initialize()
         if not plc_success:
-            logger.error("❌ Failed to initialize PLC connection")
-            raise RuntimeError("Failed to initialize PLC connection")
-
-        logger.info("✅ PLC connection established successfully")
+            logger.warning(
+                "⚠️ Failed to initialize PLC connection\n"
+                "   Terminal 2 starting in DEGRADED mode\n"
+                "   Recipe execution will fail until PLC is available"
+            )
+            await self.registry.set_status('degraded', 'PLC connection unavailable')
+        else:
+            logger.info("✅ PLC connection established successfully")
 
         # Initialize realtime listener for recipe commands
         try:
