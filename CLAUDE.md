@@ -233,19 +233,9 @@ ssh atomicoat@100.100.138.5 'cd ~/ald-control-system-phase-5 && source myenv/bin
 
 This is an Atomic Layer Deposition (ALD) control system with a **SIMPLE 3-TERMINAL ARCHITECTURE** that eliminates coordination complexity and provides direct PLC access for easy debugging.
 
-### 🔄 Architecture Evolution: Singleton Removal (2025-11-10)
+### PLC Connection Architecture
 
-**Previous Architecture (Singleton Pattern):**
-- All terminals shared a single `plc_manager` singleton instance
-- Assumed Modbus TCP only supports 1 connection (incorrect assumption)
-- Caused initialization issues preventing bulk reads from working
-- Added unnecessary complexity and shared state
-
-**Current Architecture (Direct Connections):**
-- Each terminal creates its own `RealPLC` instance independently
-- Modbus TCP supports 8-16 concurrent connections (no singleton needed)
-- Step executors access PLC via `src/plc/context.py` (set by Terminal 2)
-- Benefits: Simpler, faster (parallel connections work), easier to debug
+Each terminal creates its own `RealPLC` instance independently. Modbus TCP supports 8-16 concurrent connections, so no singleton pattern is needed.
 
 **Key Files:**
 - `src/plc/context.py`: Module-level PLC context for step executors
