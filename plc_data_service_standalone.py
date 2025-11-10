@@ -119,13 +119,16 @@ class PLCDataService:
             logger.error(f"Error reading parameters: {e}", exc_info=True)
             return {}
     
-    async def write_to_database(self, parameter_values: Dict[str, float], timestamp: str):
-        """Write parameter values to database using wide table format."""
+    async def write_to_database(self, parameter_values: Dict[str, float]):
+        """Write parameter values to database using wide table format (non-blocking)."""
         if not parameter_values:
             return
         
         try:
             # Build WIDE-FORMAT record (single row with all parameters)
+            # Set timestamp right before write to ensure accuracy
+            from datetime import datetime, timezone
+            timestamp = datetime.now(timezone.utc).isoformat()
             wide_record = {'timestamp': timestamp}
             
             for param_id, value in parameter_values.items():
@@ -139,9 +142,14 @@ class PLCDataService:
                 # Add to wide record
                 wide_record[column_name] = float(value)
             
-            # Insert single wide record
+            # Insert single wide record (run in thread pool to avoid blocking event loop)
             if len(wide_record) > 1:
-                self.supabase.table('parameter_readings').insert(wide_record).execute()
+                def _sync_write():
+                    """Synchronous write function to run in thread pool."""
+                    return self.supabase.table('parameter_readings').insert(wide_record).execute()
+                
+                # Run blocking database call in thread pool
+                await asyncio.to_thread(_sync_write)
                 data_logger.info(f"✅ Wrote {len(wide_record) - 1} parameter values to database (wide format)")
         
         except Exception as e:
@@ -165,10 +173,8 @@ class PLCDataService:
                 read_duration = time.time() - read_start
                 
                 if parameter_values:
-                    # Write to database
-                    from datetime import datetime, timezone
-                    timestamp = datetime.now(timezone.utc).isoformat()
-                    await self.write_to_database(parameter_values, timestamp)
+                    # Write to database (non-blocking, timestamp set inside write function)
+                    await self.write_to_database(parameter_values)
                     
                     self.total_readings += 1
                     self.last_duration = loop.time() - loop_start
