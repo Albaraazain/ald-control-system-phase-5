@@ -16,6 +16,7 @@ Performance:
 import asyncio
 import os
 import sys
+import signal
 import time
 from datetime import datetime
 from typing import Optional, Set
@@ -36,6 +37,9 @@ logger = get_plc_logger()
 # Optional verification mode for debugging (adds ~50ms per operation)
 ENABLE_READ_VERIFICATION = os.getenv('TERMINAL3_VERIFY_WRITES', 'false').lower() == 'true'
 
+# Shutdown configuration
+SHUTDOWN_TIMEOUT = float(os.getenv('SHUTDOWN_TIMEOUT', '30.0'))
+
 # Track processed commands
 processed_commands: Set[str] = set()
 
@@ -45,6 +49,9 @@ terminal_registry: Optional[TerminalRegistry] = None
 # Realtime channel reference
 realtime_channel = None
 realtime_connected = False
+
+# Shutdown coordination
+shutdown_event: Optional[asyncio.Event] = None
 
 
 async def write_and_verify(address: int, value: float, data_type: str = 'float', parameter_id: Optional[str] = None) -> tuple[bool, Optional[float]]:
@@ -392,15 +399,16 @@ async def poll_commands():
     - Realtime connected: 10s (safety check only)
     - Realtime disconnected: 1s (primary mechanism)
     """
+    global shutdown_event
     logger.info("🔄 Starting command polling...")
-    
-    while True:
+
+    while not shutdown_event.is_set():
         try:
             # Adjust polling interval based on realtime status
             poll_interval = 10.0 if realtime_connected else 1.0
-            
+
             supabase = get_supabase()
-            
+
             # Query for pending commands
             result = supabase.table('parameter_control_commands')\
                 .select('*')\
@@ -409,24 +417,29 @@ async def poll_commands():
                 .order('created_at', desc=False)\
                 .limit(10)\
                 .execute()
-            
+
             commands = result.data or []
-            
+
             # Filter for this machine and global commands
             relevant_commands = [
-                cmd for cmd in commands 
+                cmd for cmd in commands
                 if cmd.get('machine_id') in [MACHINE_ID, None]
                 and cmd['id'] not in processed_commands
             ]
-            
+
             for command in relevant_commands:
+                # Check shutdown between commands
+                if shutdown_event.is_set():
+                    logger.info("Shutdown detected in command processing loop")
+                    break
+
                 command_id = command['id']
                 processed_commands.add(command_id)
-                
+
                 # Log source
                 source = "POLLING (realtime backup)" if realtime_connected else "POLLING"
                 logger.info(f"🟡 PARAMETER COMMAND RECEIVED [{source}]")
-                
+
                 try:
                     await process_command(command)
                 except Exception as e:
@@ -435,24 +448,138 @@ async def poll_commands():
 
                     if terminal_registry:
                         terminal_registry.record_error(f"Command {command_id[:8]} exception: {str(e)}")
-            
+
             # Clean up old processed commands
             if len(processed_commands) > 1000:
                 processed_commands.clear()
-            
+
+        except asyncio.CancelledError:
+            logger.info("Poll loop cancelled")
+            break
         except Exception as e:
             logger.error(f"Error in poll loop: {e}", exc_info=True)
-        
-        await asyncio.sleep(poll_interval)
+
+        # Shutdown-aware sleep for immediate exit on shutdown signal
+        try:
+            await asyncio.wait_for(
+                shutdown_event.wait(),
+                timeout=poll_interval
+            )
+            # Event was set, exit loop
+            logger.info("Shutdown event detected during sleep")
+            break
+        except asyncio.TimeoutError:
+            # Normal timeout, continue loop
+            pass
+
+    logger.info("Poll loop exited cleanly")
+
+
+def setup_signal_handlers():
+    """Setup signal handlers for graceful shutdown."""
+    global shutdown_event
+
+    def signal_handler(signum, frame):
+        """Handle shutdown signals synchronously."""
+        signal_name = signal.Signals(signum).name
+        logger.info(f"🛑 Received signal {signal_name}, initiating graceful shutdown...")
+        # SAFE: Just set the event, don't create tasks from signal context
+        if shutdown_event:
+            shutdown_event.set()
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    logger.info("✅ Signal handlers installed (SIGINT, SIGTERM)")
+
+
+async def shutdown_terminal():
+    """Graceful shutdown with timeout."""
+    global terminal_registry, realtime_channel
+
+    logger.info("🛑 Starting graceful shutdown...")
+    start_time = asyncio.get_event_loop().time()
+
+    try:
+        # Cleanup tasks
+        cleanup_tasks = []
+
+        # Cleanup realtime
+        if realtime_channel:
+            async def cleanup_realtime():
+                try:
+                    await asyncio.wait_for(
+                        realtime_channel.unsubscribe(),
+                        timeout=5.0
+                    )
+                    logger.info("✅ Realtime unsubscribed")
+                except asyncio.TimeoutError:
+                    logger.warning("⏱️ Realtime unsubscribe timed out")
+                except Exception as e:
+                    logger.error(f"Realtime cleanup error: {e}")
+
+            cleanup_tasks.append(cleanup_realtime())
+
+        # Cleanup registry
+        if terminal_registry:
+            async def cleanup_registry():
+                try:
+                    await asyncio.wait_for(
+                        terminal_registry.shutdown(reason="Service shutdown"),
+                        timeout=5.0
+                    )
+                    logger.info("✅ Terminal registry shutdown")
+                except asyncio.TimeoutError:
+                    logger.warning("⏱️ Registry shutdown timed out")
+                except Exception as e:
+                    logger.error(f"Registry cleanup error: {e}")
+
+            cleanup_tasks.append(cleanup_registry())
+
+        # Cleanup PLC
+        async def cleanup_plc():
+            try:
+                await asyncio.wait_for(
+                    plc_manager.disconnect(),
+                    timeout=5.0
+                )
+                logger.info("✅ PLC disconnected")
+            except asyncio.TimeoutError:
+                logger.warning("⏱️ PLC disconnect timed out")
+            except Exception as e:
+                logger.error(f"PLC cleanup error: {e}")
+
+        cleanup_tasks.append(cleanup_plc())
+
+        # Execute all cleanup with timeout
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*cleanup_tasks, return_exceptions=True),
+                timeout=SHUTDOWN_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"⏱️ Shutdown cleanup timed out after {SHUTDOWN_TIMEOUT}s")
+
+        duration = asyncio.get_event_loop().time() - start_time
+        logger.info(f"✅ Graceful shutdown complete in {duration:.2f}s")
+
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}", exc_info=True)
 
 
 async def main():
     """Main entry point."""
-    global terminal_registry
+    global terminal_registry, shutdown_event
 
     logger.info("=" * 60)
     logger.info("🚀 Terminal 3: Parameter Service (Realtime + Instant Updates)")
     logger.info("=" * 60)
+
+    # Initialize shutdown coordination
+    shutdown_event = asyncio.Event()
+    logger.info(f"📋 Shutdown timeout: {SHUTDOWN_TIMEOUT}s")
+
+    # Setup signal handlers
+    setup_signal_handlers()
 
     try:
         # Register this terminal instance
@@ -464,7 +591,7 @@ async def main():
             heartbeat_interval=10,
             log_file_path=log_file_path
         )
-        
+
         try:
             terminal_registry.register()
             logger.info("✅ Terminal registered in liveness system")
@@ -472,7 +599,7 @@ async def main():
             logger.error(f"❌ {e}")
             logger.error("Cannot start - Terminal 3 already running")
             return
-        
+
         # Initialize PLC manager
         await plc_manager.initialize()
         logger.info("✅ PLC manager initialized")
@@ -482,10 +609,10 @@ async def main():
         if not ENABLE_READ_VERIFICATION:
             logger.info("   💡 Tip: Set TERMINAL3_VERIFY_WRITES=true to enable read-back verification")
         logger.info(f"📋 Terminal Liveness: ENABLED")
-        
+
         # Setup Realtime
         realtime_success = await setup_realtime()
-        
+
         logger.info("=" * 60)
         if realtime_success:
             logger.info("✅ Terminal 3 ready with REALTIME + INSTANT UPDATES! 🚀")
@@ -494,27 +621,19 @@ async def main():
             logger.info("✅ Terminal 3 ready with POLLING + INSTANT UPDATES")
             logger.info("   Expected latency: ~500-1000ms")
         logger.info("=" * 60)
-        
+
         # Start polling (works alongside Realtime as backup)
         await poll_commands()
-        
+
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received")
     except Exception as e:
         logger.error(f"Fatal error in Terminal 3: {e}", exc_info=True)
         if terminal_registry:
             terminal_registry.record_error(f"Fatal: {e}")
-            terminal_registry.shutdown()
-        raise
     finally:
-        # Cleanup
-        if realtime_channel:
-            try:
-                await realtime_channel.unsubscribe()
-            except:
-                pass
-        
-        if terminal_registry:
-            terminal_registry.shutdown()
-            logger.info("✅ Terminal liveness shutdown complete")
+        # Graceful shutdown with timeout
+        await shutdown_terminal()
 
 
 if __name__ == "__main__":

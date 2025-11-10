@@ -63,7 +63,12 @@ class PLCDataService:
         # This ensures only 1 Modbus TCP connection is created (shared with Terminals 2 & 3)
         self.plc_manager = plc_manager
         self.supabase = get_supabase()
-        self.is_running = False
+
+        # Shutdown coordination
+        self.shutdown_event = asyncio.Event()
+        self.shutdown_timeout = float(os.getenv('SHUTDOWN_TIMEOUT', '30.0'))
+        self.is_running = False  # Keep for compatibility
+
         self.data_collection_task = None
         self.writer_task = None
         self.recovery_task = None
@@ -203,34 +208,86 @@ class PLCDataService:
             raise
 
     async def stop(self):
-        """Stop all PLC Data Service operations."""
+        """Stop all PLC Data Service operations with timeout."""
         if not self.is_running:
             return
 
         try:
-            plc_logger.info("Stopping PLC Data Service...")
-            self.is_running = False
+            plc_logger.info("🛑 Stopping PLC Data Service...")
+            start_time = asyncio.get_event_loop().time()
 
-            # Cancel all tasks
+            # Signal shutdown
+            self.is_running = False
+            self.shutdown_event.set()
+
+            # Cancel all tasks with timeout
             tasks = [self.data_collection_task, self.writer_task, self.recovery_task]
-            for task in tasks:
-                if task and not task.done():
+            active_tasks = [t for t in tasks if t and not t.done()]
+
+            if active_tasks:
+                plc_logger.info(f"Canceling {len(active_tasks)} active tasks...")
+                for task in active_tasks:
                     task.cancel()
-                    try:
-                        await task
-                    except asyncio.CancelledError:
-                        pass
+
+                # Wait for cancellation with timeout
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*active_tasks, return_exceptions=True),
+                        timeout=self.shutdown_timeout * 0.5
+                    )
+                    plc_logger.info("✅ All tasks cancelled successfully")
+                except asyncio.TimeoutError:
+                    plc_logger.warning(f"⏱️ Task cancellation timed out after {self.shutdown_timeout * 0.5}s")
+
+            # Cleanup resources with timeout
+            cleanup_tasks = []
 
             # Shutdown terminal registry
             if self.registry:
-                await self.registry.shutdown(reason="Service shutdown")
-                plc_logger.info("✅ Terminal liveness shutdown complete")
+                async def cleanup_registry():
+                    try:
+                        await asyncio.wait_for(
+                            self.registry.shutdown(reason="Service shutdown"),
+                            timeout=5.0
+                        )
+                        plc_logger.info("✅ Terminal registry shutdown complete")
+                    except asyncio.TimeoutError:
+                        plc_logger.warning("⏱️ Registry shutdown timed out")
+                    except Exception as e:
+                        plc_logger.error(f"Registry cleanup error: {e}")
+
+                cleanup_tasks.append(cleanup_registry())
 
             # Disconnect PLC
-            await self.plc_manager.disconnect()
+            async def cleanup_plc():
+                try:
+                    await asyncio.wait_for(
+                        self.plc_manager.disconnect(),
+                        timeout=5.0
+                    )
+                    plc_logger.info("✅ PLC disconnected")
+                except asyncio.TimeoutError:
+                    plc_logger.warning("⏱️ PLC disconnect timed out")
+                except Exception as e:
+                    plc_logger.error(f"PLC cleanup error: {e}")
+
+            cleanup_tasks.append(cleanup_plc())
+
+            # Execute all cleanup
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*cleanup_tasks, return_exceptions=True),
+                    timeout=self.shutdown_timeout * 0.5
+                )
+            except asyncio.TimeoutError:
+                plc_logger.warning("⏱️ Cleanup timed out")
 
             # Cleanup parameter metadata cache
             self.parameter_metadata = {}
+
+            # Calculate shutdown duration
+            duration = asyncio.get_event_loop().time() - start_time
+            plc_logger.info(f"✅ Graceful shutdown complete in {duration:.2f}s")
 
             # Log final metrics
             dlq_depth = self.metrics.get('dead_letter_queue_depth', 0)
@@ -257,7 +314,7 @@ class PLCDataService:
         loop = asyncio.get_event_loop()
         self._next_deadline = loop.time()
 
-        while self.is_running:
+        while not self.shutdown_event.is_set():
             loop_start_time = loop.time()
 
             try:
@@ -292,7 +349,18 @@ class PLCDataService:
                         f"(target: {self.data_collection_interval}s ±{self.timing_precision_threshold}s)"
                     )
 
-                await asyncio.sleep(sleep_time)
+                # Shutdown-aware sleep for immediate exit on shutdown signal
+                try:
+                    await asyncio.wait_for(
+                        self.shutdown_event.wait(),
+                        timeout=sleep_time
+                    )
+                    # Event was set, exit loop
+                    data_logger.info("Shutdown event detected during sleep")
+                    break
+                except asyncio.TimeoutError:
+                    # Normal timeout, continue loop
+                    pass
 
             except asyncio.CancelledError:
                 plc_logger.info("Data collection loop cancelled")
@@ -738,9 +806,20 @@ class PLCDataService:
         """
         data_logger.info("🔄 Dead letter queue recovery loop started (60s interval)")
 
-        while self.is_running:
+        while not self.shutdown_event.is_set():
             try:
-                await asyncio.sleep(60.0)  # Check every 60 seconds
+                # Shutdown-aware sleep for 60 seconds
+                try:
+                    await asyncio.wait_for(
+                        self.shutdown_event.wait(),
+                        timeout=60.0
+                    )
+                    # Shutdown signaled, exit loop
+                    data_logger.info("Shutdown event detected in DLQ recovery loop")
+                    break
+                except asyncio.TimeoutError:
+                    # Normal timeout, continue with recovery
+                    pass
 
                 # Get all DLQ files (both narrow .jsonl and wide .json formats)
                 narrow_files = list(self.dead_letter_queue_dir.glob('*.jsonl'))
@@ -946,9 +1025,32 @@ class PLCDataService:
         """Background task that consumes batches and writes them to DB without blocking the poller."""
         data_logger.info("🧵 DB writer started (async queue)")
         try:
-            while self.is_running:
+            while not self.shutdown_event.is_set():
                 try:
-                    batch = await self._write_queue.get()
+                    # Use wait to allow immediate exit on shutdown
+                    queue_task = asyncio.create_task(self._write_queue.get())
+                    shutdown_task = asyncio.create_task(self.shutdown_event.wait())
+
+                    done, pending = await asyncio.wait(
+                        [queue_task, shutdown_task],
+                        return_when=asyncio.FIRST_COMPLETED
+                    )
+
+                    # Cancel pending tasks
+                    for task in pending:
+                        task.cancel()
+                        try:
+                            await task
+                        except asyncio.CancelledError:
+                            pass
+
+                    # Check if shutdown was signaled
+                    if shutdown_task in done:
+                        data_logger.info("Shutdown event detected in DB writer loop")
+                        break
+
+                    # Get the batch from completed queue task
+                    batch = queue_task.result()
 
                     # Check if this is a wide record (tuple) or narrow record (list)
                     if isinstance(batch, tuple) and len(batch) == 3 and batch[0] == 'wide':
@@ -1223,10 +1325,16 @@ async def main():
 
     # Set up signal handlers
     def shutdown_handler(signum, frame):
-        asyncio.create_task(signal_handler(plc_service))
+        """Handle shutdown signals synchronously."""
+        signal_name = signal.Signals(signum).name
+        main_logger.info(f"🛑 Received signal {signal_name}, initiating graceful shutdown...")
+        # SAFE: Just set the event, don't create tasks from signal context
+        plc_service.shutdown_event.set()
+        plc_service.is_running = False
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
+    main_logger.info("✅ Signal handlers installed (SIGINT, SIGTERM)")
 
     try:
         # Initialize service

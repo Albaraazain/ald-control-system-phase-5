@@ -46,6 +46,7 @@ class SimpleRecipeService:
     def __init__(self):
         self.running = False
         self.shutdown_event = asyncio.Event()
+        self.shutdown_timeout = float(os.getenv('SHUTDOWN_TIMEOUT', '30.0'))
         self.registry: Optional[TerminalRegistry] = None
 
     async def initialize(self):
@@ -379,29 +380,89 @@ class SimpleRecipeService:
                     if poll_count % 30 == 0:  # Every 60 seconds (30 * 2 seconds)
                         logger.debug(f"👂 Still listening... (completed {poll_count} polling cycles)")
 
-                # Poll every 2 seconds
-                await asyncio.sleep(2)
+                # Poll every 2 seconds (shutdown-aware)
+                try:
+                    await asyncio.wait_for(
+                        self.shutdown_event.wait(),
+                        timeout=2.0
+                    )
+                    # Shutdown signaled, exit loop
+                    logger.info("Shutdown event detected during sleep")
+                    break
+                except asyncio.TimeoutError:
+                    # Normal timeout, continue loop
+                    pass
 
             except Exception as e:
                 logger.error(f"❌ Error in main loop (poll cycle {poll_count}): {e}", exc_info=True)
                 logger.debug("⚠️ Waiting 5 seconds before retrying due to error")
-                await asyncio.sleep(5)  # Wait longer on error
+                # Error sleep (shutdown-aware)
+                try:
+                    await asyncio.wait_for(
+                        self.shutdown_event.wait(),
+                        timeout=5.0
+                    )
+                    # Shutdown signaled, exit loop
+                    logger.info("Shutdown event detected during error recovery sleep")
+                    break
+                except asyncio.TimeoutError:
+                    # Normal timeout, continue loop
+                    pass
 
     async def shutdown(self):
-        """Graceful shutdown"""
-        logger.info("🔧 Shutting down Simple Recipe Service...")
+        """Graceful shutdown with timeout"""
+        logger.info("🛑 Shutting down Simple Recipe Service...")
+        start_time = asyncio.get_event_loop().time()
+
         self.running = False
         self.shutdown_event.set()
 
+        # Cleanup tasks
+        cleanup_tasks = []
+
         # Shutdown terminal registry
         if self.registry:
-            await self.registry.shutdown(reason="Service shutdown")
-            logger.info("✅ Terminal liveness shutdown complete")
+            async def cleanup_registry():
+                try:
+                    await asyncio.wait_for(
+                        self.registry.shutdown(reason="Service shutdown"),
+                        timeout=5.0
+                    )
+                    logger.info("✅ Terminal registry shutdown complete")
+                except asyncio.TimeoutError:
+                    logger.warning("⏱️ Registry shutdown timed out")
+                except Exception as e:
+                    logger.error(f"Registry cleanup error: {e}")
+
+            cleanup_tasks.append(cleanup_registry())
 
         # Disconnect PLC
-        logger.debug("🔧 Disconnecting from PLC...")
-        await plc_manager.disconnect()
-        logger.info("✅ PLC disconnected")
+        async def cleanup_plc():
+            try:
+                logger.debug("🔧 Disconnecting from PLC...")
+                await asyncio.wait_for(
+                    plc_manager.disconnect(),
+                    timeout=5.0
+                )
+                logger.info("✅ PLC disconnected")
+            except asyncio.TimeoutError:
+                logger.warning("⏱️ PLC disconnect timed out")
+            except Exception as e:
+                logger.error(f"PLC cleanup error: {e}")
+
+        cleanup_tasks.append(cleanup_plc())
+
+        # Execute all cleanup
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*cleanup_tasks, return_exceptions=True),
+                timeout=self.shutdown_timeout
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"⏱️ Shutdown cleanup timed out after {self.shutdown_timeout}s")
+
+        duration = asyncio.get_event_loop().time() - start_time
+        logger.info(f"✅ Graceful shutdown complete in {duration:.2f}s")
         logger.info("🔧 Simple Recipe Service shutdown complete")
 
 
