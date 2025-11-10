@@ -423,6 +423,12 @@ async def main():
     if args.machine_id:
         os.environ["MACHINE_ID"] = args.machine_id
 
+    # Setup global exception handlers to catch crashes
+    from src.resilience.error_handlers import (
+        setup_global_exception_handler,
+        setup_asyncio_exception_handler
+    )
+
     logger.info("=" * 60)
     logger.info("🤖 SIMPLE RECIPE SERVICE - TERMINAL 2")
     logger.info(f"   Machine ID: {MACHINE_ID}")
@@ -445,6 +451,19 @@ async def main():
     try:
         logger.info("🔧 Initializing Recipe Service...")
         await service.initialize()
+
+        # Setup exception handlers now that we have registry
+        if service.registry:
+            setup_global_exception_handler(
+                registry=service.registry,
+                logger=logger
+            )
+            setup_asyncio_exception_handler(
+                registry=service.registry,
+                logger=logger
+            )
+            logger.info("✅ Global exception handlers installed")
+
         logger.info("🚀 Starting Recipe Service main loop...")
         await service.run()
     except KeyboardInterrupt:

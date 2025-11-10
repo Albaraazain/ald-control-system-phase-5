@@ -1200,6 +1200,15 @@ async def main():
     from src.log_setup import set_log_level
     set_log_level(os.environ.get("LOG_LEVEL", "INFO"))
 
+    # Setup global exception handlers to catch crashes
+    from src.resilience.error_handlers import (
+        setup_global_exception_handler,
+        setup_asyncio_exception_handler
+    )
+
+    # Will setup handlers with registry after service creation
+    registry = None
+
     main_logger.info("="*60)
     main_logger.info("🔧 STARTING PLC DATA SERVICE - TERMINAL 1")
     main_logger.info("="*60)
@@ -1224,6 +1233,18 @@ async def main():
         if not await plc_service.initialize():
             main_logger.error("Failed to initialize PLC Data Service")
             return 1
+
+        # Setup exception handlers now that we have registry
+        if plc_service.registry:
+            setup_global_exception_handler(
+                registry=plc_service.registry,
+                logger=main_logger
+            )
+            setup_asyncio_exception_handler(
+                registry=plc_service.registry,
+                logger=main_logger
+            )
+            main_logger.info("✅ Global exception handlers installed")
 
         # Start service
         await plc_service.start()

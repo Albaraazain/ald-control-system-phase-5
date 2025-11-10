@@ -239,7 +239,15 @@ class TerminalRegistry:
         """Setup signal handlers for graceful shutdown."""
         def signal_handler(signum, frame):
             registry_logger.info(f"🛑 Received signal {signum}, initiating graceful shutdown...")
-            asyncio.create_task(self.shutdown())
+            # Set shutdown event from signal handler (synchronous)
+            self._shutdown_event.set()
+            # Schedule shutdown coroutine safely
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self.shutdown())
+            except RuntimeError:
+                # No running loop - will be handled by main
+                registry_logger.warning("No running event loop, shutdown will be handled by main")
 
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
@@ -396,27 +404,40 @@ class TerminalRegistry:
         # Signal shutdown event
         self._shutdown_event.set()
 
-        # Update status to stopping
-        await self.set_status('stopping', reason)
+        # Update status to stopping (with timeout)
+        try:
+            await asyncio.wait_for(self.set_status('stopping', reason), timeout=3.0)
+        except asyncio.TimeoutError:
+            registry_logger.warning("⏱️ Status update timed out during shutdown")
 
         # Cancel heartbeat task
         if self._heartbeat_task and not self._heartbeat_task.done():
             self._heartbeat_task.cancel()
             try:
-                await self._heartbeat_task
-            except asyncio.CancelledError:
+                await asyncio.wait_for(self._heartbeat_task, timeout=2.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
                 pass
 
-        # Final status update
-        await self.set_status('stopped', reason)
-
-        # Final metrics update
+        # Final status update (with timeout)
         try:
-            self.supabase.table('terminal_instances').update({
-                'commands_processed': self.commands_processed,
-                'errors_encountered': self.errors_encountered,
-                'stopped_at': get_current_timestamp()
-            }).eq('id', self.instance_id).execute()
+            await asyncio.wait_for(self.set_status('stopped', reason), timeout=3.0)
+        except asyncio.TimeoutError:
+            registry_logger.warning("⏱️ Final status update timed out")
+
+        # Final metrics update (with timeout)
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(
+                    lambda: self.supabase.table('terminal_instances').update({
+                        'commands_processed': self.commands_processed,
+                        'errors_encountered': self.errors_encountered,
+                        'stopped_at': get_current_timestamp()
+                    }).eq('id', self.instance_id).execute()
+                ),
+                timeout=3.0
+            )
+        except asyncio.TimeoutError:
+            registry_logger.warning("⏱️ Final metrics update timed out")
         except Exception as e:
             registry_logger.error(f"Failed final update: {e}")
 

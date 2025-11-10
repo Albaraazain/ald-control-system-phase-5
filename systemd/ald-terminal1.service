@@ -15,6 +15,9 @@ RestartSec=10
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
+# Shutdown timeout (max 15s: 11s graceful + 4s buffer)
+TimeoutStopSec=15
+
 # Environment
 Environment="PYTHONUNBUFFERED=1"
 
