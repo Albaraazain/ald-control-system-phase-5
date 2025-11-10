@@ -3,6 +3,7 @@
 Real hardware implementation of the PLC interface.
 """
 import asyncio
+import errno
 import re
 import struct
 import time
@@ -871,7 +872,9 @@ class RealPLC(PLCInterface):
         """
         Execute bulk reads for holding register ranges.
         
-        OPTIMIZED: Execute all ranges in parallel using asyncio.gather for maximum speed.
+        OPTIMIZED: Execute all ranges in parallel using separate Modbus connections.
+        Modbus TCP typically only supports 1 request per connection, so we create
+        separate connections for each parallel read.
         
         Args:
             ranges: List of optimized register ranges
@@ -883,18 +886,39 @@ class RealPLC(PLCInterface):
         
         # Execute all bulk reads in parallel for maximum performance
         async def read_single_range(range_info: Dict) -> Dict[str, float]:
-            """Read a single range and return parameter values."""
+            """Read a single range using a dedicated Modbus connection."""
             range_result = {}
+            client = None
             try:
                 start_addr = range_info['start_address']
                 total_registers = range_info['count']
                 parameters = range_info['parameters']
                 
-                # Execute bulk read in thread to avoid blocking
+                # Create a dedicated Modbus client for this parallel read
+                # Use shorter timeout (2s) for faster failure detection
+                from pymodbus.client import ModbusTcpClient
+                
+                # Get the target IP (use current IP from communicator if available)
+                target_ip = self.communicator._current_ip or self.ip_address
+                
+                client = ModbusTcpClient(
+                    target_ip,
+                    port=self.port,
+                    timeout=2.0  # 2 second timeout for operations
+                )
+                
+                # Connect in thread to avoid blocking
+                connected = await asyncio.to_thread(client.connect)
+                if not connected:
+                    logger.error(f"Failed to connect dedicated client for range {start_addr}")
+                    return range_result
+                
+                # Execute bulk read in thread
                 raw_results = await asyncio.to_thread(
-                    self.communicator.client.read_holding_registers,
+                    client.read_holding_registers,
                     address=start_addr,
-                    count=total_registers
+                    count=total_registers,
+                    slave=self.communicator.slave_id
                 )
                 
                 if raw_results.isError():
@@ -934,14 +958,21 @@ class RealPLC(PLCInterface):
                 
             except Exception as e:
                 logger.error(f"Error in bulk read for range: {e}", exc_info=True)
+            finally:
+                # Always close the dedicated client
+                if client:
+                    try:
+                        await asyncio.to_thread(client.close)
+                    except Exception as e:
+                        logger.debug(f"Error closing dedicated client: {e}")
             
             return range_result
         
         # Execute all ranges in parallel with limited concurrency
-        # Use semaphore to limit concurrent Modbus requests (Modbus TCP typically supports 1-16 concurrent)
-        # Conservative limit: 4 concurrent requests to avoid overwhelming the PLC
+        # Use semaphore to limit concurrent connections (avoid overwhelming PLC)
+        # Conservative limit: 4 concurrent connections
         if ranges:
-            semaphore = asyncio.Semaphore(4)  # Limit to 4 concurrent bulk reads
+            semaphore = asyncio.Semaphore(4)  # Limit to 4 concurrent connections
             
             async def read_with_semaphore(range_info):
                 async with semaphore:
@@ -972,20 +1003,41 @@ class RealPLC(PLCInterface):
         """
         result = {}
         
-        # Execute all bulk reads in parallel with limited concurrency
+        # Execute all bulk reads in parallel using separate Modbus connections
         async def read_single_coil_range(range_info: Dict) -> Dict[str, float]:
-            """Read a single coil range and return parameter values."""
+            """Read a single coil range using a dedicated Modbus connection."""
             range_result = {}
+            client = None
             try:
                 start_addr = range_info['start_address']
                 count = range_info['count']
                 parameters = range_info['parameters']
                 
-                # Execute bulk read in thread to avoid blocking
+                # Create a dedicated Modbus client for this parallel read
+                # Use shorter timeout (2s) for faster failure detection
+                from pymodbus.client import ModbusTcpClient
+                
+                # Get the target IP (use current IP from communicator if available)
+                target_ip = self.communicator._current_ip or self.ip_address
+                
+                client = ModbusTcpClient(
+                    target_ip,
+                    port=self.port,
+                    timeout=2.0  # 2 second timeout for operations
+                )
+                
+                # Connect in thread to avoid blocking
+                connected = await asyncio.to_thread(client.connect)
+                if not connected:
+                    logger.error(f"Failed to connect dedicated client for coil range {start_addr}")
+                    return range_result
+                
+                # Execute bulk read in thread
                 raw_results = await asyncio.to_thread(
-                    self.communicator.client.read_coils,
+                    client.read_coils,
                     address=start_addr,
-                    count=count
+                    count=count,
+                    slave=self.communicator.slave_id
                 )
                 
                 if raw_results.isError():
@@ -1010,14 +1062,21 @@ class RealPLC(PLCInterface):
                 
             except Exception as e:
                 logger.error(f"Error in bulk coil read for range: {e}", exc_info=True)
+            finally:
+                # Always close the dedicated client
+                if client:
+                    try:
+                        await asyncio.to_thread(client.close)
+                    except Exception as e:
+                        logger.debug(f"Error closing dedicated coil client: {e}")
             
             return range_result
         
         # Execute all ranges in parallel with limited concurrency
-        # Use semaphore to limit concurrent Modbus requests (Modbus TCP typically supports 1-16 concurrent)
-        # Conservative limit: 4 concurrent requests to avoid overwhelming the PLC
+        # Use semaphore to limit concurrent connections (avoid overwhelming PLC)
+        # Conservative limit: 4 concurrent connections
         if ranges:
-            semaphore = asyncio.Semaphore(4)  # Limit to 4 concurrent bulk reads
+            semaphore = asyncio.Semaphore(4)  # Limit to 4 concurrent connections
             
             async def read_with_semaphore(range_info):
                 async with semaphore:
