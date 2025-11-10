@@ -142,7 +142,7 @@ class PLCDataService:
             # Insert single wide record
             if len(wide_record) > 1:
                 self.supabase.table('parameter_readings').insert(wide_record).execute()
-                data_logger.debug(f"✅ Wrote {len(wide_record) - 1} parameter values to database (wide format)")
+                data_logger.info(f"✅ Wrote {len(wide_record) - 1} parameter values to database (wide format)")
         
         except Exception as e:
             logger.error(f"Error writing to database: {e}", exc_info=True)
