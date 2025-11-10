@@ -379,6 +379,9 @@ class PLCDataService:
         """
         Collect PLC data and log to database with transactional guarantees.
         """
+        # ⏱️ INSTRUMENTATION: Measure what's causing 4-5s delay in collection
+        collect_start = time.time()
+
         self.metrics['total_readings'] += 1
 
         try:
@@ -388,17 +391,23 @@ class PLCDataService:
                 return
 
             # Read all parameters from PLC (current values)
+            plc_read_start = time.time()
             parameter_values = await self.plc_manager.read_all_parameters()
+            plc_read_duration = time.time() - plc_read_start
+
             if not parameter_values:
                 data_logger.debug("No parameters available from PLC")
                 return
 
             # Read all setpoints from PLC (for synchronization), throttled
             setpoint_values = {}
+            setpoint_read_duration = 0
             now = asyncio.get_event_loop().time()
             if (now - self._last_setpoint_read_time) >= self.setpoint_refresh_interval:
                 try:
+                    setpoint_read_start = time.time()
                     setpoint_values = await self.plc_manager.read_all_setpoints()
+                    setpoint_read_duration = time.time() - setpoint_read_start
                     self.metrics['setpoint_reads_successful'] += 1
                     data_logger.info(f"📊 Read {len(setpoint_values)} setpoints from PLC for synchronization")
                 except Exception as e:
@@ -408,7 +417,16 @@ class PLCDataService:
                     self._last_setpoint_read_time = now
 
             # Log parameters to database with enhanced logging (includes setpoint sync)
+            log_start = time.time()
             success_count = await self._log_parameters_with_metadata(parameter_values, setpoint_values)
+            log_duration = time.time() - log_start
+
+            total_collect_duration = time.time() - collect_start
+            data_logger.info(
+                f"⏱️ Collection breakdown: total={total_collect_duration*1000:.0f}ms "
+                f"(plc_read={plc_read_duration*1000:.0f}ms, setpoint={setpoint_read_duration*1000:.0f}ms, "
+                f"log={log_duration*1000:.0f}ms)"
+            )
 
             if success_count > 0:
                 if self.async_writer_enabled:
