@@ -1,0 +1,27 @@
+[Unit]
+Description=ALD Terminal 1 - PLC Data Service
+After=network-online.target
+Wants=network-online.target
+Documentation=file:///home/atomicoat/ald-control-system-phase-5/CLAUDE.md
+
+[Service]
+Type=simple
+WorkingDirectory=/home/atomicoat/ald-control-system-phase-5
+ExecStart=/home/atomicoat/ald-control-system-phase-5/myenv/bin/python plc_data_service.py --plc real
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+
+# Logging to systemd journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ald-terminal1
+
+[Install]
+WantedBy=default.target
