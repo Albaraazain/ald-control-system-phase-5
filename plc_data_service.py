@@ -361,6 +361,23 @@ class PLCDataService:
                     )
 
                 # Shutdown-aware sleep for immediate exit on shutdown signal
+                # Handle zero/negative sleep_time immediately to avoid blocking
+                if sleep_time <= 0:
+                    # Already behind schedule - reset deadline to catch up
+                    # This prevents the deadline from drifting further behind
+                    if abs(sleep_time) > 1.0:  # Only reset if more than 1s behind
+                        data_logger.warning(
+                            f"⚠️ Behind schedule by {abs(sleep_time):.1f}s, resetting deadline to catch up"
+                        )
+                        self._next_deadline = now + self.data_collection_interval
+                    
+                    # Check for shutdown before continuing
+                    if self.shutdown_event.is_set():
+                        data_logger.info("Shutdown event detected")
+                        break
+                    # Continue loop immediately (no sleep needed)
+                    continue
+                
                 try:
                     sleep_start = loop.time()
                     await asyncio.wait_for(
