@@ -647,6 +647,9 @@ class PLCDataService:
 
         for attempt in range(max_attempts):
             try:
+                # ⏱️ INSTRUMENTATION: Measure actual RPC timing to find 4.5s bottleneck
+                rpc_start = time.time()
+
                 # Call wide RPC function with timestamp and JSONB parameters
                 response = self.supabase.rpc(
                     'insert_parameter_reading_wide',
@@ -655,6 +658,14 @@ class PLCDataService:
                         'p_params': wide_record
                     }
                 ).execute()
+
+                rpc_duration = time.time() - rpc_start
+
+                # Log timing BEFORE checking result (so we see timing even on errors)
+                data_logger.info(
+                    f"⏱️ RPC timing: {rpc_duration*1000:.0f}ms "
+                    f"(attempt {attempt + 1}/{max_attempts})"
+                )
 
                 # RPC returns count of parameters inserted
                 inserted_count = response.data if response.data else 0
@@ -1069,19 +1080,27 @@ class PLCDataService:
                     if isinstance(batch, tuple) and len(batch) == 3 and batch[0] == 'wide':
                         # Wide format: ('wide', timestamp, wide_record)
                         _, timestamp, wide_record = batch
+
+                        # ⏱️ INSTRUMENTATION: Measure full write cycle (including retries)
+                        write_cycle_start = time.time()
+
                         # Suppress internal success logs - we'll log at this level instead
                         success = await self._insert_wide_record_with_retry(timestamp, wide_record, log_success=False)
+
+                        write_cycle_duration = time.time() - write_cycle_start
 
                         # Log ACTUAL database write completion (after retry logic completes)
                         if success:
                             self.metrics['successful_readings'] += 1
                             data_logger.info(
-                                f"✅ Database write completed: {len(wide_record)} parameters written successfully"
+                                f"✅ Database write completed: {len(wide_record)} parameters written successfully "
+                                f"(total cycle: {write_cycle_duration*1000:.0f}ms)"
                             )
                         else:
                             self.metrics['failed_readings'] += 1
                             data_logger.error(
-                                f"❌ Database write failed: {len(wide_record)} parameters moved to dead letter queue"
+                                f"❌ Database write failed: {len(wide_record)} parameters moved to dead letter queue "
+                                f"(total cycle: {write_cycle_duration*1000:.0f}ms)"
                             )
                     else:
                         # Narrow format (legacy): list of records
