@@ -33,7 +33,7 @@ chmod 600 ~/.ssh/authorized_keys
 - **Pi Connection**: Pi connects to same router via WiFi (192.168.1.x network)
 - **Byte Order**: badc (big-byte/little-word)
 
-**Important**: The PLC must be on the same network as the Pi. Verify connectivity:
+**Important**: The PLC must be on the same local network as the Pi (192.168.1.x). Verify connectivity:
 ```bash
 ssh atomicoat@100.100.138.5 'ping -c 3 192.168.1.50'
 ```
@@ -114,7 +114,7 @@ ssh atomicoat@100.100.138.5
 cd ~/ald-control-system-phase-5
 source myenv/bin/activate
 
-# Start Terminal 1 (PLC Read Service - Standalone)
+# Start Terminal 1 (PLC Read Service)
 tmux new-session -d -s terminal1
 tmux send-keys -t terminal1 "source myenv/bin/activate" C-m
 tmux send-keys -t terminal1 "python plc_data_service_standalone.py" C-m
@@ -219,13 +219,9 @@ ssh atomicoat@100.100.138.5 'cd ~/ald-control-system-phase-5 && source myenv/bin
 ## Build/Lint/Test Commands
 
 - **Setup Environment**: `python -m venv myenv && source myenv/bin/activate && pip install -r requirements.txt`
-- **Run Terminal 1 (Local)**: `python plc_data_service_standalone.py` (uses simulation if PLC not available)
-- **Run Terminal 1 (Real PLC)**: `python plc_data_service_standalone.py` (requires PLC_CONFIG in .env)
-- **Legacy Terminal 1**: `python plc_data_service.py --plc real` (old singleton-based version)
-- **Run Terminal 2 (Local)**: `python main.py --terminal 2 --demo` (Recipe Service - simulation)
-- **Run Terminal 2 (Real PLC)**: `python main.py --terminal 2 --plc real`
-- **Run Terminal 3 (Local)**: `python main.py --terminal 3 --demo` (Parameter Service - simulation)
-- **Run Terminal 3 (Real PLC)**: `python main.py --terminal 3 --plc real`
+- **Terminal 1**: `python plc_data_service_standalone.py` (requires PLC_CONFIG in .env)
+- **Terminal 2**: `python simple_recipe_service.py` (requires PLC_CONFIG in .env)
+- **Terminal 3**: `python terminal3_clean.py` (requires PLC_CONFIG in .env)
 - **Test PLC Connection**: `python main.py --doctor --plc real`
 - **Lint Code**: `python -m pylint --disable=C0103,C0111 --max-line-length=100 *.py`
 - **Type Check**: `python -m mypy --ignore-missing-imports .`
@@ -261,9 +257,9 @@ This is an Atomic Layer Deposition (ALD) control system with a **SIMPLE 3-TERMIN
 - **Purpose**: Continuous PLC data collection with optimized bulk reads
 - **Function**: Reads PLC parameters every 1 second and updates database
 - **Database**: Updates `parameter_readings` table (wide format - single row per timestamp)
-- **Launch**: `python plc_data_service_standalone.py` (production) or `python plc_data_service.py --plc real` (legacy)
+- **Launch**: `python plc_data_service_standalone.py`
 - **Features**: 
-  - Direct PLC connection (no singleton)
+  - Direct PLC connection
   - Bulk reads with parallel Modbus connections (39-45ms reads, 167-397ms total)
   - Wide table format for efficient database writes
   - Simple architecture, easy to debug
@@ -272,21 +268,20 @@ This is an Atomic Layer Deposition (ALD) control system with a **SIMPLE 3-TERMIN
 - **Purpose**: Recipe command processing and execution
 - **Function**: Listens for recipe commands and executes them via direct PLC access
 - **Database**: Monitors `recipe_commands` table, updates `process_executions`
-- **Launch**: `python main.py --terminal 2 --demo` or `python terminal2_launcher.py --demo`
+- **Launch**: `python simple_recipe_service.py`
 - **Features**: Direct PLC access, simple polling, reuses existing recipe_flow components
-- **Hybrid Architecture**: Recipe execution writes PLC DIRECTLY for performance (160-350ms per step), then logs audit trail to `parameter_control_commands` AFTER write completes. This hybrid approach provides fast execution + full traceability without routing through Terminal 3.
+- **Hybrid Architecture**: Recipe execution writes PLC directly for performance (160-350ms per step), then logs audit trail to `parameter_control_commands` after write completes. This provides fast execution with full traceability.
 
 ### ⚙️ TERMINAL 3: Parameter Service (`terminal3_clean.py`)
-- **Purpose**: Parameter control and writing for EXTERNAL commands
+- **Purpose**: Parameter control and writing for external commands
 - **Function**: Listens for parameter commands and writes directly to PLC
 - **Database**: Monitors `parameter_control_commands` table
-- **Launch**: `python main.py --terminal 3 --demo` or `python terminal3_launcher.py --demo`
+- **Launch**: `python terminal3_clean.py`
 - **Features**: Direct PLC access, parameter validation, retry logic, optional verification mode
-- **Performance**: ~45-75ms per write operation (optimized from 220-295ms)
+- **Performance**: ~45-75ms per write operation
   - Production mode (default): Fast writes leveraging Modbus protocol guarantees
   - Verification mode: Enable with `TERMINAL3_VERIFY_WRITES=true` for debugging (~50ms overhead)
-- **Scope**: Handles EXTERNAL manual parameter commands from operators/systems. Does NOT process recipe commands - recipes use direct PLC access (Terminal 2) for speed, then audit to this table for traceability.
-- **Optimization Notes**: See `OPTIMIZATION_NOTES.md` for details on 79-80% performance improvement
+- **Scope**: Handles external manual parameter commands from operators/systems. Does not process recipe commands - recipes use direct PLC access (Terminal 2) for speed, then audit to this table for traceability.
 
 ### Key Architecture Benefits
 
@@ -309,44 +304,20 @@ This is an Atomic Layer Deposition (ALD) control system with a **SIMPLE 3-TERMIN
    - Database (parameter_control_commands) → Direct PLC Write (external commands only)
    - Uses direct `RealPLC` instance
 
-**Note**: Terminal 2 uses a hybrid architecture - it writes to PLC directly (fast path: 160-350ms), then logs to parameter_control_commands for audit trail (async background task). Terminal 3 handles external commands only, not recipe-driven changes.
-
-### PLC Connection Architecture (No Singleton)
-
-**Previous (Singleton Pattern - REMOVED):**
-- ❌ All terminals shared one `plc_manager` singleton
-- ❌ Caused initialization issues (bulk reads didn't work)
-- ❌ Prevented parallel connections
-- ❌ Complex shared state
-
-**Current (Direct Connections - ACTIVE):**
-- ✅ Each terminal creates its own `RealPLC` instance
-- ✅ Terminal 1: `plc_data_service_standalone.py` creates `RealPLC` directly
-- ✅ Terminal 2: `simple_recipe_service.py` creates `RealPLC`, sets in context for step executors
-- ✅ Terminal 3: `terminal3_clean.py` creates `RealPLC` directly
-- ✅ Step executors: Access PLC via `src/plc/context.get_plc()`
-- ✅ Benefits: Simpler, faster, easier to debug, supports parallel connections
-
-**Modbus TCP Connection Limits:**
-- Modbus TCP servers typically support 8-16 concurrent connections
-- Our PLC can handle multiple connections (proven by parallel bulk reads)
-- No technical limitation requiring singleton pattern
+**Note**: Terminal 2 writes to PLC directly (160-350ms), then logs to `parameter_control_commands` for audit trail. Terminal 3 handles external commands only, not recipe-driven changes.
 
 ### Key Design Principles
 
-- **Direct PLC Access**: Each terminal creates its own `RealPLC` instance (no singleton pattern)
-  - **Why**: Singleton caused initialization issues, prevented parallel connections, added complexity
-  - **How**: Each terminal calls `RealPLC(ip_address, port, ...)` directly
-  - **Benefits**: Simpler, faster (parallel connections work), easier to debug
+- **Direct PLC Access**: Each terminal creates its own `RealPLC` instance
+  - Each terminal calls `RealPLC(ip_address, port, ...)` directly
+  - Benefits: Simpler, faster (parallel connections work), easier to debug
 - **PLC Context Module**: Step executors access PLC via `src/plc/context.py`
-  - **Purpose**: Allows step executors to access the terminal's PLC instance
-  - **Usage**: Terminal sets PLC with `set_plc(plc)`, executors get it with `get_plc()`
-  - **Why**: Cleaner than passing PLC through all function calls
+  - Terminal sets PLC with `set_plc(plc)`, executors get it with `get_plc()`
+  - Cleaner than passing PLC through all function calls
 - **Simple Polling**: No complex coordination or agent systems
 - **Independent Services**: Terminals operate completely independently
-- **Easy Debugging**: Each service is self-contained and simple to understand
 - **Async/Await**: Non-blocking I/O operations for responsiveness
-- **Modbus TCP**: Supports 8-16 concurrent connections (no need for singleton)
+- **Modbus TCP**: Supports 8-16 concurrent connections
 
 ## Code Style Guidelines
 
@@ -402,7 +373,7 @@ logs/
 ├── agents.log              # Agent management and coordination
 ├── realtime.log            # Realtime connections and subscriptions
 ├── connection_monitor.log  # System health and connectivity
-└── machine_control.log     # Legacy/fallback logger (backward compatibility)
+└── machine_control.log     # Fallback logger (backward compatibility)
 ```
 
 ### Usage in New Code (Recommended)
@@ -424,11 +395,11 @@ from src.log_setup import get_command_flow_logger, get_plc_logger
 logger = get_command_flow_logger()
 ```
 
-### Legacy Code (Still Supported)
+### Backward Compatible Logging
 ```python
 # This still works and logs to machine_control.log
 from src.log_setup import logger
-logger.info("Legacy logging message")
+logger.info("Logging message")
 ```
 
 ### Log Level Configuration
@@ -469,5 +440,5 @@ tail -f logs/machine_control.log logs/command_flow.log logs/plc.log
 ### Documentation
 - **Enhanced Logging Guide**: `docs/Enhanced_Logging_Guide.md` - Complete usage guide
 - **Troubleshooting Guide**: `docs/Log_Troubleshooting_Guide.md` - Debug patterns and solutions
-- proceed with the one that makes sense, that one that ensure proper implementation longterm, the one that is not mock or a fallback., all must be real actual functional decisions, for getting the app not just to run but run properly./
-- the pi is not on the same network, we are controlling it remotely through tailscale
+
+**Note**: The Raspberry Pi is accessed remotely via Tailscale VPN, not on the same local network.
