@@ -149,17 +149,45 @@ class TerminalRegistry:
 
             if existing.data:
                 existing_instance = existing.data[0]
-                error_msg = (
-                    f"❌ {self.terminal_type} already running!\n"
-                    f"   Instance ID: {existing_instance['id']}\n"
-                    f"   Hostname: {existing_instance['hostname']}\n"
-                    f"   PID: {existing_instance['process_id']}\n"
-                    f"   Status: {existing_instance['status']}\n"
-                    f"   Started: {existing_instance['started_at']}\n"
-                    f"   Last Heartbeat: {existing_instance['last_heartbeat']}"
-                )
-                registry_logger.error(error_msg)
-                raise TerminalAlreadyRunningError(error_msg)
+                existing_pid = existing_instance['process_id']
+
+                # Check if the PID actually exists (process still running)
+                try:
+                    import os
+                    import signal
+                    # Send signal 0 to check if process exists (doesn't actually send signal)
+                    os.kill(existing_pid, 0)
+                    # Process exists - it's truly running
+                    process_exists = True
+                except (OSError, ProcessLookupError):
+                    # Process doesn't exist - stale database entry
+                    process_exists = False
+
+                if process_exists:
+                    # Process is actually running - block registration
+                    error_msg = (
+                        f"❌ {self.terminal_type} already running!\n"
+                        f"   Instance ID: {existing_instance['id']}\n"
+                        f"   Hostname: {existing_instance['hostname']}\n"
+                        f"   PID: {existing_instance['process_id']}\n"
+                        f"   Status: {existing_instance['status']}\n"
+                        f"   Started: {existing_instance['started_at']}\n"
+                        f"   Last Heartbeat: {existing_instance['last_heartbeat']}"
+                    )
+                    registry_logger.error(error_msg)
+                    raise TerminalAlreadyRunningError(error_msg)
+                else:
+                    # Process doesn't exist - clean up stale entry
+                    registry_logger.warning(
+                        f"⚠️ Found stale {self.terminal_type} entry (PID {existing_pid} not found)\n"
+                        f"   Marking as crashed and allowing new registration..."
+                    )
+                    # Mark as crashed
+                    self.supabase.table('terminal_instances').update({
+                        'status': 'crashed',
+                        'crash_detected_at': 'now()',
+                        'last_error_message': 'Process terminated without cleanup (stale PID)'
+                    }).eq('id', existing_instance['id']).execute()
 
             # Register new instance
             record = {
@@ -239,29 +267,39 @@ class TerminalRegistry:
                 # Continue heartbeat even on error
 
     async def _send_heartbeat(self):
-        """Send heartbeat update to database."""
+        """Send heartbeat update to database with retry logic."""
         if not self._registered or not self.instance_id:
             return
 
         try:
-            update = {
-                'last_heartbeat': get_current_timestamp(),
-                'commands_processed': self.commands_processed,
-                'errors_encountered': self.errors_encountered,
-                'last_error_message': self.last_error_message,
-            }
+            # Use retry logic for heartbeat
+            from src.resilience import retry_heartbeat
 
-            self.supabase.table('terminal_instances').update(update).eq(
-                'id', self.instance_id
-            ).execute()
+            @retry_heartbeat
+            async def _update_heartbeat():
+                update = {
+                    'last_heartbeat': get_current_timestamp(),
+                    'commands_processed': self.commands_processed,
+                    'errors_encountered': self.errors_encountered,
+                    'last_error_message': self.last_error_message,
+                }
 
-            # Reset missed heartbeats counter on successful heartbeat
-            self.supabase.table('terminal_instances').update({
-                'missed_heartbeats': 0
-            }).eq('id', self.instance_id).execute()
+                self.supabase.table('terminal_instances').update(update).eq(
+                    'id', self.instance_id
+                ).execute()
+
+                # Reset missed heartbeats counter on successful heartbeat
+                self.supabase.table('terminal_instances').update({
+                    'missed_heartbeats': 0
+                }).eq('id', self.instance_id).execute()
+
+            await _update_heartbeat()
 
         except Exception as e:
-            registry_logger.error(f"Failed to send heartbeat: {e}")
+            registry_logger.error(
+                f"❌ CRITICAL: Failed to send heartbeat after retries: {e}\n"
+                f"   This may cause terminal to be marked as crashed."
+            )
 
     async def set_status(self, status: str, reason: Optional[str] = None):
         """
@@ -301,19 +339,46 @@ class TerminalRegistry:
         self.commands_processed += count
 
     def record_error(self, error_message: str):
-        """Record an error."""
+        """Record an error with retry logic."""
         self.errors_encountered += 1
-        self.last_error_message = error_message
+        self.last_error_message = error_message[:500]  # Truncate long errors
 
         # Update database immediately for errors
         try:
-            self.supabase.table('terminal_instances').update({
-                'errors_encountered': self.errors_encountered,
-                'last_error_message': error_message,
-                'last_error_at': get_current_timestamp()
-            }).eq('id', self.instance_id).execute()
+            from src.resilience import retry_database
+
+            # Use sync wrapper for database update
+            import asyncio
+
+            async def _update_error():
+                @retry_database
+                async def _db_update():
+                    self.supabase.table('terminal_instances').update({
+                        'errors_encountered': self.errors_encountered,
+                        'last_error_message': error_message[:500],
+                        'last_error_at': get_current_timestamp()
+                    }).eq('id', self.instance_id).execute()
+
+                await _db_update()
+
+            # Run in event loop if available, otherwise log warning
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(_update_error())
+                else:
+                    loop.run_until_complete(_update_error())
+            except RuntimeError:
+                # No event loop - try direct update
+                registry_logger.warning("No event loop for error recording - using direct update")
+                self.supabase.table('terminal_instances').update({
+                    'errors_encountered': self.errors_encountered,
+                    'last_error_message': error_message[:500],
+                    'last_error_at': get_current_timestamp()
+                }).eq('id', self.instance_id).execute()
+
         except Exception as e:
-            registry_logger.error(f"Failed to record error: {e}")
+            registry_logger.error(f"Failed to record error in database: {e}")
 
     async def shutdown(self, reason: str = "Graceful shutdown"):
         """
