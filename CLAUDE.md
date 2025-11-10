@@ -114,10 +114,10 @@ ssh atomicoat@100.100.138.5
 cd ~/ald-control-system-phase-5
 source myenv/bin/activate
 
-# Start Terminal 1 (PLC Read Service)
+# Start Terminal 1 (PLC Read Service - Standalone)
 tmux new-session -d -s terminal1
 tmux send-keys -t terminal1 "source myenv/bin/activate" C-m
-tmux send-keys -t terminal1 "python plc_data_service.py --plc real" C-m
+tmux send-keys -t terminal1 "python plc_data_service_standalone.py" C-m
 
 # Start Terminal 2 (Recipe Service)
 tmux new-session -d -s terminal2
@@ -132,7 +132,7 @@ tmux send-keys -t terminal3 "python terminal3_clean.py" C-m
 
 **One-liner to restart all terminals:**
 ```bash
-ssh atomicoat@100.100.138.5 'cd ~/ald-control-system-phase-5 && tmux kill-session -t terminal1 2>/dev/null; tmux kill-session -t terminal2 2>/dev/null; tmux kill-session -t terminal3 2>/dev/null; sleep 2 && tmux new-session -d -s terminal1 && tmux send-keys -t terminal1 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal1 "python plc_data_service.py --plc real" C-m && tmux new-session -d -s terminal2 && tmux send-keys -t terminal2 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal2 "python simple_recipe_service.py" C-m && tmux new-session -d -s terminal3 && tmux send-keys -t terminal3 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal3 "python terminal3_clean.py" C-m'
+ssh atomicoat@100.100.138.5 'cd ~/ald-control-system-phase-5 && tmux kill-session -t terminal1 2>/dev/null; tmux kill-session -t terminal2 2>/dev/null; tmux kill-session -t terminal3 2>/dev/null; sleep 2 && tmux new-session -d -s terminal1 && tmux send-keys -t terminal1 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal1 "python plc_data_service_standalone.py" C-m && tmux new-session -d -s terminal2 && tmux send-keys -t terminal2 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal2 "python simple_recipe_service.py" C-m && tmux new-session -d -s terminal3 && tmux send-keys -t terminal3 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal3 "python terminal3_clean.py" C-m'
 ```
 
 ### Managing tmux Sessions
@@ -165,7 +165,7 @@ ssh atomicoat@100.100.138.5 'tmux kill-session -t terminal1; tmux kill-session -
 **Restart a terminal:**
 ```bash
 # Kill and restart (example for terminal1)
-ssh atomicoat@100.100.138.5 'tmux kill-session -t terminal1 2>/dev/null; cd ~/ald-control-system-phase-5 && tmux new-session -d -s terminal1 && tmux send-keys -t terminal1 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal1 "python plc_data_service.py --plc real" C-m'
+ssh atomicoat@100.100.138.5 'tmux kill-session -t terminal1 2>/dev/null; cd ~/ald-control-system-phase-5 && tmux new-session -d -s terminal1 && tmux send-keys -t terminal1 "source myenv/bin/activate" C-m && sleep 1 && tmux send-keys -t terminal1 "python plc_data_service_standalone.py" C-m'
 ```
 
 ### Terminal Liveness System
@@ -219,8 +219,9 @@ ssh atomicoat@100.100.138.5 'cd ~/ald-control-system-phase-5 && source myenv/bin
 ## Build/Lint/Test Commands
 
 - **Setup Environment**: `python -m venv myenv && source myenv/bin/activate && pip install -r requirements.txt`
-- **Run Terminal 1 (Local)**: `python main.py --terminal 1 --demo` (PLC Read Service - simulation)
-- **Run Terminal 1 (Real PLC)**: `python main.py --terminal 1 --plc real`
+- **Run Terminal 1 (Local)**: `python plc_data_service_standalone.py` (uses simulation if PLC not available)
+- **Run Terminal 1 (Real PLC)**: `python plc_data_service_standalone.py` (requires PLC_CONFIG in .env)
+- **Legacy Terminal 1**: `python plc_data_service.py --plc real` (old singleton-based version)
 - **Run Terminal 2 (Local)**: `python main.py --terminal 2 --demo` (Recipe Service - simulation)
 - **Run Terminal 2 (Real PLC)**: `python main.py --terminal 2 --plc real`
 - **Run Terminal 3 (Local)**: `python main.py --terminal 3 --demo` (Parameter Service - simulation)
@@ -236,12 +237,16 @@ ssh atomicoat@100.100.138.5 'cd ~/ald-control-system-phase-5 && source myenv/bin
 
 This is an Atomic Layer Deposition (ALD) control system with a **SIMPLE 3-TERMINAL ARCHITECTURE** that eliminates coordination complexity and provides direct PLC access for easy debugging.
 
-### 🔧 TERMINAL 1: PLC Read Service (`plc_data_service.py`)
-- **Purpose**: Continuous PLC data collection
+### 🔧 TERMINAL 1: PLC Read Service (`plc_data_service_standalone.py`)
+- **Purpose**: Continuous PLC data collection with optimized bulk reads
 - **Function**: Reads PLC parameters every 1 second and updates database
-- **Database**: Updates `parameter_value_history` table
-- **Launch**: `python main.py --terminal 1 --demo` or `python terminal1_launcher.py --demo`
-- **Features**: Direct PLC access, simple database inserts, error handling with retry logic
+- **Database**: Updates `parameter_readings` table (wide format - single row per timestamp)
+- **Launch**: `python plc_data_service_standalone.py` (production) or `python plc_data_service.py --plc real` (legacy)
+- **Features**: 
+  - Direct PLC connection (no singleton)
+  - Bulk reads with parallel Modbus connections (39-45ms reads, 167-397ms total)
+  - Wide table format for efficient database writes
+  - Simple architecture, easy to debug
 
 ### 🍳 TERMINAL 2: Recipe Service (`simple_recipe_service.py`)
 - **Purpose**: Recipe command processing and execution
@@ -273,19 +278,55 @@ This is an Atomic Layer Deposition (ALD) control system with a **SIMPLE 3-TERMIN
 
 ### Simple Data Flow
 
-1. **Terminal 1 (PLC Read)**: PLC → Direct Read → Database (parameter_value_history)
-2. **Terminal 2 (Recipe)**: Database (recipe_commands) → Direct PLC Execution → Process Updates + Audit Trail (parameter_control_commands)
-3. **Terminal 3 (Parameter)**: Database (parameter_control_commands) → Direct PLC Write (external commands only)
+1. **Terminal 1 (PLC Read)**: 
+   - PLC → Bulk Read (parallel connections) → Wide Table Format → Database (`parameter_readings`)
+   - Performance: 39-45ms reads, 167-397ms total per collection
+   - Uses `plc_data_service_standalone.py` with direct `RealPLC` instance
+2. **Terminal 2 (Recipe)**: 
+   - Database (recipe_commands) → Direct PLC Execution (via context) → Process Updates + Audit Trail
+   - Uses direct `RealPLC` instance, sets it in `src/plc/context.py` for step executors
+3. **Terminal 3 (Parameter)**: 
+   - Database (parameter_control_commands) → Direct PLC Write (external commands only)
+   - Uses direct `RealPLC` instance
 
 **Note**: Terminal 2 uses a hybrid architecture - it writes to PLC directly (fast path: 160-350ms), then logs to parameter_control_commands for audit trail (async background task). Terminal 3 handles external commands only, not recipe-driven changes.
 
+### PLC Connection Architecture (No Singleton)
+
+**Previous (Singleton Pattern - REMOVED):**
+- ❌ All terminals shared one `plc_manager` singleton
+- ❌ Caused initialization issues (bulk reads didn't work)
+- ❌ Prevented parallel connections
+- ❌ Complex shared state
+
+**Current (Direct Connections - ACTIVE):**
+- ✅ Each terminal creates its own `RealPLC` instance
+- ✅ Terminal 1: `plc_data_service_standalone.py` creates `RealPLC` directly
+- ✅ Terminal 2: `simple_recipe_service.py` creates `RealPLC`, sets in context for step executors
+- ✅ Terminal 3: `terminal3_clean.py` creates `RealPLC` directly
+- ✅ Step executors: Access PLC via `src/plc/context.get_plc()`
+- ✅ Benefits: Simpler, faster, easier to debug, supports parallel connections
+
+**Modbus TCP Connection Limits:**
+- Modbus TCP servers typically support 8-16 concurrent connections
+- Our PLC can handle multiple connections (proven by parallel bulk reads)
+- No technical limitation requiring singleton pattern
+
 ### Key Design Principles
 
-- **Direct PLC Access**: Each terminal has its own PLC connection (no singletons)
+- **Direct PLC Access**: Each terminal creates its own `RealPLC` instance (no singleton pattern)
+  - **Why**: Singleton caused initialization issues, prevented parallel connections, added complexity
+  - **How**: Each terminal calls `RealPLC(ip_address, port, ...)` directly
+  - **Benefits**: Simpler, faster (parallel connections work), easier to debug
+- **PLC Context Module**: Step executors access PLC via `src/plc/context.py`
+  - **Purpose**: Allows step executors to access the terminal's PLC instance
+  - **Usage**: Terminal sets PLC with `set_plc(plc)`, executors get it with `get_plc()`
+  - **Why**: Cleaner than passing PLC through all function calls
 - **Simple Polling**: No complex coordination or agent systems
 - **Independent Services**: Terminals operate completely independently
 - **Easy Debugging**: Each service is self-contained and simple to understand
 - **Async/Await**: Non-blocking I/O operations for responsiveness
+- **Modbus TCP**: Supports 8-16 concurrent connections (no need for singleton)
 
 ## Code Style Guidelines
 
