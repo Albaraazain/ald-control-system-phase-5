@@ -26,6 +26,7 @@ from src.config import MACHINE_ID, PLC_TYPE, PLC_CONFIG
 from src.db import get_supabase
 from src.plc.real_plc import RealPLC
 from src.parameter_wide_table_mapping import PARAMETER_TO_COLUMN_MAP
+from src.terminal_registry import TerminalRegistry, TerminalAlreadyRunningError
 
 logger = get_plc_logger()
 data_logger = get_data_collection_logger()
@@ -39,6 +40,7 @@ class PLCDataService:
         self.supabase = get_supabase()
         self.running = False
         self.shutdown_event = asyncio.Event()
+        self.registry: Optional[TerminalRegistry] = None
         
         # Timing
         self.collection_interval = 1.0
@@ -52,9 +54,26 @@ class PLCDataService:
         logger.info("PLC Data Service initialized")
     
     async def initialize(self) -> bool:
-        """Initialize PLC connection."""
+        """Initialize PLC connection and terminal registry."""
         try:
             logger.info("Connecting to PLC...")
+            
+            # Register this terminal instance in liveness system
+            log_file_path = "/tmp/terminal1_plc_data_service.log"
+            self.registry = TerminalRegistry(
+                terminal_type='terminal1',
+                machine_id=MACHINE_ID,
+                environment='production',
+                heartbeat_interval=10,
+                log_file_path=log_file_path
+            )
+            
+            try:
+                await self.registry.register()
+                logger.info("✅ Terminal 1 registered in liveness system")
+            except TerminalAlreadyRunningError as e:
+                logger.error(str(e))
+                raise RuntimeError("Cannot start - Terminal 1 already running")
             
             # Create PLC instance directly
             ip_address = PLC_CONFIG.get('ip_address', '192.168.1.50')
@@ -75,10 +94,16 @@ class PLCDataService:
                 return True
             else:
                 logger.error("❌ Failed to connect to PLC")
+                if self.registry:
+                    await self.registry.set_status('degraded', 'PLC connection unavailable')
                 return False
                 
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f"❌ Initialization error: {e}", exc_info=True)
+            if self.registry:
+                await self.registry.set_status('degraded', f'Initialization error: {e}')
             return False
     
     async def read_all_parameters(self) -> Dict[str, float]:
@@ -148,6 +173,10 @@ class PLCDataService:
                     self.total_readings += 1
                     self.last_duration = loop.time() - loop_start
                     
+                    # Track successful reading
+                    if self.registry:
+                        self.registry.increment_commands()
+                    
                     data_logger.info(
                         f"✅ Collection #{self.total_readings}: "
                         f"{len(parameter_values)} params in {read_duration*1000:.0f}ms, "
@@ -156,10 +185,14 @@ class PLCDataService:
                 else:
                     logger.warning("No parameters read")
                     self.failed_readings += 1
+                    if self.registry:
+                        self.registry.record_error("No parameters read")
                 
             except Exception as e:
                 logger.error(f"Error in collection loop: {e}", exc_info=True)
                 self.failed_readings += 1
+                if self.registry:
+                    self.registry.record_error(f"Collection loop error: {e}")
             
             # Calculate sleep time for next iteration
             self._next_deadline += self.collection_interval
@@ -211,11 +244,26 @@ class PLCDataService:
         if self.plc:
             await self.plc.disconnect()
         
+        if self.registry:
+            await self.registry.shutdown(reason="Service shutdown")
+        
         logger.info(f"✅ Service stopped. Total readings: {self.total_readings}, Failed: {self.failed_readings}")
 
 
 async def main():
     """Main entry point."""
+    # Setup global exception handlers
+    from src.resilience.error_handlers import (
+        setup_global_exception_handler,
+        setup_asyncio_exception_handler
+    )
+    
+    logger.info("=" * 60)
+    logger.info("🔧 PLC DATA SERVICE - TERMINAL 1")
+    logger.info(f"   Machine ID: {MACHINE_ID}")
+    logger.info(f"   Terminal Liveness: ENABLED")
+    logger.info("=" * 60)
+    
     service = PLCDataService()
     
     # Setup signal handlers
@@ -228,8 +276,26 @@ async def main():
     
     try:
         await service.start()
+        
+        # Setup exception handlers now that we have registry
+        if service.registry:
+            setup_global_exception_handler(
+                registry=service.registry,
+                logger=logger
+            )
+            setup_asyncio_exception_handler(
+                registry=service.registry,
+                logger=logger
+            )
+            logger.info("✅ Global exception handlers installed")
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received")
+    except RuntimeError as e:
+        if "already running" in str(e):
+            logger.error(str(e))
+            sys.exit(1)
+        else:
+            logger.error(f"Fatal runtime error: {e}", exc_info=True)
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
     finally:
