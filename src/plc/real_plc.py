@@ -5,6 +5,7 @@ Real hardware implementation of the PLC interface.
 import asyncio
 import re
 import struct
+import time
 from typing import Dict, Optional, List, Tuple, Any
 from src.log_setup import logger
 from src.plc.interface import PLCInterface
@@ -748,13 +749,25 @@ class RealPLC(PLCInterface):
         # Try bulk reads first (if enabled and initialized)
         if self._use_bulk_reads and self._bulk_read_ranges:
             try:
-                return await self._read_all_parameters_bulk()
+                bulk_start = time.time()
+                result = await self._read_all_parameters_bulk()
+                bulk_duration = time.time() - bulk_start
+                logger.debug(f"✅ Bulk read completed: {len(result)} parameters in {bulk_duration*1000:.0f}ms")
+                return result
             except Exception as e:
-                logger.warning(f"Bulk read failed, falling back to individual reads: {e}")
+                logger.warning(f"Bulk read failed, falling back to individual reads: {e}", exc_info=True)
                 # Fall through to individual reads
+        else:
+            # Log why bulk reads aren't being used
+            if not self._use_bulk_reads:
+                logger.debug("⚠️ Bulk reads disabled")
+            elif not self._bulk_read_ranges:
+                logger.debug("⚠️ Bulk read ranges not initialized (falling back to individual reads)")
         
         # Fallback: Individual reads (original implementation)
+        logger.debug(f"Using individual reads for {len(self._parameter_cache)} parameters")
         result = {}
+        individual_start = time.time()
         
         for parameter_id in self._parameter_cache:
             try:
@@ -763,6 +776,9 @@ class RealPLC(PLCInterface):
                     result[parameter_id] = value
             except Exception as e:
                 logger.error(f"Error reading parameter {parameter_id}: {str(e)}")
+        
+        individual_duration = time.time() - individual_start
+        logger.debug(f"⏱️ Individual reads completed: {len(result)} parameters in {individual_duration*1000:.0f}ms")
         
         return result
     
