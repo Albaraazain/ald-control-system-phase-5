@@ -483,9 +483,14 @@ def setup_signal_handlers():
         """Handle shutdown signals synchronously."""
         signal_name = signal.Signals(signum).name
         logger.info(f"🛑 Received signal {signal_name}, initiating graceful shutdown...")
-        # SAFE: Just set the event, don't create tasks from signal context
+        # Schedule event.set() on the event loop thread (thread-safe)
         if shutdown_event:
-            shutdown_event.set()
+            try:
+                loop = asyncio.get_running_loop()
+                loop.call_soon_threadsafe(shutdown_event.set)
+            except RuntimeError:
+                # No running loop - just set directly
+                shutdown_event.set()
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)

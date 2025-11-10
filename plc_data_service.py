@@ -1328,9 +1328,15 @@ async def main():
         """Handle shutdown signals synchronously."""
         signal_name = signal.Signals(signum).name
         main_logger.info(f"🛑 Received signal {signal_name}, initiating graceful shutdown...")
-        # SAFE: Just set the event, don't create tasks from signal context
-        plc_service.shutdown_event.set()
+        # Set flags immediately (thread-safe primitives)
         plc_service.is_running = False
+        # Schedule event.set() on the event loop thread (thread-safe)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.call_soon_threadsafe(plc_service.shutdown_event.set)
+        except RuntimeError:
+            # No running loop - just set directly
+            plc_service.shutdown_event.set()
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)

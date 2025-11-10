@@ -409,3 +409,4 @@ tail -f logs/machine_control.log logs/command_flow.log logs/plc.log
 - **Enhanced Logging Guide**: `docs/Enhanced_Logging_Guide.md` - Complete usage guide
 - **Troubleshooting Guide**: `docs/Log_Troubleshooting_Guide.md` - Debug patterns and solutions
 - proceed with the one that makes sense, that one that ensure proper implementation longterm, the one that is not mock or a fallback., all must be real actual functional decisions, for getting the app not just to run but run properly./
+- the pi is not on the same network, we are controlling it remotely through tailscale

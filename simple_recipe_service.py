@@ -508,7 +508,13 @@ async def main():
     def signal_handler_sync(signum, frame):
         """Handle shutdown signals synchronously"""
         logger.info(f"⚠️ Received signal {signum}, initiating shutdown...")
-        service.shutdown_event.set()
+        # Schedule event.set() on the event loop thread (thread-safe)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.call_soon_threadsafe(service.shutdown_event.set)
+        except RuntimeError:
+            # No running loop - just set directly
+            service.shutdown_event.set()
 
     signal.signal(signal.SIGINT, signal_handler_sync)
     signal.signal(signal.SIGTERM, signal_handler_sync)
