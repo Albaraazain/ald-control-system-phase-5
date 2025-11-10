@@ -26,9 +26,9 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
 from src.log_setup import get_plc_logger
-from src.config import MACHINE_ID
+from src.config import MACHINE_ID, PLC_TYPE, PLC_CONFIG
 from src.db import get_supabase
-from src.plc.manager import plc_manager
+from src.plc.real_plc import RealPLC
 from src.connection_monitor import connection_monitor
 from src.terminal_registry import TerminalRegistry, TerminalAlreadyRunningError
 
@@ -45,6 +45,9 @@ processed_commands: Set[str] = set()
 
 # Terminal registry instance
 terminal_registry: Optional[TerminalRegistry] = None
+
+# PLC instance (direct connection, no singleton)
+plc: Optional[RealPLC] = None
 
 # Realtime channel reference
 realtime_channel = None
@@ -67,13 +70,18 @@ async def write_and_verify(address: int, value: float, data_type: str = 'float',
     Returns:
         tuple: (success, read_value)
     """
+    global plc
+    if not plc or not plc.connected:
+        logger.error("PLC not connected")
+        return False, None
+    
     try:
-        # Write to PLC (using plc_manager.plc for direct address access)
+        # Write to PLC (using direct PLC instance)
         if data_type == 'binary':
-            success = await plc_manager.plc.write_coil(address, bool(value))
+            success = await plc.write_coil(address, bool(value))
             logger.debug(f"Wrote binary value {bool(value)} to coil {address}: {'success' if success else 'failed'}")
         else:
-            success = await plc_manager.plc.write_float(address, float(value))
+            success = await plc.write_float(address, float(value))
             logger.debug(f"Wrote float value {value} to register {address}: {'success' if success else 'failed'}")
         
         if not success:
@@ -86,7 +94,7 @@ async def write_and_verify(address: int, value: float, data_type: str = 'float',
             
             if data_type == 'binary':
                 # For binary, read back from coil
-                coils = await plc_manager.plc.read_coils(address, 1)
+                coils = await plc.read_coils(address, 1)
                 if coils and len(coils) > 0:
                     read_value = float(coils[0])
                     matches = abs(read_value - value) < 0.01
@@ -94,7 +102,7 @@ async def write_and_verify(address: int, value: float, data_type: str = 'float',
                         logger.warning(f"⚠️  Read-back mismatch: wrote {value}, read {read_value}")
                         return False, read_value
             else:
-                read_value = await plc_manager.plc.read_float(address)
+                read_value = await plc.read_float(address)
                 if read_value is not None:
                     matches = abs(read_value - value) < 0.01 or abs((read_value - value) / value) < 0.01
                     if not matches:
@@ -539,10 +547,12 @@ async def shutdown_terminal():
         async def cleanup_plc():
             try:
                 await asyncio.wait_for(
-                    plc_manager.disconnect(),
+                    plc.disconnect() if plc else None,
                     timeout=5.0
                 )
-                logger.info("✅ PLC disconnected")
+                if plc:
+                    logger.info("✅ PLC disconnected")
+                    plc = None
             except asyncio.TimeoutError:
                 logger.warning("⏱️ PLC disconnect timed out")
             except Exception as e:
@@ -601,15 +611,36 @@ async def main():
             logger.error("Cannot start - Terminal 3 already running")
             return
 
-        # Initialize PLC manager
-        await plc_manager.initialize()
-        logger.info("✅ PLC manager initialized")
-        logger.info(f"📋 Machine ID: {MACHINE_ID}")
-        logger.info(f"🔌 PLC Type: {plc_manager.plc.__class__.__name__}")
-        logger.info(f"📋 Verification Mode: {'ENABLED' if ENABLE_READ_VERIFICATION else 'DISABLED (production)'}")
-        if not ENABLE_READ_VERIFICATION:
-            logger.info("   💡 Tip: Set TERMINAL3_VERIFY_WRITES=true to enable read-back verification")
-        logger.info(f"📋 Terminal Liveness: ENABLED")
+        # Initialize PLC connection (direct instance, no singleton)
+        global plc
+        try:
+            ip_address = PLC_CONFIG.get('ip_address', '192.168.1.50')
+            port = PLC_CONFIG.get('port', 502)
+            hostname = PLC_CONFIG.get('hostname')
+            auto_discover = PLC_CONFIG.get('auto_discover', False)
+            
+            plc = RealPLC(
+                ip_address=ip_address,
+                port=port,
+                hostname=hostname,
+                auto_discover=auto_discover
+            )
+            
+            success = await plc.initialize()
+            if success:
+                logger.info("✅ PLC connection established successfully")
+                logger.info(f"📋 Machine ID: {MACHINE_ID}")
+                logger.info(f"🔌 PLC Type: {plc.__class__.__name__}")
+                logger.info(f"📋 Verification Mode: {'ENABLED' if ENABLE_READ_VERIFICATION else 'DISABLED (production)'}")
+                if not ENABLE_READ_VERIFICATION:
+                    logger.info("   💡 Tip: Set TERMINAL3_VERIFY_WRITES=true to enable read-back verification")
+                logger.info(f"📋 Terminal Liveness: ENABLED")
+            else:
+                logger.error("❌ Failed to initialize PLC connection")
+                plc = None
+        except Exception as e:
+            logger.error(f"❌ PLC initialization error: {e}", exc_info=True)
+            plc = None
 
         # Setup Realtime
         realtime_success = await setup_realtime()

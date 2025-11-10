@@ -189,7 +189,8 @@ async def execute_valve_step(process_id: str, step: dict):
     step_sequence = state_result.data['current_overall_step'] if state_result.data else 0
 
     # Control the valve via PLC
-    plc = plc_manager.plc
+    from src.plc.context import get_plc
+    plc = get_plc()
     plc_write_start = None
     plc_write_end = None
     error_msg = None

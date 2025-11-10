@@ -6,7 +6,7 @@ import os
 import uuid
 from src.log_setup import logger
 from src.db import get_supabase, get_current_timestamp
-from src.plc.manager import plc_manager
+from src.plc.context import get_plc
 
 
 async def execute_parameter_step(process_id: str, step: dict):
@@ -111,7 +111,7 @@ async def set_parameter_value(parameter_id, parameter_value):
         raise ValueError(f"Parameter value {parameter_value} outside allowed range ({min_value} to {max_value})")
     
     # 3. Write the value to the PLC
-    plc = plc_manager.plc
+    plc = get_plc()
     if plc:
         success = await plc.write_parameter(parameter_id, parameter_value)
         if not success:

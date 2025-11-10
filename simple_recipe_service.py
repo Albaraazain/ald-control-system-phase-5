@@ -28,9 +28,10 @@ project_root = Path(__file__).parent.absolute()
 sys.path.insert(0, str(project_root))
 
 from src.log_setup import get_recipe_flow_logger, set_log_level
-from src.config import MACHINE_ID
+from src.config import MACHINE_ID, PLC_TYPE, PLC_CONFIG
 from src.db import get_supabase, get_current_timestamp, create_async_supabase
-from src.plc.manager import plc_manager
+from src.plc.real_plc import RealPLC
+from src.plc.context import set_plc, clear_plc
 from src.recipe_flow.executor import execute_recipe
 from src.recipe_flow.continuous_data_recorder import continuous_recorder
 from src.command_flow.listener import setup_command_listener
@@ -48,6 +49,7 @@ class SimpleRecipeService:
         self.shutdown_event = asyncio.Event()
         self.shutdown_timeout = float(os.getenv('SHUTDOWN_TIMEOUT', '30.0'))
         self.registry: Optional[TerminalRegistry] = None
+        self.plc: Optional[RealPLC] = None
 
     async def initialize(self):
         """Initialize PLC connection and terminal registry"""
@@ -70,18 +72,38 @@ class SimpleRecipeService:
             logger.error(str(e))
             raise RuntimeError("Cannot start - Terminal 2 already running")
 
-        # Initialize PLC connection (non-blocking - degraded mode if unavailable)
+        # Initialize PLC connection (direct instance, no singleton)
         logger.debug("🔧 Attempting PLC connection initialization...")
-        plc_success = await plc_manager.initialize()
-        if not plc_success:
-            logger.warning(
-                "⚠️ Failed to initialize PLC connection\n"
-                "   Terminal 2 starting in DEGRADED mode\n"
-                "   Recipe execution will fail until PLC is available"
+        try:
+            ip_address = PLC_CONFIG.get('ip_address', '192.168.1.50')
+            port = PLC_CONFIG.get('port', 502)
+            hostname = PLC_CONFIG.get('hostname')
+            auto_discover = PLC_CONFIG.get('auto_discover', False)
+            
+            self.plc = RealPLC(
+                ip_address=ip_address,
+                port=port,
+                hostname=hostname,
+                auto_discover=auto_discover
             )
-            await self.registry.set_status('degraded', 'PLC connection unavailable')
-        else:
-            logger.info("✅ PLC connection established successfully")
+            
+            plc_success = await self.plc.initialize()
+            if not plc_success:
+                logger.warning(
+                    "⚠️ Failed to initialize PLC connection\n"
+                    "   Terminal 2 starting in DEGRADED mode\n"
+                    "   Recipe execution will fail until PLC is available"
+                )
+                await self.registry.set_status('degraded', 'PLC connection unavailable')
+                self.plc = None
+            else:
+                logger.info("✅ PLC connection established successfully")
+                # Set PLC in context for step executors
+                set_plc(self.plc)
+        except Exception as e:
+            logger.error(f"❌ PLC initialization error: {e}", exc_info=True)
+            await self.registry.set_status('degraded', f'PLC connection error: {e}')
+            self.plc = None
 
         # Initialize realtime listener for recipe commands
         try:
@@ -441,10 +463,12 @@ class SimpleRecipeService:
             try:
                 logger.debug("🔧 Disconnecting from PLC...")
                 await asyncio.wait_for(
-                    plc_manager.disconnect(),
+                    self.plc.disconnect() if self.plc else None,
                     timeout=5.0
                 )
-                logger.info("✅ PLC disconnected")
+                if self.plc:
+                    clear_plc()
+                    logger.info("✅ PLC disconnected")
             except asyncio.TimeoutError:
                 logger.warning("⏱️ PLC disconnect timed out")
             except Exception as e:

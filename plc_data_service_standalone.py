@@ -105,8 +105,7 @@ class StandalonePLCDataService:
                 records.append({
                     'parameter_id': param_id,
                     'value': value,
-                    'recorded_at': timestamp,
-                    'machine_id': MACHINE_ID
+                    'timestamp': timestamp
                 })
             
             # Batch insert
@@ -136,7 +135,8 @@ class StandalonePLCDataService:
                 
                 if parameter_values:
                     # Write to database
-                    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+                    from datetime import datetime, timezone
+                    timestamp = datetime.now(timezone.utc).isoformat()
                     await self.write_to_database(parameter_values, timestamp)
                     
                     self.total_readings += 1
