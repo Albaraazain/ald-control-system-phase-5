@@ -752,20 +752,20 @@ class RealPLC(PLCInterface):
                 bulk_start = time.time()
                 result = await self._read_all_parameters_bulk()
                 bulk_duration = time.time() - bulk_start
-                logger.debug(f"✅ Bulk read completed: {len(result)} parameters in {bulk_duration*1000:.0f}ms")
+                logger.info(f"✅ Bulk read completed: {len(result)} parameters in {bulk_duration*1000:.0f}ms")
                 return result
             except Exception as e:
                 logger.warning(f"Bulk read failed, falling back to individual reads: {e}", exc_info=True)
                 # Fall through to individual reads
         else:
-            # Log why bulk reads aren't being used
+            # Log why bulk reads aren't being used (INFO level for investigation)
             if not self._use_bulk_reads:
-                logger.debug("⚠️ Bulk reads disabled")
+                logger.info("⚠️ Bulk reads disabled - using individual reads")
             elif not self._bulk_read_ranges:
-                logger.debug("⚠️ Bulk read ranges not initialized (falling back to individual reads)")
+                logger.info("⚠️ Bulk read ranges not initialized (falling back to individual reads)")
         
         # Fallback: Individual reads (original implementation)
-        logger.debug(f"Using individual reads for {len(self._parameter_cache)} parameters")
+        logger.info(f"⏱️ Using individual reads for {len(self._parameter_cache)} parameters")
         result = {}
         individual_start = time.time()
         
@@ -778,7 +778,7 @@ class RealPLC(PLCInterface):
                 logger.error(f"Error reading parameter {parameter_id}: {str(e)}")
         
         individual_duration = time.time() - individual_start
-        logger.debug(f"⏱️ Individual reads completed: {len(result)} parameters in {individual_duration*1000:.0f}ms")
+        logger.info(f"⏱️ Individual reads completed: {len(result)} parameters in {individual_duration*1000:.0f}ms")
         
         return result
     
