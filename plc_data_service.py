@@ -345,6 +345,13 @@ class PLCDataService:
                 elapsed_time = now - loop_start_time
                 sleep_time = max(0, self._next_deadline - now)
 
+                # ⏱️ INSTRUMENTATION: Debug sleep time calculation
+                data_logger.info(
+                    f"⏱️ Loop timing: elapsed={elapsed_time:.3f}s, "
+                    f"deadline_delta={self._next_deadline - now:.3f}s, "
+                    f"sleep={sleep_time:.3f}s"
+                )
+
                 # Check timing precision
                 if abs(elapsed_time - self.data_collection_interval) > self.timing_precision_threshold:
                     self.metrics['timing_violations'] += 1
