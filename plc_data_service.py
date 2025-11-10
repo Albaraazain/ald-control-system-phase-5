@@ -362,6 +362,7 @@ class PLCDataService:
 
                 # Shutdown-aware sleep for immediate exit on shutdown signal
                 try:
+                    sleep_start = loop.time()
                     await asyncio.wait_for(
                         self.shutdown_event.wait(),
                         timeout=sleep_time
@@ -371,6 +372,13 @@ class PLCDataService:
                     break
                 except asyncio.TimeoutError:
                     # Normal timeout, continue loop
+                    actual_sleep_time = loop.time() - sleep_start
+                    if actual_sleep_time > (sleep_time + 0.1):
+                        data_logger.warning(
+                            f"⚠️ Sleep overrun: requested={sleep_time:.3f}s, "
+                            f"actual={actual_sleep_time:.3f}s, "
+                            f"extra={actual_sleep_time - sleep_time:.3f}s"
+                        )
                     pass
 
             except asyncio.CancelledError:
