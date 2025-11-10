@@ -475,25 +475,20 @@ async def poll_commands():
     logger.info("Poll loop exited cleanly")
 
 
-# Global references for signal handlers
-_loop: Optional[asyncio.AbstractEventLoop] = None
-
-
 def setup_signal_handlers(loop: asyncio.AbstractEventLoop):
-    """Setup signal handlers for graceful shutdown."""
-    global shutdown_event, _loop
-    _loop = loop
+    """Setup signal handlers using asyncio's add_signal_handler (event loop aware)."""
+    global shutdown_event
 
-    def signal_handler(signum, frame):
-        """Handle shutdown signals - called from signal handler thread."""
-        signal_name = signal.Signals(signum).name
-        logger.info(f"🛑 Received signal {signal_name}, initiating graceful shutdown...")
-        # Schedule event.set() on the event loop thread (thread-safe)
-        if _loop and shutdown_event:
-            _loop.call_soon_threadsafe(shutdown_event.set)
+    def shutdown_callback():
+        """Called by event loop when signal is received."""
+        logger.info(f"🛑 Received shutdown signal, initiating graceful shutdown...")
+        # Set event (already on event loop thread)
+        if shutdown_event:
+            shutdown_event.set()
 
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    # Use asyncio's native signal handling (works correctly with event loop)
+    loop.add_signal_handler(signal.SIGINT, shutdown_callback)
+    loop.add_signal_handler(signal.SIGTERM, shutdown_callback)
     logger.info("✅ Signal handlers installed (SIGINT, SIGTERM)")
 
 

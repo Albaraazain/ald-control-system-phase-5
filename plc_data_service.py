@@ -1292,30 +1292,19 @@ async def signal_handler(plc_service):
     main_logger.info("PLC Data Service shutdown complete")
 
 
-# Global references for signal handlers
-_service: Optional[PLCDataService] = None
-_loop: Optional[asyncio.AbstractEventLoop] = None
-
-
 def setup_signal_handlers(service: PLCDataService, loop: asyncio.AbstractEventLoop):
-    """Setup signal handlers with references to service and event loop."""
-    global _service, _loop
-    _service = service
-    _loop = loop
+    """Setup signal handlers using asyncio's add_signal_handler (event loop aware)."""
 
-    def signal_handler(signum, frame):
-        """Handle shutdown signals - called from signal handler thread."""
-        signal_name = signal.Signals(signum).name
-        main_logger.info(f"🛑 Received signal {signal_name}, initiating graceful shutdown...")
-        if _service:
-            # Set flags immediately (thread-safe)
-            _service.is_running = False
-        if _loop and _service:
-            # Schedule event.set() on event loop thread (thread-safe)
-            _loop.call_soon_threadsafe(_service.shutdown_event.set)
+    def shutdown_callback():
+        """Called by event loop when signal is received."""
+        main_logger.info(f"🛑 Received shutdown signal, initiating graceful shutdown...")
+        # Set flags (already on event loop thread)
+        service.is_running = False
+        service.shutdown_event.set()
 
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    # Use asyncio's native signal handling (works correctly with event loop)
+    loop.add_signal_handler(signal.SIGINT, shutdown_callback)
+    loop.add_signal_handler(signal.SIGTERM, shutdown_callback)
     main_logger.info("✅ Signal handlers installed (SIGINT, SIGTERM)")
 
 
